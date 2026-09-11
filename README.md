@@ -15,6 +15,7 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
    - [Mathematical & Probabilistic Formulations](#mathematical--probabilistic-formulations)
    - [Transfer Cost Modeling & Point Hit Penalties](#transfer-cost-modeling--point-hit-penalties)
    - [The 3 Strategic Transfer Archetypes](#the-3-strategic-transfer-archetypes)
+   - [How Monte Carlo Connects to the Historical Training Process](#how-monte-carlo-connects-to-the-historical-training-process)
 3. [All 8 Quantitative Prediction Techniques](#all-8-quantitative-prediction-techniques)
    - [1. Monte Carlo Stochastic Simulation](#1-monte-carlo-stochastic-simulation)
    - [2. Bookmaker Implied Probabilities & Linear xP Modeling](#2-bookmaker-implied-probabilities--linear-xp-modeling)
@@ -32,6 +33,7 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
    - [Program 5: Specialized Modular CLI Trackers](#program-5-specialized-modular-cli-trackers)
 5. [Walk-Forward Backtesting & Optuna Auto-Tuning Subsystem](#walk-forward-backtesting--optuna-auto-tuning-subsystem)
    - [Subsystem Architecture & Flow](#subsystem-architecture--flow)
+   - [The Two-Tier Architecture: Historical Training vs. Stochastic Simulation](#the-two-tier-architecture-historical-training-vs-stochastic-simulation)
    - [Historical Data Pipeline & Anti-Leakage Guarantee](#historical-data-pipeline--anti-leakage-guarantee)
    - [Position-Differentiated Moneyball Scoring Formulas](#position-differentiated-moneyball-scoring-formulas)
    - [Walk-Forward Simulator Mechanics](#walk-forward-simulator-mechanics)
@@ -143,6 +145,18 @@ Out of all evaluated legal transfer permutations, the engine isolates three arch
 | **🏆 Max Expected Value** | 🥇 | $\max E[\Delta \text{Net Gain}]$ | **Moneyball Core:** Pure mathematical edge over season average. |
 | **🛡️ Max Floor & Safety** | 🛡️ | $\max \text{Percentile}_{10}(\text{Score})$ | **Capital Preservation:** Minimizes blank risk, eliminates 0-minute bench-warmers. |
 | **🚀 Max Ceiling & Differential** | 🚀 | $\max \text{Percentile}_{90}(\text{Score})$ | **League Chaser:** High explosive upside to aggressively close mini-league deficits. |
+
+### How Monte Carlo Connects to the Historical Training Process
+
+The live forward-looking Monte Carlo simulation and the multi-season historical training engine operate in synergy:
+
+1. **Parameter Inheritance from `config.yaml`**:
+   The Monte Carlo engine does not guess its operational parameters; it directly inherits both the baseline `heuristic:` and auto-optimized `tuned:` parameters from [`config.yaml`](config.yaml).
+2. **Historically Trained Candidate Generation**:
+   When evaluating potential transfers, the Monte Carlo simulator cannot test all $650 \times 650 = 422,500$ possible player combinations in real time. Instead, it extracts the top candidates per position (default: 15 per position) ranked by their **FDR Moneyball Score** (`fdr_moneyball_score`). This score is generated using the exact Moneyball weights that were trained on historical seasons by the Optuna auto-tuner.
+3. **The Two-Tier Separation**:
+   - **Tier 1 (Historical Walk-Forward Training)** discovers the optimal weights that maximize season-long risk-adjusted points across hundreds of gameweeks.
+   - **Tier 2 (Stochastic Monte Carlo Engine)** executes thousands of randomized scenario runs for the upcoming gameweek using those historically verified weights to manage short-term variance, bench auto-subs, and point-hit probabilities.
 
 ---
 
@@ -440,6 +454,29 @@ flowchart TD
         RECON --> UPDATER["updater.py\n(Hot-Updates tuned: profile in config.yaml)"]
     end
 ```
+
+### The Two-Tier Architecture: Historical Training vs. Stochastic Simulation
+
+A central architectural decision in Rubies Rangers is the deliberate separation between **Historical Walk-Forward Training** and **Live Stochastic Monte Carlo Simulation**:
+
+| Dimension | Tier 1: Historical Walk-Forward Training (`backtest/` & `tuner/`) | Tier 2: Stochastic Monte Carlo Engine (`montecarlo.py`) |
+| :--- | :--- | :--- |
+| **Domain Scope** | Macro: Full 38-Gameweek campaigns across historical years | Micro: Live Gameweek decision-making under uncertainty |
+| **Ground Truth** | Empirical actuals: Real match minutes, goals, assists, clean sheets, and bonus points from `vaastav/Fantasy-Premier-League` | Forward projections: Poisson-distributed attack/defense events + lognormal minutes distributions |
+| **Objective** | Discover optimal Moneyball scoring weights ($\mathbf{w}$) that maximize multi-season sample Sharpe ratio ($\text{SR}$) | Evaluate tactical distributions: Win probability $P(\text{Gain} > 0)$, downside floor ($P_{10}$), ceiling ($P_{90}$), and bench auto-sub probabilities |
+| **Execution Cadence** | Offline / Scheduled: Run periodically or when updating baseline profiles | Online / Real-Time: Run on demand before each gameweek deadline |
+| **Output Destination** | Writes optimal weights to [`config.yaml`](config.yaml) (`tuned:` profile) and audit logs to `data/tuning_history.db` | Generates starting XI, captain/vice-captain picks, bench order, and transfer recommendations in the Streamlit UI and CLI |
+
+#### Why Monte Carlo is Not Run Inside the Historical Training Loop
+
+1. **Computational Feasibility**:
+   Simulating 10,000 Monte Carlo runs across 38 gameweeks for a single season requires 380,000 squad simulations. Multiplied across a 50-trial Optuna study and 2 training seasons, this would require:
+   $$10{,}000 \times 38 \times 2 \times 50 = 38{,}000{,}000 \text{ squad evaluations}$$
+   This would take dozens of hours of compute while adding zero empirical validation.
+2. **Empirical Ground Truth vs. Synthetic Variance**:
+   The objective of historical training is to calibrate how well Moneyball weights identify **real-world alpha**. Scoring against actual match points ensures the optimizer finds parameters that capture real player performance rather than fitting to the noise of a secondary simulation generator.
+3. **Seamless Parameter Inheritance**:
+   The two tiers are connected directly through [`config.yaml`](config.yaml). The Walk-Forward Tuner solves for the optimal weights (`xgi_per_90`, `def_contribution_per_90`, `ict_divisor`, `clean_sheets_per_90`, `ppg_weight`, `form_weight`, `fdr_scaling`). The Monte Carlo simulator then inherits these exact weights to calculate each player's `fdr_moneyball_score`, ranking and filtering the candidate transfer pool before executing forward stochastic simulations.
 
 ### Historical Data Pipeline & Anti-Leakage Guarantee
 

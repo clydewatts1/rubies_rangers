@@ -26,10 +26,10 @@ system:
   retry_backoff_base: 0.5
   rules:
     max_banked_ft:
-      "2021-22": 2
-      "2022-23": 2
-      "2023-24": 2
-      "2024-25": 5
+      2021-22: 2
+      2022-23: 2
+      2023-24: 2
+      2024-25: 5
   legal_formations:
   - - 3
     - 5
@@ -268,18 +268,21 @@ heuristic:
 tuned:
   moneyball:
     fwd_mid:
-      xgi_weight: 4.0
-      ict_divisor: 50.0
-      form_weight: 1.5
-      ppg_weight: 1.2
+      xgi_weight: 5.3
+      ict_divisor: 34.0
+      form_weight: 0.8
+      ppg_weight: 2.3
     def:
-      def_contrib_weight: 0.4
-      xgi_weight: 3.0
-      form_weight: 1.5
-      ict_divisor: 60.0
+      def_contrib_weight: 1.4
+      xgi_weight: 3.75
+      form_weight: 2.7
+      ict_divisor: 40.0
+      clean_sheets_weight: 5.0
     gkp:
-      ppg_weight: 1.2
-      form_weight: 1.5
+      ppg_weight: 2.1
+      form_weight: 2.2
+      saves_weight: 1.1
+      clean_sheets_weight: 6.0
     set_piece_bonuses:
       pen_order_1: 0.65
       pen_order_2: 0.25
@@ -289,7 +292,7 @@ tuned:
       crn_order_2: 0.15
     fdr_multiplier:
       neutral_baseline: 3.0
-      scaling_factor: 5.0
+      scaling_factor: 0.1
     price_prediction:
       rise_thresh_base: 75000
       rise_selected_frac: 0.075
@@ -299,24 +302,23 @@ tuned:
       soon_threshold_pct: 70.0
       tonight_threshold_pct: 100.0
     fwd_mid_weights:
-      xgi_per_90: 3.5
-      ict_index_divisor: 52.0
-      ppg_weight: 2.1
+      xgi_per_90: 5.3
+      ict_index_divisor: 34.0
+      ppg_weight: 2.3
+      form_weight: 0.8
     def_weights:
-      def_contribution_per_90: 0.6
-      clean_sheets_per_90: 3.5
-      xgi_per_90: 3.0
+      def_contribution_per_90: 1.4
+      clean_sheets_per_90: 5.0
+      xgi_per_90: 3.75
       ict_index_divisor: 40.0
+      form_weight: 2.7
     gkp_weights:
-      saves_per_90: 0.9
-      clean_sheets_per_90: 3.0
-      ppg_weight: 0.6
-    set_pieces:
-      direct_freekick_bonus: 0.9
-      corner_bonus: 0.65
-      penalty_bonus: 1.05
+      saves_per_90: 1.1
+      clean_sheets_per_90: 6.0
+      ppg_weight: 2.1
+      form_weight: 2.2
     fdr:
-      scaling_factor: 0.15
+      scaling_factor: 0.1
   xp_model:
     minutes:
       benched_or_dropped:
@@ -333,8 +335,6 @@ tuned:
         min_mins: 75.0
         max_mins: 90.0
         p_60: 0.98
-      starter_expected_minutes: 67.0
-      cameo_probability: 0.25
     penalty:
       conversion_rate: 0.79
       match_award_chance: 0.18
@@ -378,11 +378,6 @@ tuned:
       away_base_xg: 1.9
       away_diff_coeff: 0.25
       min_away_xg: 0.5
-    penalties:
-      conversion_rate: 0.78
-      team_penalty_chance: 0.12
-    saves:
-      conceded_multiplier: 2.8
   monte_carlo:
     default_sims: 5000
     api_default_sims: 2500
@@ -451,13 +446,14 @@ tuned:
       FWD: 3
     default_objective: moneyball
 tuning_metadata:
-  best_trial_id: 1
+  best_trial_id: 18
   train_seasons:
+  - 2021-22
   - 2022-23
   test_season: 2023-24
-  train_score: 45.11
-  test_score: 42.31
-  test_points: 1702.0
-  baseline_heuristic_points: 1671.0
-  improvement_pct: 1.86
-  last_tuned_at: '2026-09-11T13:41:13.658816'
+  train_score: 42.4
+  test_score: 50.83
+  test_points: 2046.0
+  baseline_heuristic_points: 1892.0
+  improvement_pct: 8.14
+  last_tuned_at: '2026-09-11T16:25:50.880136'
