@@ -2,6 +2,19 @@
 __pycache__/
 *.py[codz]
 *$py.class
+.fpl_cache.json
+.fpl_fixtures_cache.json
+.understat_cache.json
+.fpl_elements_cache/
+.understat_shots_cache/
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
 
 # C extensions
 *.so

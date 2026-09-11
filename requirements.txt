@@ -1,0 +1,30 @@
+# ==============================================================================
+# Rubies Rangers — FPL Moneyball Optimizer & Analytics Platform
+# Core Dependencies for Greenfield Installation
+# Compatible with Python 3.10, 3.11, 3.12, and 3.13
+# ==============================================================================
+
+# Core Web Dashboard & Interactive Visualizations
+streamlit>=1.30.0,<2.0.0
+plotly>=5.18.0,<7.0.0
+
+# REST API Microservice & ASGI Server
+fastapi>=0.109.0,<1.0.0
+uvicorn[standard]>=0.25.0,<1.0.0
+pydantic>=2.5.0,<3.0.0
+starlette>=0.36.0,<2.0.0
+
+# Mathematical Modeling, Optimization & Vectorized Simulations
+numpy>=1.26.0,<3.0.0
+pandas>=2.1.0,<3.0.0
+scipy>=1.11.0,<2.0.0
+
+# Rich Terminal UI & Formatting
+rich>=13.7.0,<15.0.0
+
+# HTTP Networking & Web Scraping
+requests>=2.31.0,<3.0.0
+beautifulsoup4>=4.12.0,<5.0.0
+
+# Tactical Process & Understat API Client
+understatapi>=0.7.0,<1.0.0
