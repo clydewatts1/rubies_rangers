@@ -12,6 +12,8 @@ import pandas as pd
 from scipy.optimize import milp, LinearConstraint, Bounds
 from typing import List, Dict, Any, Optional, Tuple
 
+from config_manager import get_params
+
 
 class FPLOptimizer:
     def __init__(self, players_df: pd.DataFrame):
@@ -43,9 +45,30 @@ class FPLOptimizer:
         else:  # moneyball (default)
             return -self.df["moneyball_score"].values
 
+    def _find_player_indices(self, name_list: List[str]) -> List[int]:
+        """Resolve a list of player names to unique dataframe row indices with exact match priority."""
+        indices = []
+        for name in name_list:
+            # 1. Exact web_name
+            m = self.df[self.df["web_name"].str.lower() == name.lower()]
+            if m.empty:
+                # 2. Exact full_name
+                m = self.df[self.df["full_name"].str.lower() == name.lower()]
+            if m.empty:
+                # 3. Contains in web_name
+                m = self.df[self.df["web_name"].str.contains(name, case=False, na=False)]
+            if m.empty:
+                # 4. Contains in full_name
+                m = self.df[self.df["full_name"].str.contains(name, case=False, na=False)]
+            if not m.empty:
+                if len(m) > 1 and "total_points" in m.columns:
+                    m = m.sort_values(by="total_points", ascending=False)
+                indices.append(m.index[0])
+        return list(set(indices))
+
     def optimize_squad(
         self,
-        budget: float = 100.0,
+        budget: Optional[float] = None,
         objective: str = "moneyball",
         lock_players: Optional[List[str]] = None,
         exclude_players: Optional[List[str]] = None,
@@ -55,6 +78,11 @@ class FPLOptimizer:
         """
         Draft an optimal 15-player team from scratch.
         """
+        opt_cfg = get_params("optimizer")
+        target_budget = budget if budget is not None else float(opt_cfg.get("budget", 100.0))
+        max_club = int(opt_cfg.get("max_players_per_club", 3))
+        pos_quotas = opt_cfg.get("position_quotas", {"GKP": 2, "DEF": 5, "MID": 5, "FWD": 3})
+
         df = self.df.copy()
         n = len(df)
         c = self._resolve_objective(objective)
@@ -66,19 +94,20 @@ class FPLOptimizer:
         # 1. Budget constraint: sum(cost * x_i) <= budget
         A_rows.append(df["now_cost"].values)
         b_l.append(0.0)
-        b_u.append(budget)
+        b_u.append(target_budget)
 
-        # 2. Position constraints: 2 GKP, 5 DEF, 5 MID, 3 FWD
-        for pos, req_count in [("GKP", 2), ("DEF", 5), ("MID", 5), ("FWD", 3)]:
+        # 2. Position constraints from config
+        for pos, req_count in pos_quotas.items():
             A_rows.append((df["position_name"] == pos).astype(float).values)
-            b_l.append(req_count)
-            b_u.append(req_count)
+            b_l.append(float(req_count))
+            b_u.append(float(req_count))
 
-        # 3. Club constraint: <= 3 per club
+        # 3. Club constraint: <= max_club per club
         for club in df["club_name"].unique():
             A_rows.append((df["club_name"] == club).astype(float).values)
             b_l.append(0.0)
-            b_u.append(3.0)
+            b_u.append(float(max_club))
+
 
         # 4. Filter unavailable players if requested
         if available_only and "status" in df.columns:
@@ -89,23 +118,23 @@ class FPLOptimizer:
 
         # 5. Locked players
         if lock_players:
-            for lock_name in lock_players:
-                mask = (df["web_name"].str.contains(lock_name, case=False, na=False) |
-                        df["full_name"].str.contains(lock_name, case=False, na=False)).astype(float).values
-                if np.sum(mask) > 0:
-                    A_rows.append(mask)
-                    b_l.append(1.0)
-                    b_u.append(1.0)
+            lock_indices = self._find_player_indices(lock_players)
+            for idx in lock_indices:
+                mask = np.zeros(n)
+                mask[idx] = 1.0
+                A_rows.append(mask)
+                b_l.append(1.0)
+                b_u.append(1.0)
 
         # 6. Excluded players
         if exclude_players:
-            for exc_name in exclude_players:
-                mask = (df["web_name"].str.contains(exc_name, case=False, na=False) |
-                        df["full_name"].str.contains(exc_name, case=False, na=False)).astype(float).values
-                if np.sum(mask) > 0:
-                    A_rows.append(mask)
-                    b_l.append(0.0)
-                    b_u.append(0.0)
+            exc_indices = self._find_player_indices(exclude_players)
+            for idx in exc_indices:
+                mask = np.zeros(n)
+                mask[idx] = 1.0
+                A_rows.append(mask)
+                b_l.append(0.0)
+                b_u.append(0.0)
 
         # 7. Penalty taker requirement
         if min_penalty_takers > 0 and "is_penalty_taker" in df.columns:
@@ -156,23 +185,7 @@ class FPLOptimizer:
         n = len(df)
 
         # Find current player indices with exact matching priority
-        current_indices = []
-        for name in current_player_names:
-            # 1. Exact web_name
-            m = df[df["web_name"].str.lower() == name.lower()]
-            if m.empty:
-                # 2. Exact full_name
-                m = df[df["full_name"].str.lower() == name.lower()]
-            if m.empty:
-                # 3. Contains in web_name
-                m = df[df["web_name"].str.contains(name, case=False, na=False)]
-            if m.empty:
-                # 4. Contains in full_name
-                m = df[df["full_name"].str.contains(name, case=False, na=False)]
-            if not m.empty:
-                current_indices.append(m.index[0])
-
-        current_indices = list(set(current_indices))
+        current_indices = self._find_player_indices(current_player_names)
         if len(current_indices) < 11:
             return {
                 "success": False,
@@ -194,17 +207,22 @@ class FPLOptimizer:
         b_l.append(0.0)
         b_u.append(total_budget)
 
-        # 2. Position constraints
-        for pos, req_count in [("GKP", 2), ("DEF", 5), ("MID", 5), ("FWD", 3)]:
-            A_rows.append((df["position_name"] == pos).astype(float).values)
-            b_l.append(req_count)
-            b_u.append(req_count)
+        opt_cfg = get_params("optimizer")
+        max_club = int(opt_cfg.get("max_players_per_club", 3))
+        pos_quotas = opt_cfg.get("position_quotas", {"GKP": 2, "DEF": 5, "MID": 5, "FWD": 3})
 
-        # 3. Club constraint: <= 3 per club
+        # 2. Position constraints from config
+        for pos, req_count in pos_quotas.items():
+            A_rows.append((df["position_name"] == pos).astype(float).values)
+            b_l.append(float(req_count))
+            b_u.append(float(req_count))
+
+        # 3. Club constraint: <= max_club per club
         for club in df["club_name"].unique():
             A_rows.append((df["club_name"] == club).astype(float).values)
             b_l.append(0.0)
-            b_u.append(3.0)
+            b_u.append(float(max_club))
+
 
         # 4. Keep constraint: Keep at least (15 - max_transfers) of current players
         keep_row = np.zeros(n)
@@ -222,23 +240,23 @@ class FPLOptimizer:
 
         # 6. Locked players
         if lock_players:
-            for lock_name in lock_players:
-                mask = (df["web_name"].str.contains(lock_name, case=False, na=False) |
-                        df["full_name"].str.contains(lock_name, case=False, na=False)).astype(float).values
-                if np.sum(mask) > 0:
-                    A_rows.append(mask)
-                    b_l.append(1.0)
-                    b_u.append(1.0)
+            lock_indices = self._find_player_indices(lock_players)
+            for idx in lock_indices:
+                mask = np.zeros(n)
+                mask[idx] = 1.0
+                A_rows.append(mask)
+                b_l.append(1.0)
+                b_u.append(1.0)
 
         # 7. Excluded players
         if exclude_players:
-            for exc_name in exclude_players:
-                mask = (df["web_name"].str.contains(exc_name, case=False, na=False) |
-                        df["full_name"].str.contains(exc_name, case=False, na=False)).astype(float).values
-                if np.sum(mask) > 0:
-                    A_rows.append(mask)
-                    b_l.append(0.0)
-                    b_u.append(0.0)
+            exc_indices = self._find_player_indices(exclude_players)
+            for idx in exc_indices:
+                mask = np.zeros(n)
+                mask[idx] = 1.0
+                A_rows.append(mask)
+                b_l.append(0.0)
+                b_u.append(0.0)
 
         # 8. Penalty taker requirement
         if min_penalty_takers > 0 and "is_penalty_taker" in df.columns:
@@ -274,8 +292,10 @@ class FPLOptimizer:
             "transfers_out": transfers_out,
             "transfers_in": transfers_in,
             "new_squad": new_squad,
+            "squad": new_squad,
             "score_gain": round(float(score_gain), 2),
             "points_gain": int(points_gain),
             "new_bank": new_bank,
             "total_team_cost": round(float(new_squad["now_cost"].sum()), 1)
         }
+

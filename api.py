@@ -22,6 +22,7 @@ def _patched_init(self, *args, **kwargs):
     return _orig_init(self, *args, **kwargs)
 starlette.routing.Router.__init__ = _patched_init
 
+import numpy as np
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +32,7 @@ from montecarlo_engine import MonteCarloEngine
 from xp_model import XPModel, DEFAULT_SQUAD
 from fpl_client import FPLClient
 from league_tracker import LeagueTracker, DEFAULT_LEAGUE_ID
+from config_manager import get_system_config, get_params, get_active_profile, set_active_profile
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -58,15 +60,19 @@ league_tracker = LeagueTracker()
 # -------------------------------------------------------------
 # Request & Response Models
 # -------------------------------------------------------------
+_default_bank = float(get_system_config("default_bank") or 3.7)
+_default_sims = int(get_params("monte_carlo").get("api_default_sims", 2500))
+_default_form_weight = float(get_params("monte_carlo").get("default_form_weight", 0.25))
+
 class TransferSimRequest(BaseModel):
     squad: Optional[List[str]] = Field(
         default=None,
         description="List of 15 squad player names (defaults to Rubies Rangers)"
     )
-    bank: float = Field(default=3.7, ge=0.0, le=30.0, description="Available bank balance in £m")
+    bank: float = Field(default=_default_bank, ge=0.0, le=30.0, description="Available bank balance in £m")
     num_transfers: int = Field(default=1, ge=1, le=2, description="Number of transfers to evaluate (1 or 2)")
     free_transfers: int = Field(default=1, ge=1, le=5, description="Free transfers quota before -4 hit penalty")
-    sims: int = Field(default=2500, ge=500, le=10000, description="Number of Monte Carlo simulations")
+    sims: int = Field(default=_default_sims, ge=500, le=10000, description="Number of Monte Carlo simulations")
     position_filter: Optional[str] = Field(default=None, description="Filter transfers by position ('ALL', 'GKP', 'DEF', 'MID', 'FWD')")
     sell_player_filter: Optional[str] = Field(default=None, description="Focus sell moves on a specific player name (e.g. 'Senesi')")
     strict_injury_filter: bool = Field(default=True, description="Strictly purge unavailable (status 'u'), injured, and suspended players")
@@ -77,7 +83,9 @@ class LineupSimRequest(BaseModel):
         default=None,
         description="List of 15 squad player names (defaults to Rubies Rangers)"
     )
-    sims: int = Field(default=2500, ge=500, le=10000, description="Number of Monte Carlo simulations")
+    sims: int = Field(default=_default_sims, ge=500, le=10000, description="Number of Monte Carlo simulations")
+    form_weight: float = Field(default=_default_form_weight, ge=0.0, le=2.0, description="Form sensitivity weight")
+    include_disciplinary: bool = Field(default=True, description="Include yellow and in-match red card risks")
 
 
 # -------------------------------------------------------------
@@ -88,40 +96,60 @@ def root():
     return {
         "status": "online",
         "service": "Rubies Rangers FPL Moneyball & Monte Carlo API",
-        "version": "1.0.0",
-        "docs_url": "/docs",
-        "default_squad": DEFAULT_SQUAD,
-        "default_league_id": DEFAULT_LEAGUE_ID
+        "active_profile": get_active_profile(),
+        "endpoints": [
+            "/api/simulate/transfers",
+            "/api/simulate/lineup",
+            "/api/players/clean",
+            "/api/odds",
+            "/api/league/standings",
+            "/api/league/history",
+            "/api/config"
+        ],
+        "docs": "/docs"
     }
+
+
+@app.get("/api/config")
+def get_api_config():
+    """Inspect current configuration settings and active parameter profile."""
+    return {
+        "active_profile": get_active_profile(),
+        "system": get_system_config(),
+        "parameters": get_params()
+    }
+
+
+@app.post("/api/config/profile")
+def set_api_profile(profile: str = Query(..., description="Profile name ('heuristic' or 'tuned')")):
+    """Switch active configuration profile dynamically."""
+    try:
+        set_active_profile(profile)
+        return {"success": True, "active_profile": get_active_profile()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 
 @app.post("/api/simulate/transfers")
 def simulate_transfers(payload: TransferSimRequest):
     """
-    Run Monte Carlo transfer optimization simulation across candidate transfers.
-    Returns:
-    - Baseline squad stochastic metrics
-    - The 3 Best Strategic Transfer Archetypes (Max EV, Max Floor/Safety, Max Ceiling/Differential)
-    - Full list of evaluated candidate transfers with net gains and win probabilities
+    Run stochastic Monte Carlo simulations to find the Top 3 Transfer Archetypes:
+    1. Max Expected Value (Moneyball Core)
+    2. Max Floor & Safety (Guaranteed starters, zero blank risk)
+    3. Max Ceiling & Differential (Highest 90th percentile upside)
     """
-    squad = payload.squad or DEFAULT_SQUAD
-    pos_filt = None if payload.position_filter in [None, "ALL"] else payload.position_filter
-
     res = mc_engine.evaluate_transfers(
-        current_squad_names=squad,
+        current_squad_names=payload.squad,
         bank=payload.bank,
         num_transfers=payload.num_transfers,
         free_transfers=payload.free_transfers,
         n_sims=payload.sims,
-        position_filter=pos_filt,
+        position_filter=None if payload.position_filter == "ALL" else payload.position_filter,
         sell_player_filter=payload.sell_player_filter,
         strict_injury_filter=payload.strict_injury_filter
     )
 
-    if not res.get("success"):
-        raise HTTPException(status_code=400, detail=res.get("message", "Simulation failed."))
-
-    # Clean raw_totals numpy arrays from JSON response
     base = dict(res["baseline"])
     if "raw_totals" in base:
         del base["raw_totals"]
@@ -138,7 +166,6 @@ def simulate_transfers(payload: TransferSimRequest):
         df_all = df_all.drop(columns=["raw_totals"])
 
     # Clean NaNs for JSON compliance
-    import numpy as np
     clean_candidates = df_all.head(50).replace({np.nan: None}).to_dict(orient="records")
 
     return {
@@ -160,40 +187,28 @@ def simulate_transfers(payload: TransferSimRequest):
 @app.post("/api/simulate/lineup")
 def simulate_lineup(payload: LineupSimRequest):
     """
-    Solve optimal Starting XI, Captaincy, Vice-Captaincy, and bench auto-substitutions
-    using Monte Carlo simulation.
+    Solve optimal Starting XI formation, Captaincy duel, bench substitution strategy,
+    and actionable 'Move Around' checklist using Monte Carlo stochastic simulation.
     """
     squad = payload.squad or DEFAULT_SQUAD
-    fpl_all = fpl_client.get_players_df()
 
-    player_dicts = []
-    for name in squad:
-        m = fpl_all[fpl_all["web_name"].str.lower() == name.lower()]
-        if m.empty:
-            m = fpl_all[fpl_all["full_name"].str.lower() == name.lower()]
-        if m.empty:
-            m = fpl_all[fpl_all["web_name"].str.contains(name, case=False, na=False)]
-        if not m.empty:
-            player_dicts.append(m.iloc[0].to_dict())
+    res = mc_engine.optimize_lineup_and_substitutions(
+        squad_names=squad,
+        n_sims=payload.sims,
+        form_weight=payload.form_weight,
+        include_disciplinary=payload.include_disciplinary
+    )
 
-    sim_cache = mc_engine.precompute_player_sims(player_dicts, is_current_squad=True, n_sims=payload.sims)
-    totals, meta = mc_engine.simulate_squad_lineup(squad, sim_cache, n_sims=payload.sims)
-
-    import numpy as np
     return {
         "success": True,
-        "formation": meta["formation"],
-        "captain": meta["captain"],
-        "vice_captain": meta["vice_captain"],
-        "starters": meta["starters"],
-        "bench": meta["bench"],
-        "simulated_metrics": {
-            "mean_points": round(float(totals.mean()), 2),
-            "floor_p10": round(float(np.percentile(totals, 10)), 1),
-            "median_p50": round(float(np.median(totals)), 1),
-            "ceiling_p90": round(float(np.percentile(totals, 90)), 1),
-            "std_dev": round(float(totals.std()), 2)
-        }
+        "optimal_formation": res["optimal_formation"],
+        "formation_evaluations": res["formation_evaluations"],
+        "starters": res["starters"],
+        "bench": res["bench"],
+        "captaincy_duel": res["captaincy_duel"],
+        "move_around_checklist": res["move_around_checklist"],
+        "disciplinary_and_injury_alerts": res["disciplinary_and_injury_alerts"],
+        "squad_summary": res["squad_summary"]
     }
 
 
@@ -213,12 +228,13 @@ def get_clean_players(min_minutes: int = Query(default=15, ge=0, description="Mi
         "expected_goals_per_90", "expected_assists_per_90", "fdr_next_5"
     ]
     avail_cols = [c for c in cols if c in clean_df.columns]
-    import numpy as np
     clean_records = clean_df[avail_cols].replace({np.nan: None}).to_dict(orient="records")
     return {
         "total_active": len(clean_df),
+        "count": len(clean_df),
         "players": clean_records
     }
+
 
 
 @app.get("/api/odds")

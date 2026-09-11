@@ -15,8 +15,19 @@ from tactical_client import TacticalClient
 from xp_model import XPModel
 from league_tracker import LeagueTracker
 from montecarlo_engine import MonteCarloEngine
+from config_manager import get_system_config, get_params, get_active_profile, set_active_profile
+
+DEFAULT_SQUAD = get_system_config("default_squad") or [
+    "Roefs", "Verbruggen",
+    "Pedro Porro", "Senesi", "Guéhi", "Robinson", "Thiaw",
+    "Foden", "Ødegaard", "Mbeumo", "Cherki", "Rogers",
+    "João Pedro", "Isak", "Solanke"
+]
+DEFAULT_BANK = float(get_system_config("default_bank") or 3.7)
+DEFAULT_LEAGUE_ID = int(get_system_config("default_league_id") or 325320)
 
 st.set_page_config(
+
     page_title="Rubies Rangers — FPL Moneyball Optimizer",
     page_icon="⚽",
     layout="wide",
@@ -173,6 +184,64 @@ st.markdown("""
     [data-testid="stMetricDelta"] {
         color: #38bdf8 !important;
     }
+    .step-card {
+        background: #1e293b;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+    .badge-step-red {
+        background: #991b1b;
+        color: #fecaca;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-step-green {
+        background: #065f46;
+        color: #a7f3d0;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-step-yellow {
+        background: #854d0e;
+        color: #fef08a;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-step-blue {
+        background: #1e40af;
+        color: #bfdbfe;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-step-purple {
+        background: #581c87;
+        color: #e9d5ff;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -181,13 +250,6 @@ def render_html(html_code: str):
     clean = "\n".join(line.strip() for line in html_code.splitlines() if line.strip())
     st.markdown(clean, unsafe_allow_html=True)
 
-
-DEFAULT_SQUAD = [
-    "Roefs", "Verbruggen",
-    "Pedro Porro", "Senesi", "Guéhi", "Robinson", "Thiaw",
-    "Foden", "Ødegaard", "Mbeumo", "Cherki", "Rogers",
-    "João Pedro", "Isak", "Solanke"
-]
 
 @st.cache_data(ttl=1800)
 def load_data(source: str, force_refresh: bool = False):
@@ -199,10 +261,15 @@ def load_data(source: str, force_refresh: bool = False):
             df["web_name"] = df["player_name"]
             df["full_name"] = df["player_name"]
         if "moneyball_score" not in df.columns:
+            mb_params = get_params("moneyball")
+            fwd_mid = mb_params.get("fwd_mid_weights", {})
+            xgi_w = float(fwd_mid.get("xgi_per_90", 4.0))
+            ict_div = float(fwd_mid.get("ict_index_divisor", 50.0))
+            ppg_w = float(fwd_mid.get("ppg_weight", 1.2))
             xgi = df.get("expected_goal_involvements_per_90", 0).fillna(0)
             ict = df.get("ict_index", 0).fillna(0)
             ppg = df.get("points_per_game", 0).fillna(0)
-            df["moneyball_score"] = (xgi * 4.0) + (ict / 50.0) + (ppg * 1.2)
+            df["moneyball_score"] = (xgi * xgi_w) + (ict / ict_div) + (ppg * ppg_w)
         if "fdr_moneyball_score" not in df.columns:
             df["fdr_moneyball_score"] = df["moneyball_score"]
         if "fdr_next_5" not in df.columns:
@@ -330,9 +397,27 @@ def load_montecarlo_simulation(bank: float = 3.7,
     )
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def load_montecarlo_lineup(squad_names: tuple = None,
+                           n_sims: int = 2500,
+                           form_weight: float = 0.25,
+                           include_disciplinary: bool = True,
+                           force_refresh: bool = False):
+    if squad_names is None:
+        squad_names = tuple(DEFAULT_SQUAD)
+    mc = MonteCarloEngine()
+    return mc.optimize_lineup_and_substitutions(
+        squad_names=list(squad_names),
+        n_sims=n_sims,
+        form_weight=form_weight,
+        include_disciplinary=include_disciplinary
+    )
+
+
 # Sidebar
 st.sidebar.title("⚽ Rubies Rangers")
 st.sidebar.markdown("**Strategy:** Moneyball Optimization")
+st.sidebar.markdown(f"**Config Profile:** `{get_active_profile().capitalize()}`")
 
 data_source = st.sidebar.radio("Data Source", ["Live FPL API", "Historical CSV"])
 if st.sidebar.button("🔄 Force Refresh Live Data"):
@@ -346,14 +431,59 @@ if st.sidebar.button("🔄 Force Refresh Live Data"):
     load_xp_squad(force_refresh=True)
     load_gw4_odds(force_refresh=True)
     load_top_captains(force_refresh=True)
+    load_montecarlo_lineup(force_refresh=True)
     st.sidebar.success("Live data refreshed!")
 
 df = load_data(data_source)
 opt = FPLOptimizer(df)
 
+if "active_squad" not in st.session_state:
+    st.session_state["active_squad"] = list(DEFAULT_SQUAD)
+
+current_squad = st.session_state["active_squad"]
+
+with st.sidebar.expander("👥 Active Squad & Live FPL Sync", expanded=False):
+    st.markdown(f"**Current Squad ({len(current_squad)}/15 Players):**")
+    st.caption(", ".join(current_squad))
+    
+    if st.button("📥 Sync from Published FPL Picks (Entry 6173410)"):
+        try:
+            lt = LeagueTracker()
+            picks_data = lt.get_team_picks(6173410)
+            s_names = [p["web_name"] for p in picks_data.get("starters", [])]
+            b_names = [p["web_name"] for p in picks_data.get("bench", [])]
+            if len(s_names) + len(b_names) == 15:
+                st.session_state["active_squad"] = s_names + b_names
+                st.cache_data.clear()
+                st.success("Synced 15 players from FPL Entry 6173410!")
+                st.rerun()
+            else:
+                st.warning("Could not retrieve all 15 picks from FPL API.")
+        except Exception as e:
+            st.error(f"Sync failed: {e}")
+
+    st.markdown("---")
+    st.markdown("**🔄 Swap a Player (Test Live Changes):**")
+    swap_out = st.selectbox("Sell Player", current_squad, key="sidebar_swap_out")
+    all_player_names = sorted(df["web_name"].dropna().unique().tolist())
+    swap_in = st.selectbox("Buy Player", all_player_names, index=all_player_names.index("João Pedro") if "João Pedro" in all_player_names else 0, key="sidebar_swap_in")
+    if st.button("Apply Swap to Active Squad"):
+        if swap_out in st.session_state["active_squad"]:
+            s_idx = st.session_state["active_squad"].index(swap_out)
+            st.session_state["active_squad"][s_idx] = swap_in
+            st.cache_data.clear()
+            st.success(f"Swapped {swap_out} ➔ {swap_in}!")
+            st.rerun()
+
+    if st.button("Reset to Default Rubies Rangers"):
+        st.session_state["active_squad"] = list(DEFAULT_SQUAD)
+        st.cache_data.clear()
+        st.rerun()
+
 mode = st.sidebar.selectbox("Workflow", [
     "Modify Current Team (Transfers)",
     "🏆 Mini-League Scout & Rival Spy",
+    "🛡️ Monte Carlo Lineup & Substitution Strategist",
     "🎰 Bookmaker Odds & Expected Points (xP)",
     "🎲 Monte Carlo Transfer Simulator",
     "Tactical Process & Shot Quality",
@@ -1542,6 +1672,433 @@ elif mode == "🎲 Monte Carlo Transfer Simulator":
             file_name=f"monte_carlo_transfers_{mc_transfers}x_sim{mc_sims}.csv",
             mime="text/csv"
         )
+
+elif mode == "🛡️ Monte Carlo Lineup & Substitution Strategist":
+    st.title("🛡️ Monte Carlo Lineup, Bench & Captaincy Strategist")
+    st.markdown(r"""
+    **Moneyball Tactical Optimization:** Standard fantasy managers pick their starting XI based on past points or gut feel. 
+    This engine executes **2,500+ parallel Monte Carlo stochastic simulations** across every match in the upcoming gameweek to solve four interdependent problems simultaneously:
+    - **Formation Optimization:** Tests all 8 legal FPL formations (3-5-2, 3-4-3, 4-4-2, 4-5-1, 4-3-3, 5-3-2, 5-4-1, 5-2-3) to find the mathematical maximum expected output.
+    - **Bench Substitution Activation ($P(\text{Subbed In})$):** Calculates the exact empirical probability that each substitute enters the match, strictly enforcing Premier League formation legality (minimum 3 defenders, 2 midfielders, 1 forward).
+    - **Captaincy Head-to-Head Duel & Fallback Protection:** Simulates captain score distributions head-to-head ($P(\text{Cap} > \text{VC})$) and automatically triggers the vice-captain 2x fallback if the captain plays zero minutes.
+    - **Disciplinary & Injury Risk Modeling:** Incorporates red card odds (-3 points and clean sheet forfeiture), yellow card suspensions, injury flags, and recent minutes security.
+    """)
+
+    # Simulation Controls
+    with st.expander("⚙️ Lineup Simulation Settings & Risk Parameters", expanded=True):
+        sc1, sc2, sc3 = st.columns(3)
+        with sc1:
+            mc_lineup_sims = st.select_slider(
+                "Simulation Iterations",
+                options=[1000, 2500, 5000, 10000],
+                value=2500,
+                help="Number of stochastic trials simulated across the entire squad."
+            )
+        with sc2:
+            mc_form_weight = st.slider(
+                "Recent Form Weight",
+                min_value=0.0,
+                max_value=0.50,
+                value=0.25,
+                step=0.05,
+                help="Weight assigned to player recent form (3-match rolling performance) blended with fixture expectancy."
+            )
+        with sc3:
+            mc_disciplinary = st.checkbox(
+                "Model In-Match Red Cards & Yellows",
+                value=True,
+                help="Simulates match red cards (-3 pts, clean sheet forfeit, sub prevention) and yellow card accumulation."
+            )
+
+    with st.spinner(f"Running {mc_lineup_sims:,} Monte Carlo simulations to optimize Starting XI, bench hierarchy, and captaincy..."):
+        lineup_res = load_montecarlo_lineup(
+            squad_names=tuple(current_squad),
+            n_sims=mc_lineup_sims,
+            form_weight=mc_form_weight,
+            include_disciplinary=mc_disciplinary
+        )
+
+    sq_sum = lineup_res["squad_summary"]
+    opt_form = lineup_res["optimal_formation"]
+    cap_duel = lineup_res["captaincy_duel"]
+    cap_info = cap_duel["captain"]
+    vc_info = cap_duel["vice_captain"]
+    bench_data = lineup_res["bench"]
+    starters_data = lineup_res["starters"]
+    checklist = lineup_res["move_around_checklist"]
+
+    # Hero KPI Summary Cards
+    hk1, hk2, hk3, hk4 = st.columns(4)
+    hk1.metric(
+        "Optimal Formation",
+        f"{opt_form}",
+        delta="Beats 7 Other Formations"
+    )
+    hk2.metric(
+        "Expected Lineup Total",
+        f"{sq_sum['mean_total']:.1f} pts",
+        delta=f"P10 Floor: {sq_sum['floor_p10']} | P90 Ceiling: {sq_sum['ceiling_p90']}"
+    )
+    hk3.metric(
+        "Designated Captain (C)",
+        f"{cap_info['web_name']}",
+        delta=f"{cap_info['mean_captain_pts']:.1f} pts (2x) • {cap_info['haul_prob_pct']}% Haul"
+    )
+    hk4.metric(
+        "Primary Bench Cover (Sub 1)",
+        f"{bench_data[0]['web_name']}",
+        delta=f"{bench_data[0]['activation_prob_pct']}% Auto-Sub • +{bench_data[0]['points_saved_mean']:.1f} EV"
+    )
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # Section 1: What to Move Around (Actionable Checklist)
+    # -------------------------------------------------------------
+    st.subheader("📋 What to Move Around (Actionable Pre-Deadline Checklist)")
+    st.markdown("Step-by-step instructions to configure Rubies Rangers for optimal expected return and risk mitigation:")
+
+    for item in checklist:
+        cat = item.get("category", "")
+        if "BENCH" in cat and "ORDER" not in cat:
+            badge_class = "badge-step-red"
+            border_color = "#ef4444"
+        elif "START" in cat:
+            badge_class = "badge-step-green"
+            border_color = "#10b981"
+        elif "ORDER" in cat or "SUB" in cat:
+            badge_class = "badge-step-yellow"
+            border_color = "#f59e0b"
+        elif "VICE" in cat:
+            badge_class = "badge-step-purple"
+            border_color = "#a855f7"
+        else:
+            badge_class = "badge-step-blue"
+            border_color = "#3b82f6"
+
+        render_html(f"""
+        <div class="step-card" style="border-left: 5px solid {border_color};">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-weight: 700; font-size: 16px; color: #ffffff;">Step {item['step']}: {item['action']}</span>
+                <span class="{badge_class}">{item['badge']}</span>
+            </div>
+            <div style="color: #cbd5e1; font-size: 13px; line-height: 1.5;">
+                {item['reason']}
+            </div>
+        </div>
+        """)
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # Section 2: Suggested Starting XI Tactical Pitch
+    # -------------------------------------------------------------
+    st.subheader(f"🏟️ Suggested Starting XI ({opt_form} Formation)")
+    st.markdown("Simulated starting lineup optimized for expected points, fixture difficulty, and minutes security:")
+
+    # Group starters by position
+    starters_df = pd.DataFrame(starters_data)
+    fwds = starters_df[starters_df["pos"] == "FWD"]
+    mids = starters_df[starters_df["pos"] == "MID"]
+    defs = starters_df[starters_df["pos"] == "DEF"]
+    gkps = starters_df[starters_df["pos"] == "GKP"]
+
+    def _render_mc_pitch_card(p):
+        is_cap = (p["web_name"] == cap_info["web_name"])
+        is_vc = (p["web_name"] == vc_info["web_name"])
+        
+        badge_html = ""
+        if is_cap:
+            badge_html = '<div class="captain-badge">★ CAPTAIN (C)</div><br/>'
+        elif is_vc:
+            badge_html = '<div class="vc-badge">☆ VICE-CAPTAIN (VC)</div><br/>'
+
+        card_warning = ""
+        yc_raw = p.get("yellow_cards", 0)
+        yc = int(yc_raw) if (yc_raw is not None and pd.notna(yc_raw)) else 0
+        if yc >= 2:
+            card_warning = f'<small style="color: #fef08a;">⚠️ {yc} Yellows</small><br/>'
+
+        cop_raw = p.get("cop", 100)
+        cop = int(cop_raw) if (cop_raw is not None and pd.notna(cop_raw)) else 100
+        cop_warning = ""
+        if cop < 100:
+            cop_warning = f'<small style="color: #f87171;">⚠️ {cop}% Fit</small><br/>'
+
+        fdr_raw = p.get("fdr", 3)
+        fdr_val = float(fdr_raw) if (fdr_raw is not None and pd.notna(fdr_raw)) else 3.0
+        fdr_class = "badge-fdr-easy" if fdr_val <= 2.5 else ("badge-fdr-med" if fdr_val <= 3.2 else "badge-fdr-hard")
+
+        form_raw = p.get("form", 0.0)
+        form_val = float(form_raw) if (form_raw is not None and pd.notna(form_raw)) else 0.0
+
+        p10_raw = p.get("p10", 0.0)
+        p10_val = float(p10_raw) if (p10_raw is not None and pd.notna(p10_raw)) else 0.0
+
+        p90_raw = p.get("p90", 0.0)
+        p90_val = float(p90_raw) if (p90_raw is not None and pd.notna(p90_raw)) else 0.0
+
+        mean_raw = p.get("mean_pts", 0.0)
+        mean_pts = float(mean_raw) if (mean_raw is not None and pd.notna(mean_raw)) else 0.0
+        pts_display = mean_pts * 2 if is_cap else mean_pts
+
+        return f"""
+        <div class="player-card" style="min-width: 145px; margin: 4px;">
+            {badge_html}
+            <b style="font-size: 15px; color: #f8fafc;">{p['web_name']}</b><br/>
+            <small style="color: #94a3b8;">{p['club']} vs {p['fixture']}</small><br/>
+            <span class="{fdr_class}">FDR {fdr_val:.0f}</span> 
+            <small style="color: #38bdf8;">⚡ Form {form_val:.1f}</small><br/>
+            {cop_warning}{card_warning}
+            <div class="xp-pill">{pts_display:.2f} pts{' (2x)' if is_cap else ''}</div><br/>
+            <small style="color: #94a3b8; font-size: 11px;">P10: {p10_val:.1f} | P90: {p90_val:.1f}</small>
+        </div>
+        """
+
+    pitch_markup = '<div class="pitch-container">'
+    # FWD Row
+    pitch_markup += '<div class="pitch-row">'
+    for _, p in fwds.iterrows():
+        pitch_markup += _render_mc_pitch_card(p)
+    pitch_markup += '</div>'
+    # MID Row
+    pitch_markup += '<div class="pitch-row">'
+    for _, p in mids.iterrows():
+        pitch_markup += _render_mc_pitch_card(p)
+    pitch_markup += '</div>'
+    # DEF Row
+    pitch_markup += '<div class="pitch-row">'
+    for _, p in defs.iterrows():
+        pitch_markup += _render_mc_pitch_card(p)
+    pitch_markup += '</div>'
+    # GKP Row
+    pitch_markup += '<div class="pitch-row">'
+    for _, p in gkps.iterrows():
+        pitch_markup += _render_mc_pitch_card(p)
+    pitch_markup += '</div>'
+    pitch_markup += '</div>'
+    render_html(pitch_markup)
+
+    # -------------------------------------------------------------
+    # Section 3: Priority Substitutes & Auto-Sub Activation Strategy
+    # -------------------------------------------------------------
+    st.markdown("#### 🪑 Priority Substitutes & Bench Activation Matrix")
+    st.markdown(
+        "Bench order matters critically in FPL. If a starter misses out, the game substitutes from left to right, "
+        "provided the resulting team has at least **3 defenders, 2 midfielders, and 1 forward**."
+    )
+
+    b_cols = st.columns(4)
+    for idx, b_item in enumerate(bench_data):
+        with b_cols[idx]:
+            act_pct = b_item["activation_prob_pct"]
+            act_color = "#10b981" if act_pct >= 20 else ("#f59e0b" if act_pct >= 5 else "#94a3b8")
+            
+            border_color = "#3b82f6" if idx == 0 else "rgba(255, 255, 255, 0.15)"
+            sub_badge = f'<span style="background: {act_color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">{act_pct}% Auto-Sub</span>'
+
+            render_html(f"""
+            <div class="bench-card" style="border: 2px solid {border_color}; min-height: 250px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <b style="color: #38bdf8; font-size: 13px;">{b_item['slot']}</b>
+                        {sub_badge}
+                    </div>
+                    <b style="color: white; font-size: 16px;">{b_item['web_name']}</b> <small style="color: #94a3b8;">({b_item['position']})</small><br/>
+                    <small style="color: #cbd5e1;">{b_item['club']} vs {b_item['fixture']}</small><br/>
+                    <div style="margin: 8px 0; background: rgba(15, 23, 42, 0.6); padding: 6px; border-radius: 6px; font-size: 12px;">
+                        <span style="color: #94a3b8;">EV if Subbed:</span> <b style="color: #34d399;">{b_item['pts_when_subbed']:.2f} pts</b><br/>
+                        <span style="color: #94a3b8;">Points Saved EV:</span> <b style="color: #38bdf8;">+{b_item['points_saved_mean']:.2f} pts</b><br/>
+                        <span style="color: #94a3b8;">Form:</span> <b style="color: white;">{b_item['form']:.1f}</b>
+                    </div>
+                </div>
+                <div style="font-size: 11px; color: #cbd5e1; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; text-align: left;">
+                    <i>{b_item['tactical_rationale']}</i>
+                </div>
+            </div>
+            """)
+
+    # Bench Activation Bar Chart
+    sub_names = [f"{b['slot']}: {b['web_name']} ({b['position']})" for b in bench_data]
+    sub_probs = [b["activation_prob_pct"] for b in bench_data]
+
+    fig_bench = go.Figure()
+    fig_bench.add_trace(go.Bar(
+        x=sub_names,
+        y=sub_probs,
+        name="Activation Probability (%)",
+        marker_color=["#10b981", "#f59e0b", "#94a3b8", "#64748b"],
+        text=[f"{p}%" for p in sub_probs],
+        textposition="auto"
+    ))
+    fig_bench.update_layout(
+        title="Substitute Activation Probability across Simulated Gameweeks",
+        paper_bgcolor="#0b0f19",
+        plot_bgcolor="#1e293b",
+        font={"color": "#f8fafc"},
+        xaxis={"gridcolor": "rgba(255,255,255,0.08)"},
+        yaxis={"title": "Probability (%)", "gridcolor": "rgba(255,255,255,0.08)", "range": [0, max(sub_probs) * 1.3 + 5]},
+        height=320,
+        margin={"l": 20, "r": 20, "t": 40, "b": 20}
+    )
+    st.plotly_chart(fig_bench, use_container_width=True)
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # Section 4: Captaincy & Vice-Captaincy Monte Carlo Duel
+    # -------------------------------------------------------------
+    st.subheader("👑 Captaincy & Vice-Captaincy Monte Carlo Duel")
+    st.markdown(
+        r"Armband optimization requires evaluating head-to-head win probability, explosive haul ceiling ($\ge 10$ points), "
+        r"and catastrophic blank risk ($\le 2$ points). Furthermore, Vice-Captain selection provides **insurance protection** if the captain suffers a late training knock or scratch."
+    )
+
+    cap_col1, cap_col2 = st.columns(2)
+
+    with cap_col1:
+        render_html(f"""
+        <div style="background: #1e293b; border: 2px solid #ef4444; border-radius: 12px; padding: 18px; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span class="captain-badge" style="font-size: 13px;">★ DESIGNATED CAPTAIN</span>
+                <span style="background: #065f46; color: #a7f3d0; padding: 3px 8px; border-radius: 6px; font-weight: bold; font-size: 12px;">Win Rate: {cap_info['win_rate_pct']}%</span>
+            </div>
+            <h2 style="color: white; margin: 4px 0 2px 0;">{cap_info['web_name']}</h2>
+            <div style="color: #94a3b8; font-size: 13px; margin-bottom: 12px;">{cap_info['club']} vs {cap_info['fixture']} • Form: {cap_info['form']:.1f}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #0f172a; padding: 12px; border-radius: 8px;">
+                <div><span style="color: #94a3b8; font-size: 12px;">Captain Expected Points (2x):</span><br/><b style="color: #ef4444; font-size: 20px;">{cap_info['mean_captain_pts']:.2f} pts</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Single Match EV:</span><br/><b style="color: white; font-size: 18px;">{cap_info['mean_single_pts']:.2f} pts</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Haul Probability (≥10 pts):</span><br/><b style="color: #10b981; font-size: 16px;">{cap_info['haul_prob_pct']}%</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Blank Risk (≤2 pts):</span><br/><b style="color: #f87171; font-size: 16px;">{cap_info['blank_prob_pct']}%</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Floor (P10 2x):</span><br/><b style="color: #cbd5e1; font-size: 15px;">{cap_info['p10']:.1f} pts</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Ceiling (P90 2x):</span><br/><b style="color: #cbd5e1; font-size: 15px;">{cap_info['p90']:.1f} pts</b></div>
+            </div>
+        </div>
+        """)
+
+    with cap_col2:
+        render_html(f"""
+        <div style="background: #1e293b; border: 2px solid #3b82f6; border-radius: 12px; padding: 18px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span class="vc-badge" style="font-size: 13px;">☆ DESIGNATED VICE-CAPTAIN</span>
+                <span style="background: #1e3a8a; color: #bfdbfe; padding: 3px 8px; border-radius: 6px; font-weight: bold; font-size: 12px;">Win Rate: {vc_info['win_rate_pct']}%</span>
+            </div>
+            <h2 style="color: white; margin: 4px 0 2px 0;">{vc_info['web_name']}</h2>
+            <div style="color: #94a3b8; font-size: 13px; margin-bottom: 12px;">{vc_info['club']} vs {vc_info['fixture']} • Form: {vc_info['form']:.1f}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #0f172a; padding: 12px; border-radius: 8px;">
+                <div><span style="color: #94a3b8; font-size: 12px;">Captain Expected Points (2x):</span><br/><b style="color: #3b82f6; font-size: 20px;">{vc_info['mean_captain_pts']:.2f} pts</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Single Match EV:</span><br/><b style="color: white; font-size: 18px;">{vc_info['mean_single_pts']:.2f} pts</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Haul Probability (≥10 pts):</span><br/><b style="color: #10b981; font-size: 16px;">{vc_info['haul_prob_pct']}%</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Blank Risk (≤2 pts):</span><br/><b style="color: #f87171; font-size: 16px;">{vc_info['blank_prob_pct']}%</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Floor (P10 2x):</span><br/><b style="color: #cbd5e1; font-size: 15px;">{vc_info['p10']:.1f} pts</b></div>
+                <div><span style="color: #94a3b8; font-size: 12px;">Ceiling (P90 2x):</span><br/><b style="color: #cbd5e1; font-size: 15px;">{vc_info['p90']:.1f} pts</b></div>
+            </div>
+        </div>
+        """)
+
+    st.info(f"""
+    **🛡️ Vice-Captain Insurance Policy:** In {cap_info['win_rate_pct']}% of simulations, **{cap_info['web_name']}** outscores **{vc_info['web_name']}**.
+    However, if {cap_info['web_name']} plays 0 minutes due to unexpected pre-match illness or rotation, FPL rules automatically transfer the 2x multiplier to **{vc_info['web_name']}**, securing an expected return of **{vc_info['mean_captain_pts']:.2f} points**.
+    """)
+
+    # Contenders Table
+    st.markdown("#### Top 5 Captaincy Contenders Evaluation")
+    cont_df = pd.DataFrame(cap_duel["contenders"])
+    cont_display = cont_df[[
+        "web_name", "club", "pos", "fixture", "form",
+        "mean_captain_pts", "haul_prob_pct", "blank_prob_pct", "p10", "p90"
+    ]].rename(columns={
+        "web_name": "Player",
+        "club": "Club",
+        "pos": "Pos",
+        "fixture": "GW4 Fixture",
+        "form": "Form",
+        "mean_captain_pts": "Expected 2x Points",
+        "haul_prob_pct": "Haul % (≥10)",
+        "blank_prob_pct": "Blank % (≤2)",
+        "p10": "P10 Floor",
+        "p90": "P90 Ceiling"
+    })
+    st.dataframe(cont_display, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # Section 5: Formations Optimization Comparison
+    # -------------------------------------------------------------
+    st.subheader("📐 All 8 Legal Formations Evaluated")
+    st.markdown(
+        "FPL permits exactly 8 outfield combinations (always requiring 1 GKP, at least 3 DEF, and at least 1 FWD). "
+        "Here is the Monte Carlo performance comparison for Rubies Rangers across all 8 configurations:"
+    )
+
+    form_evals = lineup_res["formation_evaluations"]
+    form_df = pd.DataFrame(form_evals)
+
+    f_col1, f_col2 = st.columns([1, 1])
+    with f_col1:
+        fig_form = go.Figure()
+        fig_form.add_trace(go.Bar(
+            y=form_df["formation"][::-1],
+            x=form_df["mean_score"][::-1],
+            orientation="h",
+            marker_color=["#10b981" if f == opt_form else "#3b82f6" for f in form_df["formation"][::-1]],
+            text=[f"{score:.1f} pts" for score in form_df["mean_score"][::-1]],
+            textposition="auto"
+        ))
+        fig_form.update_layout(
+            title="Expected Lineup Score by Legal Formation",
+            paper_bgcolor="#0b0f19",
+            plot_bgcolor="#1e293b",
+            font={"color": "#f8fafc"},
+            xaxis={"title": "Mean Simulated Total (pts)", "gridcolor": "rgba(255,255,255,0.08)"},
+            yaxis={"gridcolor": "rgba(255,255,255,0.08)"},
+            height=380,
+            margin={"l": 20, "r": 20, "t": 40, "b": 20}
+        )
+        st.plotly_chart(fig_form, use_container_width=True)
+
+    with f_col2:
+        st.markdown("#### Formations Leaderboard")
+        form_disp = form_df[["formation", "defenders", "midfielders", "forwards", "mean_score", "p10", "p50", "p90", "std"]].rename(columns={
+            "formation": "Formation",
+            "defenders": "DEF",
+            "midfielders": "MID",
+            "forwards": "FWD",
+            "mean_score": "Mean (pts)",
+            "p10": "Floor (P10)",
+            "p50": "Median (P50)",
+            "p90": "Ceiling (P90)",
+            "std": "Volatility (Std)"
+        })
+        st.dataframe(form_disp, use_container_width=True, hide_index=True)
+        st.caption("💡 **Why 3-5-2 dominates:** Rubies Rangers possesses 5 elite starting midfielders (Foden, Cherki, Rogers, Ødegaard, Mbeumo) and 2 explosive forwards (Isak, Pedro). Dropping any midfielder to play an extra defender costs an average of 6.2 to 17.6 points.")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # Section 6: Disciplinary, Form & Injury Risk Monitor
+    # -------------------------------------------------------------
+    st.subheader("🩺 Squad Health, Form & Disciplinary Risk Monitor")
+    st.markdown("Monitors cards accumulation, in-match red card risk, recent minutes, injury statuses, and player form:")
+
+    risk_alerts = lineup_res["disciplinary_and_injury_alerts"]
+    if risk_alerts:
+        alert_df = pd.DataFrame(risk_alerts)
+        alert_disp = alert_df[["web_name", "club", "pos", "status", "cop", "yellow_cards", "red_cards", "form", "notes"]].rename(columns={
+            "web_name": "Player",
+            "club": "Club",
+            "pos": "Pos",
+            "status": "FPL Status",
+            "cop": "Chance of Playing (%)",
+            "yellow_cards": "Yellow Cards",
+            "red_cards": "Red Cards",
+            "form": "Current Form",
+            "notes": "Risk Flag / Description"
+        })
+        st.dataframe(alert_disp, use_container_width=True, hide_index=True)
+    else:
+        st.success("✅ All squad players are currently available with zero active injury flags or disciplinary suspensions.")
 
 elif mode == "Tactical Process & Shot Quality":
     st.title("🎯 Advanced Tactical Process Metrics (Understat / Shot Quality)")

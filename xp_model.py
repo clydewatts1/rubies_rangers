@@ -17,17 +17,17 @@ import pandas as pd
 
 from fpl_client import FPLClient
 from tactical_client import TacticalClient, normalize_name
+from config_manager import get_system_config, get_params
 
-DEFAULT_SQUAD = [
+DEFAULT_SQUAD = get_system_config("default_squad") or [
     "Roefs", "Verbruggen",
     "Pedro Porro", "Senesi", "Guéhi", "Robinson", "Thiaw",
     "Foden", "Ødegaard", "Mbeumo", "Cherki", "Rogers",
     "João Pedro", "Isak", "Solanke"
 ]
 
-# Baseline Gameweek 4 Bookmaker Implied Team Goals (Expected Goals Scored Lambda)
-# Derived from match betting markets (Asian handicaps & Goal Totals)
-GW4_MATCH_ODDS = {
+# Baseline Gameweek 4 Bookmaker Implied Team Goals from config
+GW4_MATCH_ODDS = get_system_config("gw4_match_odds") or {
     "AVL_NFO": {"home": "AVL", "away": "NFO", "h_goals": 1.65, "a_goals": 1.10},
     "BOU_BRE": {"home": "BOU", "away": "BRE", "h_goals": 1.45, "a_goals": 1.35},
     "CHE_HUL": {"home": "CHE", "away": "HUL", "h_goals": 2.30, "a_goals": 0.75},
@@ -41,47 +41,131 @@ GW4_MATCH_ODDS = {
 }
 
 
+
 class XPModel:
-    def __init__(self):
+    def __init__(self, gameweek: Optional[int] = None):
         self.fpl_client = FPLClient()
         self.tac_client = TacticalClient()
-        self._build_team_odds_map()
+        self.gameweek = gameweek or self.fpl_client.get_current_gameweek() or 4
+        self._build_team_odds_map(gameweek=self.gameweek)
 
-    def _build_team_odds_map(self):
-        """Construct team-level implied goals and clean sheet probabilities for GW4."""
+    def _build_team_odds_map(self, gameweek: Optional[int] = None):
+        """Construct team-level implied goals and clean sheet probabilities for any gameweek."""
+        target_gw = gameweek or self.gameweek or 4
         self.team_odds = {}
+
+        # If GW4, use calibrated high-fidelity bookmaker match odds
+        if target_gw == 4:
+            for m_id, m in GW4_MATCH_ODDS.items():
+                h_team = m["home"]
+                a_team = m["away"]
+                h_xg = m["h_goals"]
+                a_xg = m["a_goals"]
+
+                # Poisson P(CS) = e^(-xg_conceded)
+                h_cs_prob = round(math.exp(-a_xg), 3)
+                a_cs_prob = round(math.exp(-h_xg), 3)
+
+                # Decimal odds conversion (1 / P)
+                h_cs_odds = round(1.0 / h_cs_prob, 2) if h_cs_prob > 0 else 99.0
+                a_cs_odds = round(1.0 / a_cs_prob, 2) if a_cs_prob > 0 else 99.0
+
+                self.team_odds[h_team] = {
+                    "team": h_team,
+                    "opponent": a_team,
+                    "is_home": True,
+                    "exp_goals_scored": h_xg,
+                    "exp_goals_conceded": a_xg,
+                    "clean_sheet_prob": h_cs_prob,
+                    "clean_sheet_odds": h_cs_odds,
+                    "fixture_str": f"{a_team} (H)"
+                }
+                self.team_odds[a_team] = {
+                    "team": a_team,
+                    "opponent": h_team,
+                    "is_home": False,
+                    "exp_goals_scored": a_xg,
+                    "exp_goals_conceded": h_xg,
+                    "clean_sheet_prob": a_cs_prob,
+                    "clean_sheet_odds": a_cs_odds,
+                    "fixture_str": f"{h_team} (A)"
+                }
+            return
+
+        # For future gameweeks, dynamically build from upcoming fixtures
+        try:
+            fixtures = self.fpl_client.get_fixtures_data()
+            boot = self.fpl_client.get_bootstrap_data()
+            id_to_short = {t["id"]: t["short_name"] for t in boot.get("teams", [])}
+
+            gw_fixtures = [f for f in fixtures if f.get("event") == target_gw]
+            if gw_fixtures:
+                xp_cfg = get_params("xp_model")
+                dyn_cfg = xp_cfg.get("dynamic_fdr", {})
+                h_base = dyn_cfg.get("home_base_xg", 2.2)
+                h_coeff = dyn_cfg.get("home_diff_coeff", 0.25)
+                h_adv = dyn_cfg.get("home_advantage", 0.2)
+                min_h = dyn_cfg.get("min_home_xg", 0.6)
+                a_base = dyn_cfg.get("away_base_xg", 1.9)
+                a_coeff = dyn_cfg.get("away_diff_coeff", 0.25)
+                min_a = dyn_cfg.get("min_away_xg", 0.5)
+
+                for f in gw_fixtures:
+                    h_code = id_to_short.get(f["team_h"], "UNK")
+                    a_code = id_to_short.get(f["team_a"], "UNK")
+                    h_diff = f.get("team_h_difficulty", 3)
+                    a_diff = f.get("team_a_difficulty", 3)
+
+                    h_xg = round(max(min_h, h_base - (a_diff * h_coeff) + h_adv), 2)
+                    a_xg = round(max(min_a, a_base - (h_diff * a_coeff)), 2)
+
+                    h_cs_prob = round(math.exp(-a_xg), 3)
+                    a_cs_prob = round(math.exp(-h_xg), 3)
+                    h_cs_odds = round(1.0 / h_cs_prob, 2) if h_cs_prob > 0 else 99.0
+                    a_cs_odds = round(1.0 / a_cs_prob, 2) if a_cs_prob > 0 else 99.0
+
+                    self.team_odds[h_code] = {
+                        "team": h_code,
+                        "opponent": a_code,
+                        "is_home": True,
+                        "exp_goals_scored": h_xg,
+                        "exp_goals_conceded": a_xg,
+                        "clean_sheet_prob": h_cs_prob,
+                        "clean_sheet_odds": h_cs_odds,
+                        "fixture_str": f"{a_code} (H)"
+                    }
+                    self.team_odds[a_code] = {
+                        "team": a_code,
+                        "opponent": h_code,
+                        "is_home": False,
+                        "exp_goals_scored": a_xg,
+                        "exp_goals_conceded": h_xg,
+                        "clean_sheet_prob": a_cs_prob,
+                        "clean_sheet_odds": a_cs_odds,
+                        "fixture_str": f"{h_code} (A)"
+                    }
+                return
+        except Exception:
+            pass
+
+        # Fallback to GW4 baseline if dynamic generation encounters missing data
         for m_id, m in GW4_MATCH_ODDS.items():
             h_team = m["home"]
             a_team = m["away"]
             h_xg = m["h_goals"]
             a_xg = m["a_goals"]
-
-            # Poisson P(CS) = e^(-xg_conceded)
             h_cs_prob = round(math.exp(-a_xg), 3)
             a_cs_prob = round(math.exp(-h_xg), 3)
-
-            # Decimal odds conversion (1 / P)
-            h_cs_odds = round(1.0 / h_cs_prob, 2) if h_cs_prob > 0 else 99.0
-            a_cs_odds = round(1.0 / a_cs_prob, 2) if a_cs_prob > 0 else 99.0
-
             self.team_odds[h_team] = {
-                "team": h_team,
-                "opponent": a_team,
-                "is_home": True,
-                "exp_goals_scored": h_xg,
-                "exp_goals_conceded": a_xg,
-                "clean_sheet_prob": h_cs_prob,
-                "clean_sheet_odds": h_cs_odds,
+                "team": h_team, "opponent": a_team, "is_home": True,
+                "exp_goals_scored": h_xg, "exp_goals_conceded": a_xg,
+                "clean_sheet_prob": h_cs_prob, "clean_sheet_odds": round(1.0 / h_cs_prob, 2) if h_cs_prob > 0 else 99.0,
                 "fixture_str": f"{a_team} (H)"
             }
             self.team_odds[a_team] = {
-                "team": a_team,
-                "opponent": h_team,
-                "is_home": False,
-                "exp_goals_scored": a_xg,
-                "exp_goals_conceded": h_xg,
-                "clean_sheet_prob": a_cs_prob,
-                "clean_sheet_odds": a_cs_odds,
+                "team": a_team, "opponent": h_team, "is_home": False,
+                "exp_goals_scored": a_xg, "exp_goals_conceded": h_xg,
+                "clean_sheet_prob": a_cs_prob, "clean_sheet_odds": round(1.0 / a_cs_prob, 2) if a_cs_prob > 0 else 99.0,
                 "fixture_str": f"{h_team} (A)"
             }
 
@@ -110,6 +194,12 @@ class XPModel:
         - FPL set-piece hierarchy (penalties, direct FKs, corners)
         - Historical defensive contribution (CBI/tackles)
         """
+        xp_cfg = get_params("xp_model")
+        mins_cfg = xp_cfg.get("minutes", {})
+        pen_cfg = xp_cfg.get("penalty", {})
+        bonus_cfg = xp_cfg.get("bonus_model_weights", {})
+        pts_rules = xp_cfg.get("points_rules", {})
+
         pos = player_dict.get("position_name", "MID")
         team_short = player_dict.get("club_short", "UNK")
         
@@ -126,22 +216,26 @@ class XPModel:
         team_xgc = m_info["exp_goals_conceded"]
         cs_prob = m_info["clean_sheet_prob"]
 
-        # Expected Minutes calculation from Item 4 Trends
+        # Expected Minutes calculation from Item 4 Trends & config
         mins_status = trends_dict.get("minutes_status", "REGULAR_STARTER")
         avg_recent_mins = trends_dict.get("avg_recent_mins", 75.0)
 
         if mins_status == "BENCHED_OR_DROPPED":
-            exp_mins = 5.0
-            p_60 = 0.02
+            m_data = mins_cfg.get("benched_or_dropped", {})
+            exp_mins = m_data.get("exp_mins", 5.0)
+            p_60 = m_data.get("p_60", 0.02)
         elif mins_status == "ROTATION_RISK":
-            exp_mins = 40.0
-            p_60 = 0.40
+            m_data = mins_cfg.get("rotation_risk", {})
+            exp_mins = m_data.get("exp_mins", 40.0)
+            p_60 = m_data.get("p_60", 0.40)
         elif mins_status == "REGULAR_STARTER":
-            exp_mins = min(80.0, max(60.0, avg_recent_mins))
-            p_60 = 0.85
+            m_data = mins_cfg.get("regular_starter", {})
+            exp_mins = min(m_data.get("max_mins", 80.0), max(m_data.get("min_mins", 60.0), avg_recent_mins))
+            p_60 = m_data.get("p_60", 0.85)
         else:  # SECURE_STARTER
-            exp_mins = min(90.0, max(75.0, avg_recent_mins))
-            p_60 = 0.98
+            m_data = mins_cfg.get("secure_starter", {})
+            exp_mins = min(m_data.get("max_mins", 90.0), max(m_data.get("min_mins", 75.0), avg_recent_mins))
+            p_60 = m_data.get("p_60", 0.98)
 
         mins_fraction = exp_mins / 90.0
 
@@ -153,10 +247,13 @@ class XPModel:
             npxg_90 = float(player_dict.get("expected_goals_per_90") or 0.0)
 
         pen_duty = (player_dict.get("penalties_order") == 1)
-        pen_bonus_xg = (0.79 * 0.18) if pen_duty else 0.0  # ~18% chance of a penalty awarded in an EPL match
+        pen_conv = pen_cfg.get("conversion_rate", 0.79)
+        pen_award = pen_cfg.get("match_award_chance", 0.18)
+        pen_bonus_xg = (pen_conv * pen_award) if pen_duty else 0.0
 
+        team_goals_divisor = xp_cfg.get("team_baseline_goals_divisor", 1.35)
         # Match xG = (player NPxG/90 scaled by team goals) + penalty bonus
-        match_xg = (npxg_90 * mins_fraction * (team_xg / 1.35)) + pen_bonus_xg
+        match_xg = (npxg_90 * mins_fraction * (team_xg / team_goals_divisor)) + pen_bonus_xg
         p_goal = round(1.0 - math.exp(-match_xg), 3)
 
         # Assist Probability P(Assist)
@@ -166,47 +263,63 @@ class XPModel:
 
         crn_duty = (player_dict.get("corners_and_indirect_freekicks_order") in [1, 2])
         fk_duty = (player_dict.get("direct_freekicks_order") in [1, 2])
-        deadball_bonus = 0.08 if (crn_duty or fk_duty) else 0.0
+        deadball_bonus = xp_cfg.get("deadball_bonus", 0.08) if (crn_duty or fk_duty) else 0.0
 
-        match_xa = (xa_90 * mins_fraction * (team_xg / 1.35)) + deadball_bonus
+        match_xa = (xa_90 * mins_fraction * (team_xg / team_goals_divisor)) + deadball_bonus
         p_assist = round(1.0 - math.exp(-match_xa), 3)
 
         # Saves expectation for GKP (avg 1 pt per 3 saves)
-        exp_saves = (team_xgc * 2.8 * mins_fraction) if pos == "GKP" else 0.0
-        saves_pts = (exp_saves * 0.33)
+        gkp_rate = xp_cfg.get("gkp_saves_rate", 2.8)
+        gkp_ratio = xp_cfg.get("gkp_saves_pts_ratio", 0.33)
+        exp_saves = (team_xgc * gkp_rate * mins_fraction) if pos == "GKP" else 0.0
+        saves_pts = (exp_saves * gkp_ratio)
 
         # Goals conceded penalty (applies to GKP and DEF: -1 pt for every 2 goals conceded)
-        # Expected penalty = 0.5 * xGC * mins_fraction
-        gc_penalty = (0.5 * team_xgc * mins_fraction) if pos in ["GKP", "DEF"] else 0.0
+        # Expected penalty = (xGC * mins_fraction) / gc_penalty_divisor
+        gc_div = pts_rules.get("gc_penalty_divisor", 2.0)
+        gc_penalty = ((team_xgc * mins_fraction) / gc_div) if pos in ["GKP", "DEF"] else 0.0
 
         # Defensive contribution baseline bonus (from Item 4 CBI/tackles)
         def_actions = trends_dict.get("avg_recent_def_contrib", 0.0)
-        def_floor_bonus = (def_actions * 0.08) if pos == "DEF" else 0.0
+        def_floor_bonus = (def_actions * xp_cfg.get("def_actions_bonus_weight", 0.08)) if pos == "DEF" else 0.0
 
         # Total Expected Points (xP) by official FPL scoring rules
-        # Strikers get 4 pts/goal, Mids 5 pts/goal, Defs 6 pts/goal. Assists = 3 pts.
-        # Clean sheet: GKP/DEF = 4 pts (if >=60 mins), MID = 1 pt (if >=60 mins).
         if pos == "FWD":
-            x_bonus = min(3.0, (match_xg * 1.1) + (match_xa * 0.4))
+            b_w = bonus_cfg.get("fwd", {})
+            x_bonus = min(3.0, (match_xg * b_w.get("xg", 1.1)) + (match_xa * b_w.get("xa", 0.4)))
         elif pos == "MID":
-            x_bonus = min(3.0, (match_xg * 0.9) + (match_xa * 0.6) + (cs_prob * 0.25))
+            b_w = bonus_cfg.get("mid", {})
+            x_bonus = min(3.0, (match_xg * b_w.get("xg", 0.9)) + (match_xa * b_w.get("xa", 0.6)) + (cs_prob * b_w.get("cs", 0.25)))
         elif pos == "DEF":
-            x_bonus = min(3.0, (cs_prob * 0.75) + (match_xg * 1.0) + (match_xa * 0.4) + (def_floor_bonus * 0.3))
+            b_w = bonus_cfg.get("def", {})
+            x_bonus = min(3.0, (cs_prob * b_w.get("cs", 0.75)) + (match_xg * b_w.get("xg", 1.0)) + (match_xa * b_w.get("xa", 0.4)) + (def_floor_bonus * b_w.get("def_floor", 0.3)))
         else:  # GKP
-            x_bonus = min(3.0, (cs_prob * 0.6) + (saves_pts * 0.3))
+            b_w = bonus_cfg.get("gkp", {})
+            x_bonus = min(3.0, (cs_prob * b_w.get("cs", 0.6)) + (saves_pts * b_w.get("saves", 0.3)))
 
-        appearance_pts = (2.0 * p_60) + (1.0 * (mins_fraction - p_60) if mins_fraction > p_60 else 0.0)
+        app_60_pts = pts_rules.get("appearance_60", 2.0)
+        app_sub_pts = pts_rules.get("appearance_sub_60", 1.0)
+        appearance_pts = (app_60_pts * p_60) + (app_sub_pts * (mins_fraction - p_60) if mins_fraction > p_60 else 0.0)
         
+        cs_gkp_def = pts_rules.get("clean_sheet_gkp_def", 4.0)
+        cs_mid = pts_rules.get("clean_sheet_mid", 1.0)
+        goal_gkp = pts_rules.get("goal_gkp", 10.0)
+        goal_def = pts_rules.get("goal_def", 6.0)
+        goal_mid = pts_rules.get("goal_mid", 5.0)
+        goal_fwd = pts_rules.get("goal_fwd", 4.0)
+        ast_pts = pts_rules.get("assist", 3.0)
+
         if pos == "GKP":
-            xp = appearance_pts + (4.0 * cs_prob * p_60) + saves_pts - gc_penalty + x_bonus
+            xp = appearance_pts + (cs_gkp_def * cs_prob * p_60) + saves_pts - gc_penalty + x_bonus
         elif pos == "DEF":
-            xp = appearance_pts + (4.0 * cs_prob * p_60) + (6.0 * match_xg) + (3.0 * match_xa) - gc_penalty + def_floor_bonus + x_bonus
+            xp = appearance_pts + (cs_gkp_def * cs_prob * p_60) + (goal_def * match_xg) + (ast_pts * match_xa) - gc_penalty + def_floor_bonus + x_bonus
         elif pos == "MID":
-            xp = appearance_pts + (1.0 * cs_prob * p_60) + (5.0 * match_xg) + (3.0 * match_xa) + x_bonus
+            xp = appearance_pts + (cs_mid * cs_prob * p_60) + (goal_mid * match_xg) + (ast_pts * match_xa) + x_bonus
         else:  # FWD
-            xp = appearance_pts + (4.0 * match_xg) + (3.0 * match_xa) + x_bonus
+            xp = appearance_pts + (goal_fwd * match_xg) + (ast_pts * match_xa) + x_bonus
 
         xp = max(0.0, xp)
+
 
         # Decimal betting odds
         goal_odds = round(1.0 / p_goal, 2) if p_goal > 0.01 else 99.0

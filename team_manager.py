@@ -24,14 +24,15 @@ from tactical_tracker import audit_squad_tactical, show_league_leaders, show_pla
 from xp_tracker import display_lineup, display_squad, display_odds, display_captains
 from xp_model import XPModel
 from league_tracker import LeagueTracker, display_league_standings, display_team_leagues, display_rival_squad, display_league_history
+from config_manager import get_system_config, get_params, set_active_profile, get_active_profile
 
-DEFAULT_SQUAD = [
+DEFAULT_SQUAD = get_system_config("default_squad") or [
     "Roefs", "Verbruggen",
     "Pedro Porro", "Senesi", "Guéhi", "Robinson", "Thiaw",
     "Foden", "Ødegaard", "Mbeumo", "Cherki", "Rogers",
     "João Pedro", "Isak", "Solanke"
 ]
-DEFAULT_BANK = 3.7
+DEFAULT_BANK = float(get_system_config("default_bank") or 3.7)
 
 console = Console()
 
@@ -47,16 +48,19 @@ def load_dataset(source: str = "live", force_refresh: bool = False) -> pd.DataFr
             df["web_name"] = df["player_name"]
             df["full_name"] = df["player_name"]
         if "moneyball_score" not in df.columns:
+            mb_params = get_params("moneyball")
+            fwd_cfg = mb_params.get("fwd_mid", {})
             xgi = df.get("expected_goal_involvements_per_90", 0).fillna(0)
             ict = df.get("ict_index", 0).fillna(0)
             ppg = df.get("points_per_game", 0).fillna(0)
-            df["moneyball_score"] = (xgi * 4.0) + (ict / 50.0) + (ppg * 1.2)
+            df["moneyball_score"] = (xgi * fwd_cfg.get("xgi_weight", 4.0)) + (ict / fwd_cfg.get("ict_divisor", 50.0)) + (ppg * fwd_cfg.get("ppg_weight", 1.2))
         if "fdr_moneyball_score" not in df.columns:
             df["fdr_moneyball_score"] = df["moneyball_score"]
         if "fdr_next_5" not in df.columns:
             df["fdr_next_5"] = 3.0
             df["next_fixture"] = "N/A"
         return df
+
     else:
         client = FPLClient()
         df = client.get_players_df(force_refresh=force_refresh)
@@ -573,6 +577,163 @@ def show_set_pieces(club: Optional[str] = None, role: str = "all"):
     console.print(table)
 
 
+def display_montecarlo_lineup(res: Dict[str, Any]):
+    """Render rich terminal view of Monte Carlo Lineup, Captaincy & Substitution Strategy."""
+    from rich.columns import Columns
+    from rich.text import Text
+
+    opt_form = res["optimal_formation"]
+    sq_summary = res["squad_summary"]
+    cap_duel = res["captaincy_duel"]
+    cap = cap_duel["captain"]
+    vc = cap_duel["vice_captain"]
+
+    # 1. Hero Header Panel
+    header_text = (
+        f"[bold gold1]🎲 Rubies Rangers — Monte Carlo Lineup & Substitution Strategist[/bold gold1]\n\n"
+        f"Optimal Formation: [bold cyan]{opt_form}[/bold cyan]   |   "
+        f"Simulations: [bold white]{sq_summary['n_sims']:,}[/bold white]\n"
+        f"Mean Total Score: [bold green]{sq_summary['mean_total']} pts[/bold green]   |   "
+        f"Floor (P10): [bold yellow]{sq_summary['floor_p10']} pts[/bold yellow]   |   "
+        f"Median (P50): [bold white]{sq_summary['median_p50']} pts[/bold white]   |   "
+        f"Ceiling (P90): [bold magenta]{sq_summary['ceiling_p90']} pts[/bold magenta]   |   "
+        f"Std Dev: [dim]±{sq_summary['std']} pts[/dim]\n\n"
+        f"Designated Captain: [bold red]★ {cap['web_name']}[/bold red] ([bold green]{cap['mean_captain_pts']} pts[/bold green] projected, {cap['haul_prob_pct']}% haul chance)\n"
+        f"Vice-Captain: [bold cyan]☆ {vc['web_name']}[/bold cyan] ([bold green]{vc['mean_captain_pts']} pts[/bold green] projected, 100% starting minutes security)"
+    )
+    console.print(Panel(header_text, border_style="gold1", expand=False))
+
+    # 2. Actionable Move Around Checklist
+    console.print("\n[bold gold1]📋 Actionable Checklist: What to Move Around Before the Deadline[/bold gold1]")
+    checklist = res.get("move_around_checklist", [])
+    for item in checklist:
+        badge = item.get("badge", "")
+        action = item.get("action", "")
+        reason = item.get("reason", "")
+        console.print(f"  {badge} [bold white]{action}[/bold white]")
+        console.print(f"     [dim]Rationale: {reason}[/dim]\n")
+
+    # 3. Starting XI Formation Table
+    table_starters = Table(
+        title=f"[bold green]⚡ Starting XI (Optimal Formation: {opt_form})[/bold green]",
+        border_style="green",
+        header_style="bold cyan"
+    )
+    table_starters.add_column("Role", width=12, justify="center")
+    table_starters.add_column("Pos", width=5)
+    table_starters.add_column("Player", width=16)
+    table_starters.add_column("Club", width=6)
+    table_starters.add_column("Fixture (FDR)", width=14)
+    table_starters.add_column("Form", justify="right", width=6)
+    table_starters.add_column("Cards (Y/R)", justify="center", width=11)
+    table_starters.add_column("Status", width=10)
+    table_starters.add_column("Mean Pts", justify="right", width=9)
+    table_starters.add_column("P10 (Floor)", justify="right", width=11)
+    table_starters.add_column("P90 (Ceil)", justify="right", width=11)
+
+    for s in res.get("starters", []):
+        role_str = "[bold red]★ CAPTAIN[/bold red]" if s["role"] == "CAPTAIN" else (
+            "[bold cyan]☆ VICE-CAP[/bold cyan]" if s["role"] == "VICE_CAPTAIN" else "[dim]Starter[/dim]"
+        )
+        fdr_val = s.get("fdr", 3)
+        fdr_style = "green" if fdr_val <= 2 else ("yellow" if fdr_val == 3 else "red")
+        fix_str = f"{s.get('fixture', 'TBD')} [{fdr_style}]({fdr_val})[/{fdr_style}]"
+
+        cards_str = f"{s.get('yellow_cards', 0)}Y / {s.get('red_cards', 0)}R"
+        if s.get("yellow_cards", 0) >= 2:
+            cards_str = f"[bold yellow]{cards_str}[/bold yellow]"
+        elif s.get("red_cards", 0) >= 1:
+            cards_str = f"[bold red]{cards_str}[/bold red]"
+
+        st_str = "[bold green]Fit[/bold green]" if s.get("status") == "a" else f"[bold yellow]{s.get('status')}[/bold yellow]"
+
+        table_starters.add_row(
+            role_str,
+            s["pos"],
+            f"[bold white]{s['web_name']}[/bold white]",
+            s["club"],
+            fix_str,
+            f"{s['form']:.1f}",
+            cards_str,
+            st_str,
+            f"[bold green]{s['mean_pts']:.2f}[/bold green]",
+            f"{s['p10']:.1f}",
+            f"[bold magenta]{s['p90']:.1f}[/bold magenta]"
+        )
+    console.print(table_starters)
+
+    # 4. Substitution Strategy & Bench Priority
+    table_bench = Table(
+        title="[bold yellow]🪑 Substitution Strategy & Priority Bench Hierarchy[/bold yellow]",
+        border_style="yellow",
+        header_style="bold cyan"
+    )
+    table_bench.add_column("Priority", width=9, justify="center")
+    table_bench.add_column("Slot", width=9)
+    table_bench.add_column("Player", width=16)
+    table_bench.add_column("Pos", width=5)
+    table_bench.add_column("Club", width=6)
+    table_bench.add_column("Fixture", width=14)
+    table_bench.add_column("Auto-Sub %", justify="right", width=12)
+    table_bench.add_column("Pts When Subbed", justify="right", width=16)
+    table_bench.add_column("Pts Saved", justify="right", width=11)
+    table_bench.add_column("Strategic Rationale", width=38)
+
+    for b in res.get("bench", []):
+        act_style = "bold green" if b["activation_prob_pct"] >= 20.0 else ("yellow" if b["activation_prob_pct"] >= 5.0 else "dim")
+        table_bench.add_row(
+            f"#{b['sub_priority']}",
+            b["slot"],
+            f"[bold white]{b['web_name']}[/bold white]",
+            b["position"],
+            b["club"],
+            str(b.get("fixture", "TBD")),
+            f"[{act_style}]{b['activation_prob_pct']:.1f}%[/{act_style}]",
+            f"{b['pts_when_subbed']:.2f}",
+            f"{b['points_saved_mean']:.2f}",
+            b.get("tactical_rationale", "")
+        )
+    console.print(table_bench)
+
+    # 5. Captaincy Monte Carlo Duel Panel
+    duel_text = (
+        f"[bold red]★ {cap['web_name']}[/bold red] ({cap['club']}) vs [bold cyan]☆ {vc['web_name']}[/bold cyan] ({vc['club']})\n\n"
+        f"  • Head-to-Head Win Rate: [bold red]{cap['web_name']} wins {cap['win_rate_pct']}%[/bold red] vs "
+        f"[bold cyan]{vc['web_name']} wins {vc['win_rate_pct']}%[/bold cyan] (Ties: {cap_duel.get('tie_rate_pct', 0.0)}%)\n"
+        f"  • Mean Captain Points (2x): [bold red]{cap['mean_captain_pts']} pts[/bold red] vs [bold cyan]{vc['mean_captain_pts']} pts[/bold cyan]\n"
+        f"  • Haul Chance (>=10 single pts): [bold red]{cap['haul_prob_pct']}%[/bold red] vs [bold cyan]{vc['haul_prob_pct']}%[/bold cyan]\n"
+        f"  • Blank Risk (<=2 single pts): [bold red]{cap['blank_prob_pct']}%[/bold red] vs [bold cyan]{vc['blank_prob_pct']}%[/bold cyan]\n"
+        f"  • Vice-Captain Fallback Security: If {cap['web_name']} plays 0 mins, {vc['web_name']} automatically inherits the 2x boost."
+    )
+    console.print(Panel(duel_text, title="[bold gold1]⚔️ Captaincy Monte Carlo Duel (Head-to-Head)[/bold gold1]", border_style="red", expand=False))
+
+    # 6. Disciplinary & Health Warnings
+    alerts = res.get("disciplinary_and_injury_alerts", [])
+    if alerts:
+        table_alerts = Table(title="[bold red]⚠️ Disciplinary, Form & Injury Risk Warnings[/bold red]", border_style="red", header_style="bold red")
+        table_alerts.add_column("Player", width=16)
+        table_alerts.add_column("Club", width=6)
+        table_alerts.add_column("Pos", width=5)
+        table_alerts.add_column("Status / Chance", width=18)
+        table_alerts.add_column("Yellows / Reds", width=14)
+        table_alerts.add_column("Form", justify="right", width=6)
+        table_alerts.add_column("Risk Notes", width=35)
+
+        for a in alerts:
+            st_flag = f"{a['status']} ({a['cop']}%)"
+            cards = f"{a['yellow_cards']}Y / {a['red_cards']}R"
+            table_alerts.add_row(
+                a["web_name"],
+                a["club"],
+                a["pos"],
+                st_flag,
+                cards,
+                f"{a['form']:.1f}",
+                a.get("notes", "")
+            )
+        console.print(table_alerts)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Rubies Rangers FPL Squad Manager & Moneyball Optimizer")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -626,7 +787,9 @@ def main():
     tactical_parser.add_argument("--refresh", action="store_true", help="Force refresh live Understat cache")
 
     # lineup command
-    lineup_parser = subparsers.add_parser("lineup", help="Solve optimal Starting XI, Captaincy, and Bench hierarchy via xP model")
+    lineup_parser = subparsers.add_parser("lineup", help="Solve optimal Starting XI, Captaincy, and Bench hierarchy via xP model or Monte Carlo")
+    lineup_parser.add_argument("--mc", "--montecarlo", action="store_true", help="Run full Monte Carlo Lineup, Captaincy & Substitution Strategy analysis")
+    lineup_parser.add_argument("--sims", type=int, default=2500, help="Number of Monte Carlo simulations (default: 2500)")
     lineup_parser.add_argument("--squad", action="store_true", help="Display full 15-player squad xP breakdown")
     lineup_parser.add_argument("--odds", action="store_true", help="Display Gameweek 4 betting market odds")
     lineup_parser.add_argument("--captains", action="store_true", help="Display top Premier League captaincy rankings")
@@ -645,9 +808,14 @@ def main():
     # sync command
     subparsers.add_parser("sync", help="Force refresh live FPL API data cache")
 
+    parser.add_argument("--profile", choices=["heuristic", "tuned"], default=None, help="Parameter profile to activate (heuristic vs tuned)")
+
     args = parser.parse_args()
+    if args.profile:
+        set_active_profile(args.profile)
 
     if args.command == "audit":
+
         audit_squad(source=args.source)
     elif args.command == "transfers":
         if args.mc:
@@ -677,15 +845,21 @@ def main():
         else:
             audit_squad_tactical(tc, force_refresh=args.refresh)
     elif args.command == "lineup":
-        xm = XPModel()
-        if args.squad:
-            display_squad(xm)
-        elif args.odds:
-            display_odds(xm)
-        elif args.captains:
-            display_captains(xm, top_n=args.top)
+        if args.mc:
+            from montecarlo_engine import MonteCarloEngine
+            mc = MonteCarloEngine()
+            res = mc.optimize_lineup_and_substitutions(n_sims=args.sims)
+            display_montecarlo_lineup(res)
         else:
-            display_lineup(xm)
+            xm = XPModel()
+            if args.squad:
+                display_squad(xm)
+            elif args.odds:
+                display_odds(xm)
+            elif args.captains:
+                display_captains(xm, top_n=args.top)
+            else:
+                display_lineup(xm)
     elif args.command == "draft":
         draft_squad(budget=args.budget, objective=args.objective, source=args.source, lock=args.lock)
     elif args.command == "league":

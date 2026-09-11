@@ -1,0 +1,463 @@
+active_profile: heuristic
+system:
+  target_gameweek: 4
+  default_squad:
+  - Roefs
+  - Verbruggen
+  - Pedro Porro
+  - Senesi
+  - "Gu\xE9hi"
+  - Robinson
+  - Thiaw
+  - Foden
+  - "\xD8degaard"
+  - Mbeumo
+  - Cherki
+  - Rogers
+  - "Jo\xE3o Pedro"
+  - Isak
+  - Solanke
+  default_bank: 3.7
+  default_league_id: 325320
+  default_entry_id: 6173410
+  cache_ttl_seconds: 3600
+  http_timeout_seconds: 15
+  max_retries: 3
+  retry_backoff_base: 0.5
+  rules:
+    max_banked_ft:
+      "2021-22": 2
+      "2022-23": 2
+      "2023-24": 2
+      "2024-25": 5
+  legal_formations:
+  - - 3
+    - 5
+    - 2
+  - - 3
+    - 4
+    - 3
+  - - 4
+    - 4
+    - 2
+  - - 4
+    - 3
+    - 3
+  - - 4
+    - 5
+    - 1
+  - - 5
+    - 3
+    - 2
+  - - 5
+    - 4
+    - 1
+  - - 5
+    - 2
+    - 3
+  gw4_match_odds:
+    AVL_NFO:
+      home: AVL
+      away: NFO
+      h_goals: 1.65
+      a_goals: 1.1
+    BOU_BRE:
+      home: BOU
+      away: BRE
+      h_goals: 1.45
+      a_goals: 1.35
+    CHE_HUL:
+      home: CHE
+      away: HUL
+      h_goals: 2.3
+      a_goals: 0.75
+    CRY_IPS:
+      home: CRY
+      away: IPS
+      h_goals: 1.7
+      a_goals: 1.05
+    LIV_FUL:
+      home: LIV
+      away: FUL
+      h_goals: 2.45
+      a_goals: 0.8
+    TOT_EVE:
+      home: TOT
+      away: EVE
+      h_goals: 1.95
+      a_goals: 1.05
+    SUN_ARS:
+      home: SUN
+      away: ARS
+      h_goals: 0.8
+      a_goals: 2.15
+    COV_BHA:
+      home: COV
+      away: BHA
+      h_goals: 0.95
+      a_goals: 1.7
+    MUN_MCI:
+      home: MUN
+      away: MCI
+      h_goals: 1.3
+      a_goals: 1.85
+    LEE_NEW:
+      home: LEE
+      away: NEW
+      h_goals: 1.35
+      a_goals: 1.6
+heuristic:
+  moneyball:
+    fwd_mid:
+      xgi_weight: 4.0
+      ict_divisor: 50.0
+      form_weight: 1.5
+      ppg_weight: 1.2
+    def:
+      def_contrib_weight: 0.4
+      xgi_weight: 3.0
+      form_weight: 1.5
+      ict_divisor: 60.0
+    gkp:
+      ppg_weight: 1.2
+      form_weight: 1.5
+    set_piece_bonuses:
+      pen_order_1: 0.65
+      pen_order_2: 0.25
+      fk_order_1: 0.25
+      fk_order_2: 0.1
+      crn_order_1: 0.35
+      crn_order_2: 0.15
+    fdr_multiplier:
+      neutral_baseline: 3.0
+      scaling_factor: 5.0
+    price_prediction:
+      rise_thresh_base: 75000
+      rise_selected_frac: 0.075
+      rise_cost_change_mult: 1.5
+      fall_thresh_base: 60000
+      fall_selected_frac: 0.065
+      soon_threshold_pct: 70.0
+      tonight_threshold_pct: 100.0
+  xp_model:
+    minutes:
+      benched_or_dropped:
+        exp_mins: 5.0
+        p_60: 0.02
+      rotation_risk:
+        exp_mins: 40.0
+        p_60: 0.4
+      regular_starter:
+        min_mins: 60.0
+        max_mins: 80.0
+        p_60: 0.85
+      secure_starter:
+        min_mins: 75.0
+        max_mins: 90.0
+        p_60: 0.98
+    penalty:
+      conversion_rate: 0.79
+      match_award_chance: 0.18
+    deadball_bonus: 0.08
+    team_baseline_goals_divisor: 1.35
+    gkp_saves_rate: 2.8
+    gkp_saves_pts_ratio: 0.33
+    def_actions_bonus_weight: 0.08
+    bonus_model_weights:
+      fwd:
+        xg: 1.1
+        xa: 0.4
+      mid:
+        xg: 0.9
+        xa: 0.6
+        cs: 0.25
+      def:
+        cs: 0.75
+        xg: 1.0
+        xa: 0.4
+        def_floor: 0.3
+      gkp:
+        cs: 0.6
+        saves: 0.3
+    points_rules:
+      appearance_60: 2.0
+      appearance_sub_60: 1.0
+      clean_sheet_gkp_def: 4.0
+      clean_sheet_mid: 1.0
+      goal_gkp: 10.0
+      goal_def: 6.0
+      goal_mid: 5.0
+      goal_fwd: 4.0
+      assist: 3.0
+      gc_penalty_divisor: 2.0
+    dynamic_fdr:
+      home_base_xg: 2.2
+      home_diff_coeff: 0.25
+      home_advantage: 0.2
+      min_home_xg: 0.6
+      away_base_xg: 1.9
+      away_diff_coeff: 0.25
+      min_away_xg: 0.5
+  monte_carlo:
+    default_sims: 5000
+    api_default_sims: 2500
+    default_form_weight: 0.25
+    form_multiplier:
+      baseline: 4.5
+      step: 0.04
+      min_clip: 0.75
+      max_clip: 1.3
+    probabilities:
+      benched_or_dropped:
+        p_start: 0.1
+        exp_starter_mins: 60.0
+        p_cameo: 0.35
+      rotation_risk:
+        p_start: 0.45
+        exp_starter_mins: 65.0
+        p_cameo: 0.65
+      regular_starter:
+        p_start: 0.85
+        exp_starter_mins_min: 65.0
+        exp_starter_mins_max: 85.0
+        p_cameo: 0.75
+      secure_starter:
+        p_start: 0.96
+        exp_starter_mins_min: 75.0
+        exp_starter_mins_max: 90.0
+        p_cameo: 0.85
+      starter_mins_std: 7.5
+      cameo_mins_min: 10.0
+      cameo_mins_max: 30.0
+      p_fit_healthy: 0.99
+      p_fit_doubt_default: 0.75
+    disciplinary:
+      yc_base_prob: 0.1
+      yc_card_factor: 0.02
+      yc_max_cards_scaled: 3
+      yc_max_prob: 0.2
+      rc_prob: 0.01
+      rc_penalty_pts: -3.0
+    defensive_floor:
+      max_prob: 0.65
+      rate_factor: 0.1
+    bps_weights:
+      goals: 24
+      assists: 18
+      clean_sheet: 12
+      def_floor: 4
+      saves: 6
+      mins_60: 2
+      tier_3_threshold: 32
+      tier_2_threshold: 22
+      tier_1_threshold: 14
+    transfers:
+      hit_cost_per_transfer: 4
+      top_candidates_per_pos: 15
+      min_minutes_filter: 15
+      min_chance_of_playing_filter: 50
+  optimizer:
+    budget: 100.0
+    max_players_per_club: 3
+    position_quotas:
+      GKP: 2
+      DEF: 5
+      MID: 5
+      FWD: 3
+    default_objective: moneyball
+tuned:
+  moneyball:
+    fwd_mid:
+      xgi_weight: 4.0
+      ict_divisor: 50.0
+      form_weight: 1.5
+      ppg_weight: 1.2
+    def:
+      def_contrib_weight: 0.4
+      xgi_weight: 3.0
+      form_weight: 1.5
+      ict_divisor: 60.0
+    gkp:
+      ppg_weight: 1.2
+      form_weight: 1.5
+    set_piece_bonuses:
+      pen_order_1: 0.65
+      pen_order_2: 0.25
+      fk_order_1: 0.25
+      fk_order_2: 0.1
+      crn_order_1: 0.35
+      crn_order_2: 0.15
+    fdr_multiplier:
+      neutral_baseline: 3.0
+      scaling_factor: 5.0
+    price_prediction:
+      rise_thresh_base: 75000
+      rise_selected_frac: 0.075
+      rise_cost_change_mult: 1.5
+      fall_thresh_base: 60000
+      fall_selected_frac: 0.065
+      soon_threshold_pct: 70.0
+      tonight_threshold_pct: 100.0
+    fwd_mid_weights:
+      xgi_per_90: 3.5
+      ict_index_divisor: 52.0
+      ppg_weight: 2.1
+    def_weights:
+      def_contribution_per_90: 0.6
+      clean_sheets_per_90: 3.5
+      xgi_per_90: 3.0
+      ict_index_divisor: 40.0
+    gkp_weights:
+      saves_per_90: 0.9
+      clean_sheets_per_90: 3.0
+      ppg_weight: 0.6
+    set_pieces:
+      direct_freekick_bonus: 0.9
+      corner_bonus: 0.65
+      penalty_bonus: 1.05
+    fdr:
+      scaling_factor: 0.15
+  xp_model:
+    minutes:
+      benched_or_dropped:
+        exp_mins: 5.0
+        p_60: 0.02
+      rotation_risk:
+        exp_mins: 40.0
+        p_60: 0.4
+      regular_starter:
+        min_mins: 60.0
+        max_mins: 80.0
+        p_60: 0.85
+      secure_starter:
+        min_mins: 75.0
+        max_mins: 90.0
+        p_60: 0.98
+      starter_expected_minutes: 67.0
+      cameo_probability: 0.25
+    penalty:
+      conversion_rate: 0.79
+      match_award_chance: 0.18
+    deadball_bonus: 0.08
+    team_baseline_goals_divisor: 1.35
+    gkp_saves_rate: 2.8
+    gkp_saves_pts_ratio: 0.33
+    def_actions_bonus_weight: 0.08
+    bonus_model_weights:
+      fwd:
+        xg: 1.1
+        xa: 0.4
+      mid:
+        xg: 0.9
+        xa: 0.6
+        cs: 0.25
+      def:
+        cs: 0.75
+        xg: 1.0
+        xa: 0.4
+        def_floor: 0.3
+      gkp:
+        cs: 0.6
+        saves: 0.3
+    points_rules:
+      appearance_60: 2.0
+      appearance_sub_60: 1.0
+      clean_sheet_gkp_def: 4.0
+      clean_sheet_mid: 1.0
+      goal_gkp: 10.0
+      goal_def: 6.0
+      goal_mid: 5.0
+      goal_fwd: 4.0
+      assist: 3.0
+      gc_penalty_divisor: 2.0
+    dynamic_fdr:
+      home_base_xg: 2.2
+      home_diff_coeff: 0.25
+      home_advantage: 0.2
+      min_home_xg: 0.6
+      away_base_xg: 1.9
+      away_diff_coeff: 0.25
+      min_away_xg: 0.5
+    penalties:
+      conversion_rate: 0.78
+      team_penalty_chance: 0.12
+    saves:
+      conceded_multiplier: 2.8
+  monte_carlo:
+    default_sims: 5000
+    api_default_sims: 2500
+    default_form_weight: 0.25
+    form_multiplier:
+      baseline: 4.5
+      step: 0.04
+      min_clip: 0.75
+      max_clip: 1.3
+    probabilities:
+      benched_or_dropped:
+        p_start: 0.1
+        exp_starter_mins: 60.0
+        p_cameo: 0.35
+      rotation_risk:
+        p_start: 0.45
+        exp_starter_mins: 65.0
+        p_cameo: 0.65
+      regular_starter:
+        p_start: 0.85
+        exp_starter_mins_min: 65.0
+        exp_starter_mins_max: 85.0
+        p_cameo: 0.75
+      secure_starter:
+        p_start: 0.96
+        exp_starter_mins_min: 75.0
+        exp_starter_mins_max: 90.0
+        p_cameo: 0.85
+      starter_mins_std: 7.5
+      cameo_mins_min: 10.0
+      cameo_mins_max: 30.0
+      p_fit_healthy: 0.99
+      p_fit_doubt_default: 0.75
+    disciplinary:
+      yc_base_prob: 0.1
+      yc_card_factor: 0.02
+      yc_max_cards_scaled: 3
+      yc_max_prob: 0.2
+      rc_prob: 0.01
+      rc_penalty_pts: -3.0
+    defensive_floor:
+      max_prob: 0.65
+      rate_factor: 0.1
+    bps_weights:
+      goals: 24
+      assists: 18
+      clean_sheet: 12
+      def_floor: 4
+      saves: 6
+      mins_60: 2
+      tier_3_threshold: 32
+      tier_2_threshold: 22
+      tier_1_threshold: 14
+    transfers:
+      hit_cost_per_transfer: 4
+      top_candidates_per_pos: 15
+      min_minutes_filter: 15
+      min_chance_of_playing_filter: 50
+  optimizer:
+    budget: 100.0
+    max_players_per_club: 3
+    position_quotas:
+      GKP: 2
+      DEF: 5
+      MID: 5
+      FWD: 3
+    default_objective: moneyball
+tuning_metadata:
+  best_trial_id: 1
+  train_seasons:
+  - 2022-23
+  test_season: 2023-24
+  train_score: 45.11
+  test_score: 42.31
+  test_points: 1702.0
+  baseline_heuristic_points: 1671.0
+  improvement_pct: 1.86
+  last_tuned_at: '2026-09-11T13:41:13.658816'

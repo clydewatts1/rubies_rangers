@@ -10,32 +10,47 @@ import urllib.request
 import pandas as pd
 from typing import Dict, List, Any, Optional
 
+from config_manager import get_system_config, get_params
+
 BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/"
 FIXTURES_URL = "https://fantasy.premierleague.com/api/fixtures/?future=1"
 ELEMENT_SUMMARY_URL = "https://fantasy.premierleague.com/api/element-summary/{}/"
 CACHE_FILE = os.path.join(os.path.dirname(__file__), ".fpl_cache.json")
 FIXTURES_CACHE_FILE = os.path.join(os.path.dirname(__file__), ".fpl_fixtures_cache.json")
 ELEMENTS_CACHE_DIR = os.path.join(os.path.dirname(__file__), ".fpl_elements_cache")
-CACHE_TTL_SECONDS = 3600  # 1 hour cache
+CACHE_TTL_SECONDS = get_system_config("cache_ttl_seconds") or 3600  # Default 1 hour cache
 
 
 
 class FPLClient:
-    def __init__(self, cache_ttl: int = CACHE_TTL_SECONDS):
-        self.cache_ttl = cache_ttl
+    def __init__(self, cache_ttl: Optional[int] = None):
+        self.cache_ttl = cache_ttl if cache_ttl is not None else (get_system_config("cache_ttl_seconds") or CACHE_TTL_SECONDS)
 
-    def _fetch_url(self, url: str) -> Any:
-        req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RubiesRangersFPL/1.0"
-            }
-        )
-        with urllib.request.urlopen(req, timeout=15) as response:
-            return json.loads(response.read().decode("utf-8"))
+    def _fetch_url(self, url: str, max_retries: Optional[int] = None) -> Any:
+        if max_retries is None:
+            max_retries = get_system_config("max_retries") or 3
+        timeout = get_system_config("http_timeout_seconds") or 15
+        backoff_base = get_system_config("retry_backoff_base") or 0.5
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                req = urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RubiesRangersFPL/1.0"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=timeout) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except Exception as e:
+                last_err = e
+                if attempt < max_retries - 1:
+                    time.sleep(backoff_base * (2 ** attempt))
+        raise last_err
+
 
     def get_bootstrap_data(self, force_refresh: bool = False) -> Dict[str, Any]:
-        """Fetch bootstrap data with local caching."""
+        """Fetch bootstrap data with local caching and offline fallback."""
         if not force_refresh and os.path.exists(CACHE_FILE):
             file_age = time.time() - os.path.getmtime(CACHE_FILE)
             if file_age < self.cache_ttl:
@@ -45,16 +60,25 @@ class FPLClient:
                 except Exception:
                     pass
 
-        data = self._fetch_url(BOOTSTRAP_URL)
         try:
-            with open(CACHE_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f)
+            data = self._fetch_url(BOOTSTRAP_URL)
+            try:
+                with open(CACHE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+            except Exception as e:
+                print(f"Warning: Failed to write bootstrap cache: {e}")
+            return data
         except Exception as e:
-            print(f"Warning: Failed to write bootstrap cache: {e}")
-        return data
+            if os.path.exists(CACHE_FILE):
+                try:
+                    with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+            raise e
 
     def get_fixtures_data(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
-        """Fetch upcoming fixtures with local caching."""
+        """Fetch upcoming fixtures with local caching and offline fallback."""
         if not force_refresh and os.path.exists(FIXTURES_CACHE_FILE):
             file_age = time.time() - os.path.getmtime(FIXTURES_CACHE_FILE)
             if file_age < self.cache_ttl:
@@ -64,13 +88,22 @@ class FPLClient:
                 except Exception:
                     pass
 
-        data = self._fetch_url(FIXTURES_URL)
         try:
-            with open(FIXTURES_CACHE_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f)
+            data = self._fetch_url(FIXTURES_URL)
+            try:
+                with open(FIXTURES_CACHE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+            except Exception as e:
+                print(f"Warning: Failed to write fixtures cache: {e}")
+            return data
         except Exception as e:
-            print(f"Warning: Failed to write fixtures cache: {e}")
-        return data
+            if os.path.exists(FIXTURES_CACHE_FILE):
+                try:
+                    with open(FIXTURES_CACHE_FILE, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+            raise e
 
     def get_current_gameweek(self) -> Optional[int]:
         """Return the current active gameweek."""
@@ -164,9 +197,13 @@ class FPLClient:
                 swing_label = "STABLE"
                 swing_status = "NEUTRAL"
 
-            # FDR multiplier: 3.0 is neutral baseline; green schedule (<3) gives boost, red (>3) discounts
-            # e.g., avg 2.4 => multiplier 1.12 (+12% expected boost), avg 3.4 => 0.92 (-8% discount)
-            fdr_multiplier = 1.0 + ((3.0 - avg_diff) / 5.0)
+            # FDR multiplier: neutral baseline (default 3.0); green schedule (<neutral) gives boost, red (>neutral) discounts
+            mb_params = get_params("moneyball")
+            fdr_cfg = mb_params.get("fdr_multiplier", {})
+            neutral_base = fdr_cfg.get("neutral_baseline", 3.0)
+            scaling = fdr_cfg.get("scaling_factor", 5.0)
+            fdr_multiplier = 1.0 + ((neutral_base - avg_diff) / scaling)
+
 
             result[t_id] = {
                 "team_name": teams.get(t_id, "Unknown"),
@@ -196,6 +233,14 @@ class FPLClient:
         team_short = {t["id"]: t["short_name"] for t in data["teams"]}
         positions = {p["id"]: p["singular_name_short"] for p in data["element_types"]}
 
+        # Load configurable Moneyball parameters
+        mb_params = get_params("moneyball")
+        fwd_mid_cfg = mb_params.get("fwd_mid", {})
+        def_cfg = mb_params.get("def", {})
+        gkp_cfg = mb_params.get("gkp", {})
+        sp_cfg = mb_params.get("set_piece_bonuses", {})
+        price_cfg = mb_params.get("price_prediction", {})
+
         rows = []
         for p in data["elements"]:
             cost = p["now_cost"] / 10.0
@@ -221,14 +266,14 @@ class FPLClient:
             form = float(p.get("form") or 0.0)
             ppg = float(p.get("points_per_game") or 0.0)
 
-            # Moneyball base score
+            # Moneyball base score from config parameters
             pos_code = positions.get(p["element_type"], "UNK")
             if pos_code in ["FWD", "MID"]:
-                base_exp = (xGI_90 * 4.0) + (ict / 50.0) + (form * 1.5)
+                base_exp = (xGI_90 * fwd_mid_cfg.get("xgi_weight", 4.0)) + (ict / fwd_mid_cfg.get("ict_divisor", 50.0)) + (form * fwd_mid_cfg.get("form_weight", 1.5))
             elif pos_code == "DEF":
-                base_exp = (def_contrib_90 * 0.4) + (xGI_90 * 3.0) + (form * 1.5) + (ict / 60.0)
+                base_exp = (def_contrib_90 * def_cfg.get("def_contrib_weight", 0.4)) + (xGI_90 * def_cfg.get("xgi_weight", 3.0)) + (form * def_cfg.get("form_weight", 1.5)) + (ict / def_cfg.get("ict_divisor", 60.0))
             else:  # GKP
-                base_exp = (ppg * 1.2) + (form * 1.5)
+                base_exp = (ppg * gkp_cfg.get("ppg_weight", 1.2)) + (form * gkp_cfg.get("form_weight", 1.5))
 
             moneyball_efficiency = (base_exp / cost) if cost > 0 else 0.0
             ppm = (total_points / cost) if cost > 0 else 0.0
@@ -255,17 +300,23 @@ class FPLClient:
             fdr_adjusted_mb = base_exp * fdr_multiplier
             fdr_adjusted_eff = (fdr_adjusted_mb / cost) if cost > 0 else 0.0
 
-            # Market Velocity & Price Change Prediction
+            # Market Velocity & Price Change Prediction from config
             tin = p.get("transfers_in_event", 0)
             tout = p.get("transfers_out_event", 0)
             net_transfers = tin - tout
             selected = p.get("selected", 1)
             cost_change_event = p.get("cost_change_event", 0) / 10.0
 
-            rise_thresh = max(75000, selected * 0.075)
-            fall_thresh = max(60000, selected * 0.065)
+            rise_base = price_cfg.get("rise_thresh_base", 75000)
+            rise_frac = price_cfg.get("rise_selected_frac", 0.075)
+            rise_mult = price_cfg.get("rise_cost_change_mult", 1.5)
+            fall_base = price_cfg.get("fall_thresh_base", 60000)
+            fall_frac = price_cfg.get("fall_selected_frac", 0.065)
+
+            rise_thresh = max(rise_base, selected * rise_frac)
+            fall_thresh = max(fall_base, selected * fall_frac)
             if cost_change_event > 0:
-                rise_thresh *= 1.5
+                rise_thresh *= rise_mult
 
             if net_transfers >= 0:
                 price_progress_pct = round((net_transfers / rise_thresh) * 100, 1)
@@ -274,9 +325,11 @@ class FPLClient:
                 price_progress_pct = round((abs(net_transfers) / fall_thresh) * 100, 1)
                 price_direction = "FALL"
 
-            if price_progress_pct >= 100:
+            soon_thresh = price_cfg.get("soon_threshold_pct", 70.0)
+            tonight_thresh = price_cfg.get("tonight_threshold_pct", 100.0)
+            if price_progress_pct >= tonight_thresh:
                 price_status = f"{price_direction} TONIGHT"
-            elif price_progress_pct >= 70:
+            elif price_progress_pct >= soon_thresh:
                 price_status = f"{price_direction} Soon"
             else:
                 price_status = "Stable"
@@ -316,25 +369,26 @@ class FPLClient:
 
             set_piece_badges = " | ".join(badges) if badges else "None"
 
-            # Moneyball set-piece bonus: non-open play xG (~0.79/penalty) and corner/FK dead-ball xA floor
+            # Moneyball set-piece bonus from config
             sp_bonus = 0.0
             if pen_order == 1:
-                sp_bonus += 0.65
+                sp_bonus += sp_cfg.get("pen_order_1", 0.65)
             elif pen_order == 2:
-                sp_bonus += 0.25
+                sp_bonus += sp_cfg.get("pen_order_2", 0.25)
 
             if fk_order == 1:
-                sp_bonus += 0.25
+                sp_bonus += sp_cfg.get("fk_order_1", 0.25)
             elif fk_order == 2:
-                sp_bonus += 0.10
+                sp_bonus += sp_cfg.get("fk_order_2", 0.10)
 
             if crn_order == 1:
-                sp_bonus += 0.35
+                sp_bonus += sp_cfg.get("crn_order_1", 0.35)
             elif crn_order == 2:
-                sp_bonus += 0.15
+                sp_bonus += sp_cfg.get("crn_order_2", 0.15)
 
             base_with_sp = base_exp + sp_bonus
             setpiece_fdr_mb = base_with_sp * fdr_multiplier
+
 
             rows.append({
                 "id": p["id"],
@@ -357,6 +411,8 @@ class FPLClient:
                 "status": p.get("status", "a"),
                 "news": p.get("news", ""),
                 "chance_of_playing": p.get("chance_of_playing_next_round"),
+                "yellow_cards": p.get("yellow_cards", 0),
+                "red_cards": p.get("red_cards", 0),
                 "is_penalty_taker": is_penalty_taker,
                 "is_direct_fk_taker": is_direct_fk_taker,
                 "is_corner_taker": is_corner_taker,
@@ -458,13 +514,22 @@ class FPLClient:
                     pass
 
         url = ELEMENT_SUMMARY_URL.format(player_id)
-        data = self._fetch_url(url)
         try:
-            with open(cache_path, "w", encoding="utf-8") as f:
-                json.dump(data, f)
-        except Exception:
-            pass
-        return data
+            data = self._fetch_url(url)
+            try:
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+            except Exception:
+                pass
+            return data
+        except Exception as e:
+            if os.path.exists(cache_path):
+                try:
+                    with open(cache_path, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+            raise e
 
     def get_player_trends(self, player_id: int, n_recent: int = 3) -> Dict[str, Any]:
         """

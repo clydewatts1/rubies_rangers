@@ -22,6 +22,7 @@ from rich.table import Table
 from rich.panel import Panel
 
 from fpl_client import FPLClient
+from config_manager import get_system_config
 
 console = Console()
 
@@ -29,9 +30,10 @@ LEAGUE_STANDINGS_URL = "https://fantasy.premierleague.com/api/leagues-classic/{}
 ENTRY_URL = "https://fantasy.premierleague.com/api/entry/{}/"
 ENTRY_PICKS_URL = "https://fantasy.premierleague.com/api/entry/{}/event/{}/picks/"
 
-# Default Mini-League & Team for Rubies Rangers
-DEFAULT_LEAGUE_ID = 325320  # Bronze, Silver & Gold League
-DEFAULT_ENTRY_ID = 6173410   # Rubies Rangers (Clyde Watts)
+# Default Mini-League & Team from config
+DEFAULT_LEAGUE_ID = get_system_config("default_league_id") or 325320  # Bronze, Silver & Gold League
+DEFAULT_ENTRY_ID = get_system_config("default_entry_id") or 6173410   # Rubies Rangers (Clyde Watts)
+
 
 
 class LeagueTracker:
@@ -40,14 +42,7 @@ class LeagueTracker:
         self._players_map = None
 
     def _fetch_url(self, url: str) -> Any:
-        req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RubiesRangersFPL/1.0"
-            }
-        )
-        with urllib.request.urlopen(req, timeout=15) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return self.fpl_client._fetch_url(url)
 
     def _get_player_info_map(self) -> Dict[int, Dict[str, Any]]:
         if self._players_map is None:

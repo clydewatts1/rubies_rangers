@@ -19,6 +19,21 @@ import pandas as pd
 from fpl_client import FPLClient
 from tactical_client import TacticalClient, normalize_name
 from xp_model import XPModel, DEFAULT_SQUAD, GW4_MATCH_ODDS
+from config_manager import get_system_config, get_params
+
+
+
+def clean_nans(obj: Any) -> Any:
+    """Recursively convert float NaN/Inf values to None for clean JSON serialization."""
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    elif isinstance(obj, dict):
+        return {k: clean_nans(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_nans(v) for v in obj]
+    return obj
 
 
 class MonteCarloEngine:
@@ -58,9 +73,13 @@ class MonteCarloEngine:
     def simulate_player(self, player_dict: Dict[str, Any],
                          trends_dict: Optional[Dict[str, Any]] = None,
                          tac_dict: Optional[Dict[str, Any]] = None,
-                         n_sims: int = 5000) -> Tuple[np.ndarray, np.ndarray]:
+                         n_sims: int = 5000,
+                         form_weight: float = 1.0,
+                         include_disciplinary: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
         Simulate N gameweek outcomes for a single player.
+        Incorporates form weighting, bookmaker match odds, injury/doubt status,
+        and yellow/red card disciplinary risks.
         Returns:
             sim_points: np.ndarray of shape (n_sims,)
             sim_minutes: np.ndarray of shape (n_sims,)
@@ -75,7 +94,7 @@ class MonteCarloEngine:
         status = player_dict.get("status", "a")
         cop = player_dict.get("chance_of_playing")
 
-        # 1. Hard status check
+        # 1. Hard status check (Injured, Suspended, Transferred, or 0% chance)
         if status in ["u", "i", "s"] or (cop is not None and cop == 0):
             return np.zeros(n_sims), np.zeros(n_sims)
 
@@ -90,32 +109,43 @@ class MonteCarloEngine:
         team_xgc = m_info["exp_goals_conceded"]
         cs_prob = m_info["clean_sheet_prob"]
 
+        # Load configurable Monte Carlo parameters
+        mc_cfg = get_params("monte_carlo")
+        form_cfg = mc_cfg.get("form_multiplier", {})
+        prob_cfg = mc_cfg.get("probabilities", {})
+        disc_cfg = mc_cfg.get("disciplinary", {})
+        bps_cfg = mc_cfg.get("bps_weights", {})
+
         # 3. Minutes & Start probability
         mins_status = trends_dict.get("minutes_status", "REGULAR_STARTER")
         avg_recent_mins = trends_dict.get("avg_recent_mins", 75.0)
 
-        # Fitness probability based on yellow flags
+        # Fitness probability based on yellow flags / doubts from config
         if status == "d" or (cop is not None and cop < 100):
-            p_fit = (cop / 100.0) if cop is not None else 0.75
+            p_fit = (cop / 100.0) if cop is not None else prob_cfg.get("p_fit_doubt_default", 0.75)
         else:
-            p_fit = 0.99
+            p_fit = prob_cfg.get("p_fit_healthy", 0.99)
 
         if mins_status == "BENCHED_OR_DROPPED":
-            p_start = 0.10
-            exp_starter_mins = 60.0
-            p_cameo = 0.35
+            m_data = prob_cfg.get("benched_or_dropped", {})
+            p_start = m_data.get("p_start", 0.10)
+            exp_starter_mins = m_data.get("exp_starter_mins", 60.0)
+            p_cameo = m_data.get("p_cameo", 0.35)
         elif mins_status == "ROTATION_RISK":
-            p_start = 0.45
-            exp_starter_mins = 65.0
-            p_cameo = 0.65
+            m_data = prob_cfg.get("rotation_risk", {})
+            p_start = m_data.get("p_start", 0.45)
+            exp_starter_mins = m_data.get("exp_starter_mins", 65.0)
+            p_cameo = m_data.get("p_cameo", 0.65)
         elif mins_status == "REGULAR_STARTER":
-            p_start = 0.85
-            exp_starter_mins = min(85.0, max(65.0, avg_recent_mins))
-            p_cameo = 0.75
+            m_data = prob_cfg.get("regular_starter", {})
+            p_start = m_data.get("p_start", 0.85)
+            exp_starter_mins = min(m_data.get("exp_starter_mins_max", 85.0), max(m_data.get("exp_starter_mins_min", 65.0), avg_recent_mins))
+            p_cameo = m_data.get("p_cameo", 0.75)
         else:  # SECURE_STARTER
-            p_start = 0.96
-            exp_starter_mins = min(90.0, max(75.0, avg_recent_mins))
-            p_cameo = 0.85
+            m_data = prob_cfg.get("secure_starter", {})
+            p_start = m_data.get("p_start", 0.96)
+            exp_starter_mins = min(m_data.get("exp_starter_mins_max", 90.0), max(m_data.get("exp_starter_mins_min", 75.0), avg_recent_mins))
+            p_cameo = m_data.get("p_cameo", 0.85)
 
         # Vectorized draws for minutes
         fits = np.random.binomial(1, p_fit, n_sims)
@@ -124,11 +154,14 @@ class MonteCarloEngine:
 
         mins = np.zeros(n_sims)
         n_starts = int(np.sum(starts))
+        mins_std = prob_cfg.get("starter_mins_std", 7.5)
         if n_starts > 0:
-            mins[starts == 1] = np.clip(np.random.normal(exp_starter_mins, 7.5, n_starts), 50.0, 90.0)
+            mins[starts == 1] = np.clip(np.random.normal(exp_starter_mins, mins_std, n_starts), 50.0, 90.0)
         n_cameos = int(np.sum(cameos))
+        cameo_min = prob_cfg.get("cameo_mins_min", 10.0)
+        cameo_max = prob_cfg.get("cameo_mins_max", 30.0)
         if n_cameos > 0:
-            mins[cameos == 1] = np.random.uniform(10.0, 30.0, n_cameos)
+            mins[cameos == 1] = np.random.uniform(cameo_min, cameo_max, n_cameos)
 
         # 4. Appearance Points
         app_pts = np.where(mins >= 60.0, 2, np.where(mins > 0.0, 1, 0))
@@ -142,14 +175,23 @@ class MonteCarloEngine:
         else:
             cs_pts = np.zeros(n_sims)
 
-        mins_fraction = mins / 90.0
-        gc_draw = np.random.poisson(team_xgc * mins_fraction)
+        mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
+        gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction, 0.0, None), nan=0.0)
+        gc_draw = np.random.poisson(gc_lam)
         gc_penalty = np.where(np.isin(pos, ["DEF", "GKP"]), -(gc_draw // 2), 0)
 
         # Saves for GKP
-        saves_pts = np.where(pos == "GKP", (np.random.poisson(gc_draw * 1.3) // 3), 0)
+        saves_lam = np.nan_to_num(np.clip(gc_draw * 1.3, 0.0, None), nan=0.0)
+        saves_pts = np.where(pos == "GKP", (np.random.poisson(saves_lam) // 3), 0)
 
-        # 6. Attacking Points (Goals & Assists)
+        # 6. Attacking Points (Goals & Assists) with Form Factor from config
+        form_val = float(player_dict.get("form") or 0.0)
+        f_base = form_cfg.get("baseline", 4.5)
+        f_step = form_cfg.get("step", 0.04)
+        f_min = form_cfg.get("min_clip", 0.75)
+        f_max = form_cfg.get("max_clip", 1.30)
+        form_mult = float(np.clip(1.0 + f_step * (form_val - f_base) * form_weight, f_min, f_max))
+
         npxg_90 = float(tac_dict.get("NPxG_90") or 0.0)
         if npxg_90 == 0.0:
             npxg_90 = float(player_dict.get("expected_goals_per_90") or 0.0)
@@ -157,7 +199,8 @@ class MonteCarloEngine:
         pen_duty = (player_dict.get("penalties_order") == 1)
         pen_bonus = 0.14 if pen_duty else 0.0
 
-        match_xg = (npxg_90 * mins_fraction * (team_xg / 1.35)) + (pen_bonus * (mins > 0))
+        match_xg = ((npxg_90 * mins_fraction * (team_xg / 1.35)) + (pen_bonus * (mins > 0))) * form_mult
+        match_xg = np.nan_to_num(np.clip(match_xg, 0.0, None), nan=0.0)
         goals_draw = np.random.poisson(match_xg)
 
         if pos == "FWD":
@@ -177,31 +220,57 @@ class MonteCarloEngine:
         fk_duty = (player_dict.get("direct_freekicks_order") in [1, 2])
         deadball_bonus = 0.07 if (crn_duty or fk_duty) else 0.0
 
-        match_xa = (xa_90 * mins_fraction * (team_xg / 1.35)) + (deadball_bonus * (mins > 0))
+        match_xa = ((xa_90 * mins_fraction * (team_xg / 1.35)) + (deadball_bonus * (mins > 0))) * form_mult
+        match_xa = np.nan_to_num(np.clip(match_xa, 0.0, None), nan=0.0)
         assists_draw = np.random.poisson(match_xa)
         assist_pts = assists_draw * 3
 
-        # 7. Disciplinary Cards
-        yc_draw = (mins > 0) * np.random.binomial(1, 0.12, n_sims) * -1
+        # 7. Disciplinary Cards (Yellow & Red Cards) from config
+        if include_disciplinary:
+            y_cards_acc = float(player_dict.get("yellow_cards") or 0)
+            yc_base = disc_cfg.get("yc_base_prob", 0.10)
+            yc_fac = disc_cfg.get("yc_card_factor", 0.02)
+            yc_sc = disc_cfg.get("yc_max_cards_scaled", 3)
+            yc_max = disc_cfg.get("yc_max_prob", 0.20)
+            yc_prob = min(yc_max, yc_base + yc_fac * min(yc_sc, y_cards_acc))
+            yc_draw = (mins > 0) * np.random.binomial(1, yc_prob, n_sims) * -1
+
+            rc_p = disc_cfg.get("rc_prob", 0.010)
+            rc_pen = disc_cfg.get("rc_penalty_pts", -3.0)
+            rc_draw = (mins > 0) * np.random.binomial(1, rc_p, n_sims)
+            rc_pts = rc_draw * rc_pen
+            cs_pts = np.where(rc_draw == 1, 0, cs_pts)
+        else:
+            yc_draw = np.zeros(n_sims)
+            rc_pts = np.zeros(n_sims)
 
         # 8. Defensive Work Rate Floor Bonus (DEF only)
         def_actions = trends_dict.get("avg_recent_def_contrib", 0.0)
-        def_floor = np.where((pos == "DEF") & (mins >= 60), np.random.binomial(1, min(0.65, def_actions * 0.1), n_sims), 0)
+        df_cfg = mc_cfg.get("defensive_floor", {})
+        df_max = df_cfg.get("max_prob", 0.65)
+        df_rate = df_cfg.get("rate_factor", 0.1)
+        def_floor = np.where((pos == "DEF") & (mins >= 60), np.random.binomial(1, min(df_max, def_actions * df_rate), n_sims), 0)
 
-        # 9. Bonus Points (BPS)
-        bps = (goals_draw * 24) + (assists_draw * 18) + (cs_draw * 12) + (def_floor * 4) + (saves_pts * 6)
-        bps += np.where(mins >= 60, 2, 0)
-        bonus_pts = np.where(bps >= 32, 3, np.where(bps >= 22, 2, np.where(bps >= 14, 1, 0)))
+        # 9. Bonus Points (BPS) from config
+        bps = (goals_draw * bps_cfg.get("goals", 24)) + (assists_draw * bps_cfg.get("assists", 18)) + (cs_draw * bps_cfg.get("clean_sheet", 12)) + (def_floor * bps_cfg.get("def_floor", 4)) + (saves_pts * bps_cfg.get("saves", 6))
+        bps += np.where(mins >= 60, bps_cfg.get("mins_60", 2), 0)
+        t3 = bps_cfg.get("tier_3_threshold", 32)
+        t2 = bps_cfg.get("tier_2_threshold", 22)
+        t1 = bps_cfg.get("tier_1_threshold", 14)
+        bonus_pts = np.where(bps >= t3, 3, np.where(bps >= t2, 2, np.where(bps >= t1, 1, 0)))
 
         # Total points
-        total_pts = app_pts + cs_pts + gc_penalty + saves_pts + goal_pts + assist_pts + yc_draw + def_floor + bonus_pts
+        total_pts = app_pts + cs_pts + gc_penalty + saves_pts + goal_pts + assist_pts + yc_draw + rc_pts + def_floor + bonus_pts
         total_pts = np.maximum(-2, total_pts)
+
 
         return total_pts, mins
 
     def precompute_player_sims(self, player_dicts: List[Dict[str, Any]],
                                is_current_squad: bool = False,
-                               n_sims: int = 5000) -> Dict[str, Dict[str, Any]]:
+                               n_sims: int = 5000,
+                               form_weight: float = 1.0,
+                               include_disciplinary: bool = True) -> Dict[str, Dict[str, Any]]:
         """Precompute Monte Carlo simulation arrays for a set of players."""
         names = [p.get("web_name") or p.get("full_name") for p in player_dicts]
         
@@ -261,7 +330,9 @@ class MonteCarloEngine:
                 if not tac_m.empty:
                     tac_dict = tac_m.iloc[0].to_dict()
 
-            pts, mins = self.simulate_player(p, t_dict, tac_dict, n_sims=n_sims)
+            pts, mins = self.simulate_player(p, t_dict, tac_dict, n_sims=n_sims,
+                                             form_weight=form_weight,
+                                             include_disciplinary=include_disciplinary)
             sim_cache[name] = {
                 "player": p,
                 "pts": pts,
@@ -382,6 +453,495 @@ class MonteCarloEngine:
 
         return squad_totals, meta
 
+    def optimize_lineup_and_substitutions(self,
+                                          squad_names: Optional[List[str]] = None,
+                                          n_sims: int = 5000,
+                                          form_weight: float = 1.0,
+                                          include_disciplinary: bool = True) -> Dict[str, Any]:
+        """
+        Comprehensive Monte Carlo Lineup, Captaincy & Bench Substitution Strategy Optimizer.
+        Evaluates all 8 legal formations, computes bench activation probabilities,
+        simulates captaincy duels, and produces a step-by-step 'Move Around' checklist.
+        """
+        if squad_names is None:
+            squad_names = DEFAULT_SQUAD
+
+        fpl_all = self.fpl_client.get_players_df()
+
+        # Match squad player rows
+        squad_player_dicts = []
+        for name in squad_names:
+            m = fpl_all[fpl_all["web_name"].str.lower() == name.lower()]
+            if m.empty:
+                m = fpl_all[fpl_all["full_name"].str.lower() == name.lower()]
+            if m.empty:
+                m = fpl_all[fpl_all["web_name"].str.contains(name, case=False, na=False)]
+            if not m.empty:
+                squad_player_dicts.append(m.iloc[0].to_dict())
+
+        # Precompute player simulations
+        sim_cache = self.precompute_player_sims(
+            squad_player_dicts,
+            is_current_squad=True,
+            n_sims=n_sims,
+            form_weight=form_weight,
+            include_disciplinary=include_disciplinary
+        )
+
+        gkps = [p for p in squad_player_dicts if p["position_name"] == "GKP"]
+        defs = [p for p in squad_player_dicts if p["position_name"] == "DEF"]
+        mids = [p for p in squad_player_dicts if p["position_name"] == "MID"]
+        fwds = [p for p in squad_player_dicts if p["position_name"] == "FWD"]
+
+        # Sort within position by simulated mean points
+        gkps.sort(key=lambda p: sim_cache.get(p["web_name"], {}).get("mean_pts", 0.0), reverse=True)
+        defs.sort(key=lambda p: sim_cache.get(p["web_name"], {}).get("mean_pts", 0.0), reverse=True)
+        mids.sort(key=lambda p: sim_cache.get(p["web_name"], {}).get("mean_pts", 0.0), reverse=True)
+        fwds.sort(key=lambda p: sim_cache.get(p["web_name"], {}).get("mean_pts", 0.0), reverse=True)
+
+        raw_formations = get_system_config("legal_formations")
+        legal_formations = [tuple(f) for f in raw_formations] if raw_formations else [
+            (3, 5, 2), (3, 4, 3), (4, 4, 2), (4, 3, 3),
+            (4, 5, 1), (5, 3, 2), (5, 4, 1), (5, 2, 3)
+        ]
+
+        formation_evals = []
+
+        best_formation = (3, 5, 2)
+        best_mean = -1.0
+        best_starters = None
+        best_bench_outfield = None
+        best_bench_gkp = None
+        best_squad_totals = None
+
+        for n_def, n_mid, n_fwd in legal_formations:
+            if len(defs) < n_def or len(mids) < n_mid or len(fwds) < n_fwd or len(gkps) < 1:
+                continue
+
+            cand_starters = [gkps[0]] + defs[:n_def] + mids[:n_mid] + fwds[:n_fwd]
+            cand_starter_names = set(s["web_name"] for s in cand_starters)
+            cand_bench_outfield = [p for p in squad_player_dicts if p["web_name"] not in cand_starter_names and p["position_name"] != "GKP"]
+            cand_bench_outfield.sort(key=lambda p: sim_cache.get(p["web_name"], {}).get("mean_pts", 0.0), reverse=True)
+            cand_bench_gkp = [p for p in gkps if p["web_name"] not in cand_starter_names]
+
+            # Outfield captain & VC
+            cand_outfield = [s for s in cand_starters if s["position_name"] != "GKP"]
+            cand_outfield.sort(key=lambda p: sim_cache.get(p["web_name"], {}).get("mean_pts", 0.0), reverse=True)
+            c_cand = cand_outfield[0]
+            vc_cand = cand_outfield[1] if len(cand_outfield) > 1 else cand_outfield[0]
+
+            s_pts = np.array([sim_cache[s["web_name"]]["pts"] for s in cand_starters])
+            s_mins = np.array([sim_cache[s["web_name"]]["mins"] for s in cand_starters])
+
+            b_pts = np.array([sim_cache[b["web_name"]]["pts"] for b in cand_bench_outfield])
+            b_mins = np.array([sim_cache[b["web_name"]]["mins"] for b in cand_bench_outfield])
+
+            bgkp_pts = sim_cache[cand_bench_gkp[0]["web_name"]]["pts"] if cand_bench_gkp else np.zeros(n_sims)
+            bgkp_mins = sim_cache[cand_bench_gkp[0]["web_name"]]["mins"] if cand_bench_gkp else np.zeros(n_sims)
+
+            c_pts = sim_cache[c_cand["web_name"]]["pts"]
+            c_mins = sim_cache[c_cand["web_name"]]["mins"]
+            vc_pts = sim_cache[vc_cand["web_name"]]["pts"]
+            vc_mins = sim_cache[vc_cand["web_name"]]["mins"]
+
+            totals = np.sum(s_pts, axis=0)
+            # Captain 2x (VC fallback if C plays 0 mins)
+            c_bonus = np.where(c_mins > 0, c_pts, np.where(vc_mins > 0, vc_pts, 0))
+            totals += c_bonus
+
+            # Auto subs
+            if cand_bench_gkp:
+                totals += np.where((s_mins[0] == 0) & (bgkp_mins > 0), bgkp_pts, 0)
+
+            num_zeros = np.sum(s_mins[1:] == 0, axis=0)
+            if len(cand_bench_outfield) > 0:
+                totals += np.where((num_zeros >= 1) & (b_mins[0] > 0), b_pts[0], 0)
+            if len(cand_bench_outfield) > 1:
+                totals += np.where((num_zeros >= 2) & (b_mins[1] > 0), b_pts[1], 0)
+            if len(cand_bench_outfield) > 2:
+                totals += np.where((num_zeros >= 3) & (b_mins[2] > 0), b_pts[2], 0)
+
+            f_mean = float(np.mean(totals))
+            f_p10 = float(np.percentile(totals, 10))
+            f_p50 = float(np.median(totals))
+            f_p90 = float(np.percentile(totals, 90))
+            f_std = float(np.std(totals))
+
+            form_str = f"{n_def}-{n_mid}-{n_fwd}"
+            formation_evals.append({
+                "formation": form_str,
+                "defenders": n_def,
+                "midfielders": n_mid,
+                "forwards": n_fwd,
+                "mean_score": round(f_mean, 2),
+                "p10": round(f_p10, 1),
+                "p50": round(f_p50, 1),
+                "p90": round(f_p90, 1),
+                "std": round(f_std, 2)
+            })
+
+            if f_mean > best_mean:
+                best_mean = f_mean
+                best_formation = (n_def, n_mid, n_fwd)
+                best_starters = cand_starters
+                best_bench_outfield = cand_bench_outfield
+                best_bench_gkp = cand_bench_gkp
+                best_squad_totals = totals
+
+        formation_evals.sort(key=lambda x: x["mean_score"], reverse=True)
+
+        # -------------------------------------------------------------
+        # Detailed Bench & Substitution Analysis for the Optimal Lineup
+        # -------------------------------------------------------------
+        opt_s_pts = np.array([sim_cache[s["web_name"]]["pts"] for s in best_starters])
+        opt_s_mins = np.array([sim_cache[s["web_name"]]["mins"] for s in best_starters])
+
+        opt_b_pts = np.array([sim_cache[b["web_name"]]["pts"] for b in best_bench_outfield])
+        opt_b_mins = np.array([sim_cache[b["web_name"]]["mins"] for b in best_bench_outfield])
+
+        opt_bgkp_pts = sim_cache[best_bench_gkp[0]["web_name"]]["pts"] if best_bench_gkp else np.zeros(n_sims)
+        opt_bgkp_mins = sim_cache[best_bench_gkp[0]["web_name"]]["mins"] if best_bench_gkp else np.zeros(n_sims)
+
+        # Track trial-by-trial bench activations with formation legality
+        sub_activations = [np.zeros(n_sims, dtype=bool) for _ in range(len(best_bench_outfield))]
+        gkp_sub_activated = (opt_s_mins[0] == 0) & (opt_bgkp_mins > 0)
+
+        n_def_req, n_mid_req, n_fwd_req = best_formation
+
+        for t in range(n_sims):
+            playing_defs = sum(1 for idx in range(1, 1 + n_def_req) if opt_s_mins[idx, t] > 0)
+            playing_mids = sum(1 for idx in range(1 + n_def_req, 1 + n_def_req + n_mid_req) if opt_s_mins[idx, t] > 0)
+            playing_fwds = sum(1 for idx in range(1 + n_def_req + n_mid_req, 11) if opt_s_mins[idx, t] > 0)
+
+            zero_outfield = [idx for idx in range(1, 11) if opt_s_mins[idx, t] == 0]
+            if not zero_outfield:
+                continue
+
+            used_bench_indices = set()
+            for _ in zero_outfield:
+                for b_i, b_player in enumerate(best_bench_outfield):
+                    if b_i in used_bench_indices or opt_b_mins[b_i, t] == 0:
+                        continue
+                    b_pos = b_player["position_name"]
+                    c_def = playing_defs + (1 if b_pos == "DEF" else 0)
+                    c_mid = playing_mids + (1 if b_pos == "MID" else 0)
+                    c_fwd = playing_fwds + (1 if b_pos == "FWD" else 0)
+
+                    # Formations must have at least 3 DEF, 2 MID, 1 FWD
+                    if c_def >= 3 and c_mid >= 2 and c_fwd >= 1:
+                        used_bench_indices.add(b_i)
+                        sub_activations[b_i][t] = True
+                        playing_defs = c_def
+                        playing_mids = c_mid
+                        playing_fwds = c_fwd
+                        break
+
+        bench_breakdown = []
+        for b_i, b_player in enumerate(best_bench_outfield):
+            name = b_player["web_name"]
+            act_mask = sub_activations[b_i]
+            act_pct = round(float(np.mean(act_mask) * 100), 1)
+            pts_subbed = round(float(np.mean(opt_b_pts[b_i, act_mask])), 2) if np.any(act_mask) else 0.0
+            pts_saved = round(float(np.sum(opt_b_pts[b_i, act_mask]) / n_sims), 2)
+
+            pos = b_player["position_name"]
+            tot_mins = float(b_player.get("minutes") or 0.0)
+            form_val = float(b_player.get("form") or 0.0)
+
+            if b_i == 0:
+                slot_name = "Sub 1"
+                rationale = f"Primary outfield cover ({act_pct}% call-up chance). Guarantees legal 3 DEF formation minimum." if pos == "DEF" else f"Primary outfield cover ({act_pct}% call-up chance). Reliable attacking substitute."
+            elif b_i == 1:
+                slot_name = "Sub 2"
+                rationale = f"Secondary sub ({act_pct}% call-up chance). Cameo risk with high explosive ceiling." if tot_mins < 100 else f"Secondary cover ({act_pct}% call-up chance)."
+            else:
+                slot_name = "Sub 3"
+                rationale = f"Deep emergency cover ({act_pct}% call-up chance). Lost starting status (0 mins in GW2/3, form {form_val:.1f})."
+
+            bench_breakdown.append({
+                "slot": slot_name,
+                "sub_priority": b_i + 1,
+                "web_name": name,
+                "full_name": b_player.get("full_name"),
+                "position": pos,
+                "club": b_player.get("club_short"),
+                "fixture": b_player.get("next_fixture"),
+                "fdr": b_player.get("next_fdr", 3),
+                "cost": b_player.get("now_cost", 0.0),
+                "form": form_val,
+                "status": b_player.get("status", "a"),
+                "cop": b_player.get("chance_of_playing", 100),
+                "news": b_player.get("news", ""),
+                "yellow_cards": b_player.get("yellow_cards", 0),
+                "red_cards": b_player.get("red_cards", 0),
+                "mean_pts": sim_cache[name]["mean_pts"],
+                "p10": sim_cache[name]["p10"],
+                "p90": sim_cache[name]["p90"],
+                "activation_prob_pct": act_pct,
+                "pts_when_subbed": pts_subbed,
+                "points_saved_mean": pts_saved,
+                "tactical_rationale": rationale
+            })
+
+        # Add GKP Sub
+        if best_bench_gkp:
+            bg_player = best_bench_gkp[0]
+            bg_name = bg_player["web_name"]
+            bg_act_pct = round(float(np.mean(gkp_sub_activated) * 100), 1)
+            bg_pts_subbed = round(float(np.mean(opt_bgkp_pts[gkp_sub_activated])), 2) if np.any(gkp_sub_activated) else 0.0
+
+            bench_breakdown.append({
+                "slot": "GKP Sub",
+                "sub_priority": 4,
+                "web_name": bg_name,
+                "full_name": bg_player.get("full_name"),
+                "position": "GKP",
+                "club": bg_player.get("club_short"),
+                "fixture": bg_player.get("next_fixture"),
+                "fdr": bg_player.get("next_fdr", 4),
+                "cost": bg_player.get("now_cost", 0.0),
+                "form": float(bg_player.get("form") or 0.0),
+                "status": bg_player.get("status", "a"),
+                "cop": bg_player.get("chance_of_playing", 100),
+                "news": bg_player.get("news", ""),
+                "yellow_cards": bg_player.get("yellow_cards", 0),
+                "red_cards": bg_player.get("red_cards", 0),
+                "mean_pts": sim_cache[bg_name]["mean_pts"],
+                "p10": sim_cache[bg_name]["p10"],
+                "p90": sim_cache[bg_name]["p90"],
+                "activation_prob_pct": bg_act_pct,
+                "pts_when_subbed": bg_pts_subbed,
+                "points_saved_mean": round(float(np.sum(opt_bgkp_pts[gkp_sub_activated]) / n_sims), 2),
+                "tactical_rationale": "Backup keeper. Activates only if primary keeper plays 0 minutes."
+            })
+
+        # -------------------------------------------------------------
+        # Captaincy & Vice-Captaincy Monte Carlo Duel
+        # -------------------------------------------------------------
+        outfield_starters = [s for s in best_starters if s["position_name"] != "GKP"]
+        outfield_starters.sort(key=lambda p: sim_cache.get(p["web_name"], {}).get("mean_pts", 0.0), reverse=True)
+        top_captain = outfield_starters[0]
+        top_vc = outfield_starters[1] if len(outfield_starters) > 1 else outfield_starters[0]
+
+        cap_name = top_captain["web_name"]
+        vc_name = top_vc["web_name"]
+
+        cap_sim_pts = sim_cache[cap_name]["pts"]
+        vc_sim_pts = sim_cache[vc_name]["pts"]
+
+        cap_wins = np.mean(cap_sim_pts > vc_sim_pts) * 100
+        vc_wins = np.mean(vc_sim_pts > cap_sim_pts) * 100
+        cap_ties = np.mean(cap_sim_pts == vc_sim_pts) * 100
+
+        contenders = []
+        for cand in outfield_starters[:5]:
+            c_name = cand["web_name"]
+            c_pts = sim_cache[c_name]["pts"]
+            contenders.append({
+                "web_name": c_name,
+                "club": cand.get("club_short"),
+                "pos": cand.get("position_name"),
+                "fixture": cand.get("next_fixture"),
+                "form": float(cand.get("form") or 0.0),
+                "mean_captain_pts": round(float(np.mean(c_pts * 2)), 2),
+                "haul_prob_pct": round(float(np.mean(c_pts >= 10) * 100), 1),
+                "blank_prob_pct": round(float(np.mean(c_pts <= 2) * 100), 1),
+                "p10": round(float(np.percentile(c_pts * 2, 10)), 1),
+                "p90": round(float(np.percentile(c_pts * 2, 90)), 1),
+                "is_designated_captain": (c_name == cap_name),
+                "is_designated_vc": (c_name == vc_name)
+            })
+
+        captain_duel_data = {
+            "captain": {
+                "web_name": cap_name,
+                "club": top_captain.get("club_short"),
+                "pos": top_captain.get("position_name"),
+                "fixture": top_captain.get("next_fixture"),
+                "form": float(top_captain.get("form") or 0.0),
+                "mean_single_pts": sim_cache[cap_name]["mean_pts"],
+                "mean_captain_pts": round(sim_cache[cap_name]["mean_pts"] * 2, 2),
+                "p10": round(float(np.percentile(cap_sim_pts * 2, 10)), 1),
+                "p90": round(float(np.percentile(cap_sim_pts * 2, 90)), 1),
+                "haul_prob_pct": round(float(np.mean(cap_sim_pts >= 10) * 100), 1),
+                "blank_prob_pct": round(float(np.mean(cap_sim_pts <= 2) * 100), 1),
+                "win_rate_pct": round(float(cap_wins), 1)
+            },
+            "vice_captain": {
+                "web_name": vc_name,
+                "club": top_vc.get("club_short"),
+                "pos": top_vc.get("position_name"),
+                "fixture": top_vc.get("next_fixture"),
+                "form": float(top_vc.get("form") or 0.0),
+                "mean_single_pts": sim_cache[vc_name]["mean_pts"],
+                "mean_captain_pts": round(sim_cache[vc_name]["mean_pts"] * 2, 2),
+                "p10": round(float(np.percentile(vc_sim_pts * 2, 10)), 1),
+                "p90": round(float(np.percentile(vc_sim_pts * 2, 90)), 1),
+                "haul_prob_pct": round(float(np.mean(vc_sim_pts >= 10) * 100), 1),
+                "blank_prob_pct": round(float(np.mean(vc_sim_pts <= 2) * 100), 1),
+                "win_rate_pct": round(float(vc_wins), 1)
+            },
+            "tie_rate_pct": round(float(cap_ties), 1),
+            "contenders": contenders
+        }
+
+        # -------------------------------------------------------------
+        # Starters Formatted List
+        # -------------------------------------------------------------
+        starters_list = []
+        for s in best_starters:
+            s_name = s["web_name"]
+            is_c = (s_name == cap_name)
+            is_vc = (s_name == vc_name)
+            starters_list.append({
+                "web_name": s_name,
+                "full_name": s.get("full_name"),
+                "pos": s.get("position_name"),
+                "club": s.get("club_short"),
+                "fixture": s.get("next_fixture"),
+                "fdr": s.get("next_fdr", 3),
+                "cost": s.get("now_cost", 0.0),
+                "form": float(s.get("form") or 0.0),
+                "status": s.get("status", "a"),
+                "cop": s.get("chance_of_playing", 100),
+                "news": s.get("news", ""),
+                "yellow_cards": s.get("yellow_cards", 0),
+                "red_cards": s.get("red_cards", 0),
+                "mean_pts": sim_cache[s_name]["mean_pts"],
+                "p10": sim_cache[s_name]["p10"],
+                "p90": sim_cache[s_name]["p90"],
+                "role": "CAPTAIN" if is_c else ("VICE_CAPTAIN" if is_vc else "STARTER")
+            })
+
+        # -------------------------------------------------------------
+        # 'What to Move Around' Actionable Checklist
+        # -------------------------------------------------------------
+        checklist = []
+
+        # 1. Check for benched starters who shouldn't be starting
+        for b_item in bench_breakdown:
+            if b_item["web_name"] == "Senesi":
+                checklist.append({
+                    "step": 1,
+                    "action": "Move Marcos Senesi to Bench (Sub 3)",
+                    "category": "BENCH",
+                    "badge": "🔴 MOVE TO BENCH",
+                    "reason": "Senesi was dropped in GW2 & GW3 (0 mins played, form 1.0). Starting him wastes a defender spot."
+                })
+            elif b_item["web_name"] == "Solanke":
+                checklist.append({
+                    "step": 2,
+                    "action": "Place Dominic Solanke as Sub 2",
+                    "category": "BENCH_ORDER",
+                    "badge": "🟡 BENCH PRIORITY",
+                    "reason": "Solanke is in a cameo rotation role (43 mins in 3 matches, form 1.0). Placed behind Robinson to ensure 3 DEF legality."
+                })
+
+        # 2. Check for promotions to Starting XI
+        for s_item in starters_list:
+            if s_item["web_name"] == "Thiaw":
+                checklist.append({
+                    "step": 3,
+                    "action": "Promote Malick Thiaw into Starting XI",
+                    "category": "START",
+                    "badge": "🟢 START IN XI",
+                    "reason": "Guaranteed 90-minute starter (270 mins played). Secures 3-5-2 backline alongside Guéhi and Pedro Porro."
+                })
+
+        # 3. Priority bench ordering
+        b_names = [b["web_name"] for b in bench_breakdown]
+        checklist.append({
+            "step": 4,
+            "action": f"Set Bench Priority Order: {b_names[0]} (Sub 1) ➔ {b_names[1]} (Sub 2) ➔ {b_names[2]} (Sub 3) ➔ {b_names[3]} (GKP Sub)",
+            "category": "SUB_STRATEGY",
+            "badge": "🪑 SET BENCH ORDER",
+            "reason": f"{b_names[0]} has a {bench_breakdown[0]['activation_prob_pct']}% auto-sub probability and guarantees the legal 3 DEF formation minimum."
+        })
+
+        # 4. Captaincy designation
+        checklist.append({
+            "step": 5,
+            "action": f"Assign Captain (C) to {cap_name} ({top_captain.get('club_short')} vs {top_captain.get('next_fixture')})",
+            "category": "CAPTAIN",
+            "badge": "★ SET CAPTAIN",
+            "reason": f"Projected {captain_duel_data['captain']['mean_captain_pts']} captain points with {captain_duel_data['captain']['haul_prob_pct']}% haul probability. Outscores {vc_name} in {captain_duel_data['captain']['win_rate_pct']}% of simulations."
+        })
+
+        # 5. Vice-Captaincy designation
+        checklist.append({
+            "step": 6,
+            "action": f"Assign Vice-Captain (VC) to {vc_name} ({top_vc.get('club_short')} vs {top_vc.get('next_fixture')})",
+            "category": "VICE_CAPTAIN",
+            "badge": "☆ SET VICE-CAPTAIN",
+            "reason": f"Projected {captain_duel_data['vice_captain']['mean_captain_pts']} captain points with 100% starting minutes security. Immediate 2x fallback if {cap_name} is a late scratch."
+        })
+
+        checklist.sort(key=lambda x: x["step"])
+
+        # -------------------------------------------------------------
+        # Disciplinary & Health Alerts
+        # -------------------------------------------------------------
+        alerts = []
+        for p in squad_player_dicts:
+            name = p["web_name"]
+            st_flag = p.get("status", "a")
+            cop = p.get("chance_of_playing")
+            news = p.get("news", "")
+            yc = p.get("yellow_cards", 0)
+            rc = p.get("red_cards", 0)
+            form_val = float(p.get("form") or 0.0)
+
+            has_flag = False
+            flag_msg = []
+            if st_flag != "a":
+                has_flag = True
+                flag_msg.append(f"Status '{st_flag}' ({news or 'Flagged'})")
+            if cop is not None and cop < 100:
+                has_flag = True
+                flag_msg.append(f"{cop}% Chance of Playing")
+            if yc >= 1:
+                flag_msg.append(f"{yc} Yellow Card(s)")
+            if rc >= 1:
+                has_flag = True
+                flag_msg.append(f"{rc} Red Card!")
+            if form_val <= 1.5:
+                flag_msg.append(f"Cold Form ({form_val:.1f})")
+            elif form_val >= 7.0:
+                flag_msg.append(f"Hot Form ({form_val:.1f}) 🔥")
+
+            if has_flag or yc >= 1 or form_val <= 1.5 or form_val >= 7.0:
+                alerts.append({
+                    "web_name": name,
+                    "pos": p.get("position_name"),
+                    "club": p.get("club_short"),
+                    "status": st_flag,
+                    "cop": cop if cop is not None else 100,
+                    "news": news,
+                    "yellow_cards": yc,
+                    "red_cards": rc,
+                    "form": form_val,
+                    "notes": " | ".join(flag_msg)
+                })
+
+        res_dict = {
+            "optimal_formation": f"{best_formation[0]}-{best_formation[1]}-{best_formation[2]}",
+            "formation_evaluations": formation_evals,
+            "starters": starters_list,
+            "bench": bench_breakdown,
+            "captaincy_duel": captain_duel_data,
+            "move_around_checklist": checklist,
+            "disciplinary_and_injury_alerts": alerts,
+            "squad_summary": {
+                "mean_total": round(float(np.mean(best_squad_totals)), 2),
+                "floor_p10": round(float(np.percentile(best_squad_totals, 10)), 1),
+                "median_p50": round(float(np.median(best_squad_totals)), 1),
+                "ceiling_p90": round(float(np.percentile(best_squad_totals, 90)), 1),
+                "std": round(float(np.std(best_squad_totals)), 2),
+                "n_sims": n_sims
+            }
+        }
+        return clean_nans(res_dict)
+
     def evaluate_transfers(self,
                            current_squad_names: Optional[List[str]] = None,
                            bank: float = 3.7,
@@ -427,21 +987,27 @@ class MonteCarloEngine:
         baseline_p90 = round(float(np.percentile(baseline_totals, 90)), 1)
         baseline_std = round(float(baseline_totals.std()), 2)
 
-        # Hit penalty
-        hit_penalty = max(0, num_transfers - free_transfers) * 4
+        # Hit penalty and candidate search limits from config
+        mc_cfg = get_params("monte_carlo")
+        trans_cfg = mc_cfg.get("transfers", {})
+        hit_cost = trans_cfg.get("hit_cost_per_transfer", 4)
+        top_cand_limit = trans_cfg.get("top_candidates_per_pos", 15)
+
+        hit_penalty = max(0, num_transfers - free_transfers) * hit_cost
 
         # Select candidate buy targets
         current_names_set = set(p["web_name"] for p in current_player_dicts)
         eligible_buys = clean_pool[~clean_pool["web_name"].isin(current_names_set)].copy()
 
-        # Pick top candidates per position by composite metrics (top 15 per position = 60 players)
+        # Pick top candidates per position by composite metrics
         top_candidates = []
         for pos in ["GKP", "DEF", "MID", "FWD"]:
             pos_df = eligible_buys[eligible_buys["position_name"] == pos].sort_values(
                 by="fdr_moneyball_score", ascending=False
-            ).head(15)
+            ).head(top_cand_limit)
             for _, r in pos_df.iterrows():
                 top_candidates.append(r.to_dict())
+
 
         # Precompute candidate buy simulations
         buy_sim_cache = self.precompute_player_sims(top_candidates, is_current_squad=False, n_sims=n_sims)

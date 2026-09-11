@@ -28,11 +28,26 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
    - [Program 1: Interactive Streamlit Web Dashboard (`app.py`)](#program-1-interactive-streamlit-web-dashboard-apppy)
    - [Program 2: FastAPI REST Microservice (`api.py`)](#program-2-fastapi-rest-microservice-apipy)
    - [Program 3: Master CLI Dispatcher (`team_manager.py`)](#program-3-master-cli-dispatcher-team_managerpy)
-   - [Program 4: Specialized Modular CLI Trackers](#program-4-specialized-modular-cli-trackers)
-5. [REST API Documentation & cURL Examples](#rest-api-documentation--curl-examples)
-6. [CLI Command Cheat Sheet](#cli-command-cheat-sheet)
-7. [Repository Architecture](#repository-architecture)
-8. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop)
+   - [Program 4: Backtesting & Auto-Tuning CLI (`tuner/cli.py`)](#program-4-backtesting--auto-tuning-cli-tunerclipy)
+   - [Program 5: Specialized Modular CLI Trackers](#program-5-specialized-modular-cli-trackers)
+5. [Walk-Forward Backtesting & Optuna Auto-Tuning Subsystem](#walk-forward-backtesting--optuna-auto-tuning-subsystem)
+   - [Subsystem Architecture & Flow](#subsystem-architecture--flow)
+   - [Historical Data Pipeline & Anti-Leakage Guarantee](#historical-data-pipeline--anti-leakage-guarantee)
+   - [Position-Differentiated Moneyball Scoring Formulas](#position-differentiated-moneyball-scoring-formulas)
+   - [Walk-Forward Simulator Mechanics](#walk-forward-simulator-mechanics)
+   - [Optuna TPESampler Hyperparameter Optimization Engine](#optuna-tpesampler-hyperparameter-optimization-engine)
+   - [Interactive Optuna Web Dashboard (Port 8502)](#interactive-optuna-web-dashboard-port-8502)
+   - [CLI Commands & Workflow Execution](#cli-commands--workflow-execution)
+6. [Centralized Configuration Engine (`config.yaml`)](#centralized-configuration-engine-configyaml)
+   - [Architecture & Profile Structure](#architecture--profile-structure)
+   - [Heuristic vs. Tuned Parameter Profiles](#heuristic-vs-tuned-parameter-profiles)
+   - [Historical Season Rules & FT Rollover Limits](#historical-season-rules--ft-rollover-limits)
+   - [Python API Access (`config_manager.py`)](#python-api-access-config_managerpy)
+7. [Automated Test Suite & Quality Assurance (33/33 Tests Passing)](#automated-test-suite--quality-assurance-3333-tests-passing)
+8. [REST API Documentation & cURL Examples](#rest-api-documentation--curl-examples)
+9. [CLI Command Cheat Sheet](#cli-command-cheat-sheet)
+10. [Repository Architecture](#repository-architecture)
+11. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop)
 
 ---
 
@@ -305,8 +320,11 @@ python team_manager.py transfers --mc --sell Senesi
 # 4. Filter replacement targets to Midfielders
 python team_manager.py transfers --mc --pos MID
 
-# 5. Solve optimal Starting XI and Captaincy via bookmaker odds
+# 5. Solve optimal Starting XI and Captaincy via bookmaker odds (Linear xP)
 python team_manager.py lineup
+
+# 6. Monte Carlo Lineup, Bench Activation & Captaincy Strategy (2,500 trials)
+python team_manager.py lineup --mc --sims 2500
 
 # 6. View Bronze, Silver & Gold League standings
 python team_manager.py league
@@ -344,7 +362,28 @@ python team_manager.py draft --budget 100.0
 
 ---
 
-### Program 4: Specialized Modular CLI Trackers
+### Program 4: Backtesting & Auto-Tuning CLI (`tuner/cli.py`)
+
+A dedicated command-line environment for multi-season walk-forward simulation, Optuna parameter optimization, and interactive dashboard serving:
+
+```powershell
+# 1. Ingest and cache historical seasons (2021-22, 2022-23, 2023-24, 2024-25)
+python -m tuner.cli fetch-data --seasons 2021-22 2022-23 2023-24
+
+# 2. Run multi-season Optuna auto-tuning (50 trials across 4 CPU cores)
+python -m tuner.cli run --trials 50 --n-jobs 4 --train-seasons 2021-22 2022-23 --test-season 2023-24
+
+# 3. Launch interactive Optuna Web Dashboard on Port 8502
+python -m tuner.cli dashboard --port 8502
+
+# 4. Audit an individual season walk-forward using any profile
+python -m tuner.cli evaluate --profile heuristic --season 2023-24
+python -m tuner.cli evaluate --profile tuned --season 2023-24
+```
+
+---
+
+### Program 5: Specialized Modular CLI Trackers
 
 Each analytical module is self-contained and can be executed independently:
 
@@ -358,6 +397,220 @@ Each analytical module is self-contained and can be executed independently:
 | **`fixture_tracker.py`** | `python fixture_tracker.py` | `--weeks 5`<br>`--team Arsenal` | Calculates 5-week rolling FDR and identifies Green Swings / Red Walls. |
 | **`setpiece_tracker.py`** | `python setpiece_tracker.py` | `--team Liverpool` | Lists primary penalty, direct free-kick, and corner takers for all 20 clubs. |
 | **`league_tracker.py`** | `python league_tracker.py` | `--standings`<br>`--history`<br>`--spy <id>`<br>`--ownership` | Manages Bronze, Silver & Gold League scout, rival tracking, and EO%. |
+
+---
+
+## Walk-Forward Backtesting & Optuna Auto-Tuning Subsystem
+
+The **Walk-Forward Backtesting & Auto-Tuning Subsystem** simulates historical FPL campaigns with temporal isolation, models official Premier League game rules (auto-substitutions, captaincy doubling, season-dependent free transfer rollover limits, and single hit deductions), and employs Optuna's Tree-structured Parzen Estimator (TPE) algorithm to discover mathematically optimal Moneyball parameters.
+
+### Subsystem Architecture & Flow
+
+```mermaid
+flowchart TD
+    subgraph Data Pipeline
+        VAASTAV["Vaastav FPL Historical Dataset\n(2021-22 to 2024-25)"] --> LOADER["HistoricalDataLoader\n(backtest/data_loader.py)"]
+        LOADER --> CACHE["data/historical/*_merged_gw.csv\n(Local Disk Cache)"]
+        LOADER --> PRIORS["GW1 Prior Season Linker\n(Informative Per-90 Priors)"]
+        CACHE & PRIORS --> PIT["Point-in-Time Rolling Form Engine\n(Stats strictly < GW t)"]
+    end
+
+    subgraph Scoring Pipeline
+        PIT --> POS{"Position Filter"}
+        POS -->|FWD & MID| FWD_MB["xGI/90 * w + ICT/div + form * w + ppg * w"]
+        POS -->|DEF| DEF_MB["def_contrib/90 * w + xGI/90 * w + form * w + ICT/div + cs/90 * w"]
+        POS -->|GKP| GKP_MB["ppg * w + form * w + saves/90 * w + cs/90 * w"]
+    end
+
+    subgraph Simulation Loop
+        FWD_MB & DEF_MB & GKP_MB --> SIM["WalkForwardSimulator\n(backtest/simulator.py)"]
+        CONFIG["config.yaml\n(rules.max_banked_ft)"] --> SIM
+        SIM --> SQUAD["GW1: 15-Player MILP Team Draft"]
+        SQUAD --> GW_LOOP["GW2-38: Multi-Transfer Solver\n(Up to Banked Free Transfers)"]
+        GW_LOOP --> SUBS["Official FPL Auto-Substitutions\n& Captain Double Multiplier"]
+        SUBS --> METRICS["Sample Sharpe Ratio (ddof=1)\n& Risk-Adjusted Score"]
+    end
+
+    subgraph Tuner Engine
+        METRICS --> TUNER["HyperparameterTuner\n(tuner/engine.py)"]
+        TUNER --> OPTUNA["Optuna TPESampler (14 Active Params)"]
+        OPTUNA --> DB[("data/tuning_history.db\n(SQLite Trial Storage)")]
+        DB <--> DASH["Optuna Dashboard\n(http://127.0.0.1:8502)"]
+        OPTUNA --> RECON["reconstruct_params_from_dict\n(Safe Parameter Synthesis)"]
+        RECON --> UPDATER["updater.py\n(Hot-Updates tuned: profile in config.yaml)"]
+    end
+```
+
+### Historical Data Pipeline & Anti-Leakage Guarantee
+
+1. **Official Data Ingestion**:
+   [`HistoricalDataLoader`](backtest/data_loader.py) automatically streams and locally caches game-by-game records from `vaastav/Fantasy-Premier-League` for all supported seasons (`2021-22`, `2022-23`, `2023-24`, `2024-25`).
+2. **Point-in-Time Temporal Isolation**:
+   When simulating Gameweek $t$, all player statistics (xG, xA, xGI, ICT, clean sheets, saves, minutes) are strictly aggregated over gameweeks $k < t$. Forward-looking data is completely quarantined to prevent lookahead bias.
+3. **GW1 Informative Cross-Season Priors**:
+   Rather than assigning arbitrary flat priors to start the season, Gameweek 1 features are initialized using the player's final per-90 rates from the immediately preceding campaign (e.g. 2022–23 full-season rates serve as priors for 2023–24 GW1). Unseen or promoted players fall back safely to positional league baselines.
+4. **Synthetic Form Estimation**:
+   Because the live FPL `form` field is ephemeral and absent from raw historical records, the loader computes a synthetic form metric as the rolling points per game across a configurable `form_window` (default: 5 gameweeks):
+   $$\text{Synthetic Form}_t = \frac{\sum_{k=t-\text{window}}^{t-1} \text{Points}_k}{\max(1, \sum_{k=t-\text{window}}^{t-1} \mathbb{I}(\text{Played}_k))}$$
+5. **Rolling Availability Status**:
+   Player availability status (`status = 'a'` vs `'d'`) is dynamically modeled from minutes recorded over the last two gameweeks, ensuring rotation risks are identified.
+
+### Position-Differentiated Moneyball Scoring Formulas
+
+In the production client and backtester, players are evaluated using position-tailored Moneyball formulas rather than a generic attacking metric:
+
+- **Forwards & Midfielders (Attacking Process Dominance):**
+  $$\text{Score}_{\text{FWD/MID}} = (\text{xGI\_90} \times w_{\text{xgi}}) + \left(\frac{\text{ICT}}{\text{div}_{\text{ict}}}\right) + (\text{form} \times w_{\text{form}}) + (\text{ppg} \times w_{\text{ppg}})$$
+
+- **Defenders (Dual Clean Sheet & Floor Contribution):**
+  $$\text{Score}_{\text{DEF}} = (\text{def\_contrib\_90} \times w_{\text{def}}) + (\text{xGI\_90} \times w_{\text{xgi}}) + (\text{form} \times w_{\text{form}}) + \left(\frac{\text{ICT}}{\text{div}_{\text{ict}}}\right) + (\text{clean\_sheets\_90} \times w_{\text{cs}})$$
+
+- **Goalkeepers (Shot-Stopping Volume & Clean Sheets):**
+  $$\text{Score}_{\text{GKP}} = (\text{ppg} \times w_{\text{ppg}}) + (\text{form} \times w_{\text{form}}) + (\text{saves\_90} \times w_{\text{saves}}) + (\text{clean\_sheets\_90} \times w_{\text{cs}})$$
+
+*Fidelity Impact: Standardizing the backtester to this position-differentiated model lifted 2023–24 baseline performance from **1,671.0 points** to **1,892.0 points** (+221.0 net points).*
+
+### Walk-Forward Simulator Mechanics
+
+[`WalkForwardSimulator`](backtest/simulator.py) replicates the full season lifecycle:
+- **Gameweek 1 Squad Selection**: Solves an optimal 15-player squad within £100.0m using PuLP Mixed-Integer Linear Programming (or greedy position fallback if unconstrained).
+- **Gameweeks 2 to 38 Walk-Forward Execution**:
+  - **Multi-Transfer Support**: When multiple free transfers are banked, the simulator evaluates and executes up to `free_transfers` swaps per gameweek.
+  - **Season-Dependent Free Transfer Rollover Limit**: Enforces rule limits from `config.yaml`—maximum 2 banked transfers for pre-2024 seasons; up to 5 banked transfers for 2024–25 and beyond.
+  - **Lineup & Bench Optimization**: Evaluates all 8 legal FPL formations (`3-5-2`, `3-4-3`, `4-4-2`, `4-3-3`, `4-5-1`, `5-3-2`, `5-4-1`, `5-2-3`) and selects the highest-scoring legal XI, bench priority, Captain, and Vice-Captain.
+  - **Match Ground Truth & Official Auto-Subs**: Players recording 0 minutes are automatically replaced by eligible bench assets in priority order while maintaining minimum positional quotas (1 GKP, 3 DEF, 2 MID, 1 FWD). If the Captain plays 0 minutes, the Vice-Captain receives the $2\times$ multiplier.
+  - **Single Hit Deduction & Sample Sharpe Metric**: Transfer hits are deducted exactly once in gameweek net points ($4 \times \text{hits}$). The objective function uses the sample Sharpe ratio ($ddof=1$):
+    $$\mu_{\text{net}} = \frac{1}{38}\sum_{gw=1}^{38} \text{Net Points}_{gw}$$
+    $$\sigma_{\text{net}} = \sqrt{\frac{1}{37}\sum_{gw=1}^{38} (\text{Net Points}_{gw} - \mu_{\text{net}})^2}$$
+    $$\text{Sharpe Ratio} = \frac{\mu_{\text{net}}}{\max(1.0, \sigma_{\text{net}})}$$
+    $$\text{Risk-Adjusted Score} = \mu_{\text{net}} - (0.15 \times \sigma_{\text{net}})$$
+
+### Optuna TPESampler Hyperparameter Optimization Engine
+
+[`HyperparameterTuner`](tuner/engine.py) provides multi-season hyperparameter discovery:
+- **Pruned 14-Parameter Active Search Space**: Disconnected Monte Carlo and linear XP parameters were pruned from the search space, focusing 100% of the optimization budget on active Moneyball scoring and FDR parameters:
+  - FWD/MID weights: `xgi_per_90`, `ict_index_divisor`, `ppg_weight`, `form_weight`
+  - DEF weights: `def_contribution_per_90`, `clean_sheets_per_90`, `xgi_per_90`, `ict_index_divisor`, `form_weight`
+  - GKP weights: `saves_per_90`, `clean_sheets_per_90`, `ppg_weight`, `form_weight`
+  - FDR scaling: `scaling_factor`
+- **Out-of-Sample Generalization**: Optimization evaluates multi-season splits (e.g. train on 2021–22 and 2022–23; test strictly out-of-sample on unseen 2023–24).
+- **Safe Frozen Trial Reconstruction**: Uses `reconstruct_params_from_dict()` to reconstruct full parameter trees from completed trials without throwing frozen trial `suggest_*` warnings.
+- **Automated Hot-Updates**: Winning parameter sets that outperform the heuristic baseline automatically update `config.yaml` under `tuned:` with audit timestamps and improvement percentages.
+
+### Interactive Optuna Web Dashboard (Port 8502)
+
+Optuna provides a rich interactive web dashboard to monitor and inspect optimization studies in real time:
+
+```powershell
+python -m tuner.cli dashboard --port 8502
+```
+Navigate to: **`http://localhost:8502`**
+
+**Features:**
+- **Optimization History**: Gameweek score trajectories across trials.
+- **Parameter Importances**: Identifies which weights have the highest impact on Sharpe ratio.
+- **Slice & Contour Plots**: Visualizes 2D objective surfaces across parameter pairs.
+- **Parallel Coordinate Plots**: Traces multi-dimensional parameter paths for top-performing trials.
+
+### CLI Commands & Workflow Execution
+
+```powershell
+# 1. Download and cache historical Premier League datasets
+python -m tuner.cli fetch-data --seasons 2021-22 2022-23 2023-24
+
+# 2. Run 50-trial hyperparameter optimization across 4 CPU cores
+python -m tuner.cli run --trials 50 --n-jobs 4 --train-seasons 2021-22 2022-23 --test-season 2023-24
+
+# 3. Launch the web dashboard on custom port
+python -m tuner.cli dashboard --port 8502
+
+# 4. Audit single-season walk-forward with heuristic baseline
+python -m tuner.cli evaluate --profile heuristic --season 2023-24
+
+# 5. Audit single-season walk-forward with tuned profile
+python -m tuner.cli evaluate --profile tuned --season 2023-24
+```
+
+---
+
+## Centralized Configuration Engine (`config.yaml`)
+
+All parameters, operational heuristics, model constants, and game rules across the entire platform are unified in a single file: [`config.yaml`](config.yaml), accessed via [`config_manager.py`](config_manager.py).
+
+### Architecture & Profile Structure
+
+`config.yaml` is divided into three primary tiers:
+1. **`system:`**: Global operational parameters:
+   - Target gameweek, default squad list, bank balance, and league IDs.
+   - Cache TTLs, HTTP timeouts, retries, and exponential backoff bases.
+   - 8 legal formation matrices.
+   - Gameweek match odds.
+   - **`rules:`**: Historical FPL game rules, including season-specific transfer rollover limits (`max_banked_ft: {"2021-22": 2, "2022-23": 2, "2023-24": 2, "2024-25": 5}`).
+2. **`heuristic:`**: The battle-tested baseline configuration used in default production mode.
+3. **`tuned:`**: The hyperparameter profile automatically maintained and hot-updated by the Optuna auto-tuner when a superior parameter set is validated.
+4. **`tuning_metadata:`**: Audit history recording `best_trial_id`, `train_seasons`, `test_season`, `train_score`, `test_score`, `baseline_heuristic_points`, and `improvement_pct`.
+
+### Heuristic vs. Tuned Parameter Profiles
+
+Both profiles maintain strict schema parity across all functional modules:
+- **`moneyball:`**: Position-differentiated scoring weights (`fwd_mid`, `def`, `gkp`), set-piece bonuses, FDR multipliers, and price prediction parameters.
+- **`xp_model:`**: Expected minutes distributions (`secure_starter`, `regular_starter`, `rotation_risk`, `benched_or_dropped`), penalty conversion rates, and clean sheet factors.
+- **`monte_carlo:`**: Simulation count, form weights, cameo probabilities, yellow/red card rates, and defensive floor rates.
+- **`optimizer:`**: Budget limits, max players per club, and positional quotas.
+
+### Dual-Key Synchronization
+
+To guarantee 100% interoperability across the Streamlit UI, FastAPI microservice, FPL client, and backtester, [`config_manager.py`](config_manager.py) and [`tuner/search_space.py`](tuner/search_space.py) automatically synchronize canonical keys and aliases:
+- `fwd_mid` $\leftrightarrow$ `fwd_mid_weights`
+- `def` $\leftrightarrow$ `def_weights`
+- `gkp` $\leftrightarrow$ `gkp_weights`
+- `fdr_multiplier` $\leftrightarrow$ `fdr`
+- `monte_carlo` $\leftrightarrow$ `montecarlo`
+
+### Python API Access (`config_manager.py`)
+
+```python
+import config_manager
+
+# 1. Retrieve full config or active profile parameters
+cfg = config_manager.get_config()
+active = config_manager.get_active_profile()  # 'heuristic' or 'tuned'
+
+# 2. Retrieve specific parameter sections
+mb_params = config_manager.get_params("moneyball")
+fwd_mid = mb_params["fwd_mid"]
+
+# 3. Dynamic runtime profile switching
+config_manager.set_active_profile("tuned")
+
+# 4. Access system rules and settings
+sys_rules = config_manager.get_system_config("rules")
+ft_cap = sys_rules["max_banked_ft"].get("2024-25", 5)
+```
+
+---
+
+## Automated Test Suite & Quality Assurance (33/33 Tests Passing)
+
+The platform is fortified with **33 automated unit and regression tests** in the [`tests/`](tests/) directory, executed via `pytest`:
+
+```powershell
+python -m pytest tests/ -v
+```
+
+### Test Coverage Breakdown
+
+| Test File | Tests | Functional Scope Covered |
+| :--- | :---: | :--- |
+| **`tests/test_backtest.py`** | 8 | Dataset normalization, point-in-time anti-leakage isolation, lineup & bench selection, auto-subs & captain doubling, position-differentiated scoring (BUG-1), form window sensitivity (BUG-3), hit penalty accounting (BUG-2), season-dependent FT caps (BUG-4). |
+| **`tests/test_tuner.py`** | 4 | Search space parameter boundaries, 14-parameter Optuna sampling, safe parameter reconstruction from frozen trials (`reconstruct_params_from_dict`), atomic config updating. |
+| **`tests/test_config.py`** | 5 | Config YAML parsing, system keys, profile schema equality between `heuristic` and `tuned`, runtime profile switching, section retrieval. |
+| **`tests/test_montecarlo.py`** | 4 | NaN hygiene cleaning, healthy player simulation, unavailable player simulation, lineup & substitution optimization. |
+| **`tests/test_optimizer.py`** | 3 | Player index mapping, MILP squad budget & quota constraints, transfer feasibility solver. |
+| **`tests/test_fpl_client.py`** | 4 | Bootstrap data structures, fixtures structures, players DataFrame column schemas, team FDR maps. |
+| **`tests/test_api.py`** | 5 | Root endpoint, odds endpoint, clean players endpoint, lineup simulation endpoint, config endpoint. |
+
+*Result: **33 passed in ~4.0s** with 0 warnings or failures.*
 
 ---
 
@@ -434,13 +687,116 @@ curl -X POST "http://localhost:8000/api/simulate/transfers" \
 }
 ```
 
-### 2. Solve Starting XI & Auto-Subs
+### 2. Solve Starting XI, Bench Auto-Subs & Captaincy Strategy
 **Endpoint:** `POST /api/simulate/lineup`
+
+Runs vectorized Monte Carlo simulation across all 8 legal formations, evaluates bench auto-substitution activation probabilities, and performs a head-to-head captaincy duel with vice-captain fallback protection.
 
 ```bash
 curl -X POST "http://localhost:8000/api/simulate/lineup" \
      -H "Content-Type: application/json" \
-     -d '{ "sims": 2500 }'
+     -d '{
+       "sims": 2500,
+       "form_weight": 0.25,
+       "include_disciplinary": true
+     }'
+```
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "optimal_formation": "3-5-2",
+  "squad_summary": {
+    "mean_total": 76.7,
+    "floor_p10": 58.0,
+    "median_p50": 75.0,
+    "ceiling_p90": 96.5,
+    "std": 14.8,
+    "n_sims": 2500
+  },
+  "move_around_checklist": [
+    {
+      "step": 1,
+      "action": "Move Marcos Senesi to Bench (Sub 3)",
+      "badge": "🔴 MOVE TO BENCH",
+      "reason": "Senesi was dropped in GW2 & GW3 (0 mins played, form 1.0). Starting him wastes a defender spot."
+    },
+    {
+      "step": 2,
+      "action": "Place Dominic Solanke as Sub 2",
+      "badge": "🟡 BENCH PRIORITY",
+      "reason": "Solanke is in a cameo rotation role (43 mins in 3 matches, form 1.0). Placed behind Robinson to ensure 3 DEF legality."
+    },
+    {
+      "step": 3,
+      "action": "Promote Malick Thiaw into Starting XI",
+      "badge": "🟢 START IN XI",
+      "reason": "Guaranteed 90-minute starter (270 mins played). Secures 3-5-2 backline alongside Guéhi and Pedro Porro."
+    },
+    {
+      "step": 4,
+      "action": "Set Bench Priority Order: Robinson (Sub 1) ➔ Solanke (Sub 2) ➔ Senesi (Sub 3) ➔ Roefs (GKP Sub)",
+      "badge": "🪑 SET BENCH ORDER",
+      "reason": "Robinson has a 26.7% auto-sub probability and guarantees the legal 3 DEF formation minimum."
+    },
+    {
+      "step": 5,
+      "action": "Assign Captain (C) to Isak",
+      "badge": "★ SET CAPTAIN",
+      "reason": "Projected 20.68 captain points with 46.2% haul probability. Outscores João Pedro in 46.1% of simulations."
+    },
+    {
+      "step": 6,
+      "action": "Assign Vice-Captain (VC) to João Pedro",
+      "badge": "☆ SET VICE-CAPTAIN",
+      "reason": "Projected 19.90 captain points with 100% starting minutes security. Immediate 2x fallback if Isak is a late scratch."
+    }
+  ],
+  "bench": [
+    {
+      "slot": "Sub 1",
+      "web_name": "Robinson",
+      "position": "DEF",
+      "activation_prob_pct": 26.7,
+      "pts_when_subbed": 4.12,
+      "points_saved_mean": 1.10,
+      "tactical_rationale": "Primary outfield cover (26.7% call-up chance). Guarantees legal 3 DEF formation minimum."
+    },
+    {
+      "slot": "Sub 2",
+      "web_name": "Solanke",
+      "position": "FWD",
+      "activation_prob_pct": 1.7,
+      "pts_when_subbed": 3.85,
+      "points_saved_mean": 0.07,
+      "tactical_rationale": "Secondary sub (1.7% call-up chance). Cameo risk with high explosive ceiling."
+    },
+    {
+      "slot": "Sub 3",
+      "web_name": "Senesi",
+      "position": "DEF",
+      "activation_prob_pct": 0.8,
+      "pts_when_subbed": 2.50,
+      "points_saved_mean": 0.02,
+      "tactical_rationale": "Deep emergency cover (0.8% call-up chance). Lost starting status (0 mins in GW2/3)."
+    },
+    {
+      "slot": "GKP Sub",
+      "web_name": "Roefs",
+      "position": "GKP",
+      "activation_prob_pct": 1.7,
+      "pts_when_subbed": 3.10,
+      "points_saved_mean": 0.05,
+      "tactical_rationale": "Backup keeper. Activates only if primary keeper plays 0 minutes."
+    }
+  ],
+  "captaincy_duel": {
+    "captain": { "web_name": "Isak", "mean_captain_pts": 20.68, "haul_prob_pct": 46.2, "blank_prob_pct": 3.1, "win_rate_pct": 46.1 },
+    "vice_captain": { "web_name": "João Pedro", "mean_captain_pts": 19.90, "haul_prob_pct": 47.0, "blank_prob_pct": 2.4, "win_rate_pct": 44.8 },
+    "tie_rate_pct": 9.1
+  }
+}
 ```
 
 ### 3. Fetch Active Player Pool (Hygiene Filtered)
@@ -535,6 +891,39 @@ python team_manager.py fixtures --weeks 5
 
 # Set-piece and penalty taker hierarchy
 python team_manager.py setpieces
+
+# =============================================================
+# BACKTESTING, OPTUNA AUTO-TUNING & AUDITING
+# =============================================================
+# Ingest and cache historical seasons from Vaastav FPL repo
+python -m tuner.cli fetch-data --seasons 2021-22 2022-23 2023-24
+
+# Execute multi-season hyperparameter optimization (50 trials, 4 cores)
+python -m tuner.cli run --trials 50 --n-jobs 4 --train-seasons 2021-22 2022-23 --test-season 2023-24
+
+# Launch interactive Optuna Web Dashboard on Port 8502
+python -m tuner.cli dashboard --port 8502
+
+# Evaluate full 38-GW walk-forward season with heuristic baseline profile
+python -m tuner.cli evaluate --profile heuristic --season 2023-24
+
+# Evaluate full 38-GW walk-forward season with Optuna-tuned profile
+python -m tuner.cli evaluate --profile tuned --season 2023-24
+
+# Evaluate specific gameweek range (e.g. GW 1 to 10)
+python -m tuner.cli evaluate --profile tuned --season 2023-24 --start-gw 1 --end-gw 10
+
+# =============================================================
+# AUTOMATED QUALITY ASSURANCE & UNIT TESTS
+# =============================================================
+# Run all 33 unit and regression tests with verbose output
+python -m pytest tests/ -v
+
+# Run only backtester regression tests
+python -m pytest tests/test_backtest.py -v
+
+# Run only tuner and search space tests
+python -m pytest tests/test_tuner.py -v
 ```
 
 ---
@@ -547,6 +936,8 @@ rubies_rangers/
 ├── README.md                  # Comprehensive platform documentation & guides
 ├── api.py                     # FastAPI REST microservice
 ├── app.py                     # Streamlit multi-page dashboard application
+├── config.yaml                # Centralized configuration with heuristic & tuned profiles
+├── config_manager.py          # Centralized configuration manager & dynamic profile switcher
 ├── launch_api.bat             # Batch launcher for FastAPI microservice (port 8000)
 ├── launch_dashboard.bat       # Batch launcher for Streamlit Web App (port 8001/8501)
 ├── montecarlo_engine.py       # Vectorized Monte Carlo simulation engine
@@ -562,7 +953,28 @@ rubies_rangers/
 ├── setpiece_tracker.py        # Dead-ball & penalty taker hierarchy tracker
 ├── league_tracker.py          # Mini-league scout, rival spy & effective ownership
 ├── fpl_client.py              # Official FPL API wrapper with local caching
-└── fpl_optimizer.py           # PuLP / MILP linear programming squad builder
+├── fpl_optimizer.py           # PuLP / MILP linear programming squad builder
+├── backtest/                  # Multi-season walk-forward backtesting subsystem
+│   ├── __init__.py
+│   ├── data_loader.py         # Anti-leakage point-in-time historical dataset loader
+│   └── simulator.py           # 38-GW walk-forward season simulator with auto-subs & Sharpe scoring
+├── tuner/                     # Optuna hyperparameter optimization & dashboard
+│   ├── __init__.py
+│   ├── cli.py                 # Standalone CLI for tuning, evaluation & dashboard
+│   ├── engine.py              # Optuna study manager with multi-season train/test splits
+│   ├── search_space.py        # 14-parameter Moneyball search space & frozen reconstruction
+│   └── updater.py             # Hot-updater for config.yaml tuned: profile with audit logs
+├── tests/                     # 33 comprehensive automated unit & regression tests
+│   ├── test_api.py
+│   ├── test_backtest.py
+│   ├── test_config.py
+│   ├── test_fpl_client.py
+│   ├── test_montecarlo.py
+│   ├── test_optimizer.py
+│   └── test_tuner.py
+└── data/                      # Local storage for historical season CSVs & Optuna SQLite DB
+    ├── historical/
+    └── tuning_history.db
 ```
 
 ---
