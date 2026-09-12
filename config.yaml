@@ -1,4 +1,6 @@
-active_profile: heuristic
+# Profile : heuristic or tuned
+active_profile: tuned
+
 system:
   target_gameweek: 4
   default_squad:
@@ -268,21 +270,21 @@ heuristic:
 tuned:
   moneyball:
     fwd_mid:
-      xgi_weight: 5.0
-      ict_divisor: 38.0
-      form_weight: 1.0
-      ppg_weight: 2.5
+      xgi_weight: 5.6
+      ict_divisor: 76.0
+      form_weight: 0.8
+      ppg_weight: 2.0
     def:
-      def_contrib_weight: 1.5
-      xgi_weight: 3.5
-      form_weight: 2.8
-      ict_divisor: 50.0
-      clean_sheets_weight: 4.25
+      def_contrib_weight: 1.2
+      xgi_weight: 4.0
+      form_weight: 3.0
+      ict_divisor: 90.0
+      clean_sheets_weight: 1.0
     gkp:
-      ppg_weight: 2.1
-      form_weight: 2.5
-      saves_weight: 0.5
-      clean_sheets_weight: 1.5
+      ppg_weight: 1.1
+      form_weight: 0.9
+      saves_weight: 0.3
+      clean_sheets_weight: 0.5
     set_piece_bonuses:
       pen_order_1: 0.65
       pen_order_2: 0.25
@@ -292,7 +294,7 @@ tuned:
       crn_order_2: 0.15
     fdr_multiplier:
       neutral_baseline: 3.0
-      scaling_factor: 0.1
+      scaling_factor: 0.25
     price_prediction:
       rise_thresh_base: 75000
       rise_selected_frac: 0.075
@@ -302,23 +304,23 @@ tuned:
       soon_threshold_pct: 70.0
       tonight_threshold_pct: 100.0
     fwd_mid_weights:
-      xgi_per_90: 5.0
-      ict_index_divisor: 38.0
-      ppg_weight: 2.5
-      form_weight: 1.0
+      xgi_per_90: 5.6
+      ict_index_divisor: 76.0
+      ppg_weight: 2.0
+      form_weight: 0.8
     def_weights:
-      def_contribution_per_90: 1.5
-      clean_sheets_per_90: 4.25
-      xgi_per_90: 3.5
-      ict_index_divisor: 50.0
-      form_weight: 2.8
+      def_contribution_per_90: 1.2
+      clean_sheets_per_90: 1.0
+      xgi_per_90: 4.0
+      ict_index_divisor: 90.0
+      form_weight: 3.0
     gkp_weights:
-      saves_per_90: 0.5
-      clean_sheets_per_90: 1.5
-      ppg_weight: 2.1
-      form_weight: 2.5
+      saves_per_90: 0.3
+      clean_sheets_per_90: 0.5
+      ppg_weight: 1.1
+      form_weight: 0.9
     fdr:
-      scaling_factor: 0.1
+      scaling_factor: 0.25
   xp_model:
     minutes:
       benched_or_dropped:
@@ -446,14 +448,14 @@ tuned:
       FWD: 3
     default_objective: moneyball
 tuning_metadata:
-  best_trial_id: 85
+  best_trial_id: 1685
   train_seasons:
   - 2021-22
   - 2022-23
   test_season: 2023-24
-  train_score: 41.4
-  test_score: 51.89
-  test_points: 2096.0
+  train_score: 42.79
+  test_score: 53.06
+  test_points: 2160.0
   baseline_heuristic_points: 1892.0
-  improvement_pct: 10.78
-  last_tuned_at: '2026-09-11T18:19:18.326282'
+  improvement_pct: 14.16
+  last_tuned_at: '2026-09-12T11:19:33.588503'
