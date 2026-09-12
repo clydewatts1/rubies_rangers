@@ -1,7 +1,8 @@
 # Brainstorm: Codebase Modularization & Two-Stage Architectural Roadmap
 ## Decoupling the Monolith, Protecting Active Runs, and Transitioning to a Clean Package Architecture
 
-**Status**: PROPOSED / BRAINSTORM  
+**Status**: ACTIVE / IN EXECUTION (Branch: `modulerization`)  
+**Tuner Status**: 3,151 Trials Complete (+268 pts Out-of-Sample Gain, `active_profile: tuned`)  
 **Target Subsystems**: `app.py`, `fpl_optimizer.py`, `montecarlo_engine.py`, `trackers/`, `analytics/`, `ui/`  
 **Related Rules**: 
 * [`.agents/rules/python_standards.md`](../.agents/rules/python_standards.md) (Clean separation between presentation and analytical engines, vectorization, typed dataclasses)
@@ -12,19 +13,16 @@
 
 ## Executive Summary
 
-As Rubies Rangers evolves from a single-script analytics utility into an advanced quantitative operations research engine, the codebase faces an architectural inflection point:
+As Rubies Rangers evolves from a single-script analytics utility into an advanced quantitative operations research engine, the codebase is undergoing a structured modularization on the dedicated **`modulerization`** branch:
 
 1. **Current Architectural State**: 
    * **Clean Packages**: `tuner/` and `backtest/` are already cleanly isolated into modular packages with independent CLIs, dashboards, and simulators.
    * **The Flat Root Cluster**: 15+ Python files reside flat in the repository root, including 8 separate tracker modules (`fixture_tracker.py`, `price_tracker.py`, `league_tracker.py`, etc.) and core mathematical engines.
    * **The Presentation Monolith**: `app.py` has grown into a 2,641-line (137 KB) monolith mixing Streamlit UI layouts, CSS injection, session state logic, and analytical execution.
 
-2. **The Core Question**: Should we modularize the codebase *before* implementing the Two-Stage "Screen & Simulate" pipeline?
-   * **Direct Answer**: **Yes to Interface Modularization, No to Physical File Relocation yet.**
-   * **Active Run Guard**: A 3,000-trial overnight hyperparameter tuner (`run_overnight_tuner.ps1`) is currently running in the background. Because its worker loop actively imports from root-level files (`fpl_optimizer.py`, `config_manager.py`), moving files into subdirectories immediately would crash or corrupt the in-flight run.
-   * **Phased Solution**:
-     * **Phase 1 (Immediate & Safe)**: Implement **Contract-First Interface Modularization** via an isolated `two_stage_optimizer.py` module using strict `@dataclass` contracts. Zero risk to running jobs.
-     * **Phase 2 (Post-Tuning Run)**: Perform **Physical Package Reorganization** (moving trackers to `trackers/`, engines to `analytics/`, and decomposing `app.py` into modular Streamlit tabs).
+2. **In-Flight Constraint Cleared**:
+   * The 3,151-trial overnight hyperparameter tuner (`run_overnight_tuner.ps1`) has **successfully completed** and updated `config.yaml` with the winning `tuned:` profile.
+   * With the file lock constraint lifted and the work isolated on the new **`modulerization` branch**, we can safely execute the physical package reorganization without risking production stability.
 
 ---
 
@@ -220,22 +218,22 @@ rubies_rangers/
 ```text
 EXECUTION SEQUENCE:
 ================================================================================
-STEP 1 [NOW - ZERO RISK]:
-├── Keep all existing files exactly where they are.
-├── Draft `two_stage_optimizer.py` with typed `@dataclass` contracts.
-├── Implement the Two-Stage "Screen & Simulate" orchestrator.
-└── Validate locally via a standalone test script in `tests/test_two_stage.py`.
+STEP 1 [COMPLETED]:
+├── Tuner finished 3,151 trials across 4 worker cores (+268 pts gain).
+├── Updated `config.yaml` with winning `tuned:` profile (#1685).
+└── Created dedicated `modulerization` branch.
 
-STEP 2 [MONITOR TUNER]:
-├── Allow `run_overnight_tuner.ps1` to complete all 3,000 trials.
-├── Inspect `data/tuning_history.db` and verify optimal hyperparameter convergence.
-└── Confirm updated `config.yaml` profile.
+STEP 2 [COMPLETED]:
+├── Codified strict Separation of Concerns & Anti-Patterns in `.agents/rules/`.
+├── Documented Two-Stage "Screen & Simulate" architecture.
+└── Documented Shane's Human Domain Intel Feed & Non-Impacting Defaults.
 
-STEP 3 [PACKAGE MODULARIZATION]:
-├── Create `analytics/`, `trackers/`, `clients/`, `ui/` directories.
-├── Move files into appropriate packages.
-├── Update package `__init__.py` files for backward compatibility.
-├── Decompose `app.py` into modular Streamlit tabs in `ui/`.
+STEP 3 [ACTIVE EXECUTION ON BRANCH `modulerization`]:
+├── Create `analytics/`, `trackers/`, `clients/`, `ui/` packages.
+├── Relocate 8 flat tracker scripts into `trackers/` with backward-compatible aliases.
+├── Relocate core engines (`fpl_optimizer.py`, `montecarlo_engine.py`, `xp_model.py`) into `analytics/`.
+├── Implement clean `TwoStageOptimizer` in `analytics/two_stage_optimizer.py`.
+├── Decompose the 2,641-line `app.py` monolith into modular Streamlit tabs in `ui/`.
 └── Run automated pytest suite to ensure 100% test passing rate.
 ================================================================================
 ```
