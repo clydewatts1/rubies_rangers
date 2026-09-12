@@ -14,6 +14,7 @@ from ui.cache import (
     load_montecarlo_lineup,
 )
 from analytics.xp_model import DEFAULT_SQUAD
+from config_manager import get_params
 
 def render_tab_montecarlo_transfers(df: pd.DataFrame, current_squad, bank_balance: float = 3.7):
     st.title("🎲 Monte Carlo Transfer Engine & Stochastic Simulation")
@@ -425,6 +426,15 @@ def render_tab_montecarlo_lineup(df: pd.DataFrame, current_squad):
     
     st.markdown("---")
     
+    # Macro Match-State Jitter Transparency Card
+    macro_cfg = get_params("monte_carlo").get("macro_jitter", {})
+    if macro_cfg.get("enabled", True):
+        st.info(
+            f"⚡ **Macro Match-State Jitter & Teammate Covariance Active** (Atmospheric Pace Volatility $\\sigma = {macro_cfg.get('pace_volatility', 0.15):.2f}$)\n\n"
+            "• **Defensive Synchronization**: Clean sheets and discrete goals conceded are synchronized across teammates on the pitch via joint Poisson match realizations.\n"
+            "• **Atmospheric Tempo**: Player attacking xG is modulated by simulated fixture match pace (fast open matches vs low-event grinds).\n"
+            "• **Portfolio Risk**: Lineup and bench optimization penalizes unhedged defender double-ups in high-volatility fixtures while accurately pricing correlated tail outcomes ($P_{10}$, $P_{90}$)."
+        )
     # -------------------------------------------------------------
     # Section 1: What to Move Around (Actionable Checklist)
     # -------------------------------------------------------------

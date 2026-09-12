@@ -107,12 +107,91 @@ class FPLClient:
             raise e
 
     def get_current_gameweek(self) -> Optional[int]:
-        """Return the current active gameweek."""
+        """Return the current active gameweek, with fallback to next upcoming gameweek."""
         data = self.get_bootstrap_data()
+        current_gw = None
+        next_gw = None
         for event in data.get("events", []):
             if event.get("is_current"):
-                return event.get("id")
-        return None
+                current_gw = event.get("id")
+            elif event.get("is_next") and next_gw is None:
+                next_gw = event.get("id")
+        return current_gw or next_gw or 1
+
+    def get_gameweek_fixtures(self, gameweek: Optional[int] = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+        """Fetch all fixtures for a specific gameweek (including live/actual scorelines and match status)."""
+        if gameweek is None:
+            gameweek = self.get_current_gameweek() or 1
+            
+        cache_path = os.path.join(_PROJECT_ROOT, f".fpl_gw_{gameweek}_fixtures_cache.json")
+        if not force_refresh and os.path.exists(cache_path):
+            file_age = time.time() - os.path.getmtime(cache_path)
+            if file_age < 60:
+                try:
+                    with open(cache_path, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+
+        try:
+            url = f"https://fantasy.premierleague.com/api/fixtures/?event={gameweek}"
+            data = self._fetch_url(url)
+            if isinstance(data, list) and data:
+                try:
+                    with open(cache_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f)
+                except Exception as e:
+                    print(f"Warning: Failed to write GW{gameweek} fixtures cache: {e}")
+            return data
+        except Exception as e:
+            if os.path.exists(cache_path):
+                try:
+                    with open(cache_path, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+            try:
+                all_fix = self.get_fixtures_data()
+                return [f for f in all_fix if f.get("event") == gameweek]
+            except Exception:
+                return []
+
+    def get_gameweek_live(self, gameweek: Optional[int] = None, force_refresh: bool = False) -> Dict[str, Any]:
+        """
+        Fetch real-time live matchday performance events for all players in a given gameweek.
+        Returns the raw payload with 'elements' list containing live points, minutes, goals, assists, etc.
+        """
+        if gameweek is None:
+            gameweek = self.get_current_gameweek() or 1
+
+        cache_path = os.path.join(_PROJECT_ROOT, f".fpl_gw_{gameweek}_live_cache.json")
+        if not force_refresh and os.path.exists(cache_path):
+            file_age = time.time() - os.path.getmtime(cache_path)
+            if file_age < 60:
+                try:
+                    with open(cache_path, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+
+        try:
+            url = f"https://fantasy.premierleague.com/api/event/{gameweek}/live/"
+            data = self._fetch_url(url)
+            if isinstance(data, dict) and "elements" in data:
+                try:
+                    with open(cache_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f)
+                except Exception as e:
+                    print(f"Warning: Failed to write GW{gameweek} live cache: {e}")
+            return data
+        except Exception as e:
+            if os.path.exists(cache_path):
+                try:
+                    with open(cache_path, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+            return {"elements": []}
 
     def get_team_fdr_map(self, n_gameweeks: int = 5, swing_split: int = 2) -> Dict[int, Dict[str, Any]]:
         """
@@ -241,6 +320,7 @@ class FPLClient:
         gkp_cfg = mb_params.get("gkp", {})
         sp_cfg = mb_params.get("set_piece_bonuses", {})
         price_cfg = mb_params.get("price_prediction", {})
+        venue_cfg = get_params("venue") or {}
 
         rows = []
         for p in data["elements"]:
@@ -298,7 +378,15 @@ class FPLClient:
             near_fdr = team_fdr_info.get("near_fdr", 3.0)
             later_fdr = team_fdr_info.get("later_fdr", 3.0)
             
-            fdr_adjusted_mb = base_exp * fdr_multiplier
+            venue_cfg = get_params("venue") or {}
+            from analytics.venue_model import compute_effective_venue_multiplier
+            venue_multiplier = compute_effective_venue_multiplier(
+                player_row={"position_name": pos_code, "club_short": team_short.get(team_id, "UNK")},
+                venue_cfg=venue_cfg,
+                fixture_str=next_fix
+            )
+            
+            fdr_adjusted_mb = base_exp * fdr_multiplier * venue_multiplier
             fdr_adjusted_eff = (fdr_adjusted_mb / cost) if cost > 0 else 0.0
 
             # Market Velocity & Price Change Prediction from config
@@ -388,7 +476,7 @@ class FPLClient:
                 sp_bonus += sp_cfg.get("crn_order_2", 0.15)
 
             base_with_sp = base_exp + sp_bonus
-            setpiece_fdr_mb = base_with_sp * fdr_multiplier
+            setpiece_fdr_mb = base_with_sp * fdr_multiplier * venue_multiplier
 
 
             rows.append({
@@ -454,6 +542,7 @@ class FPLClient:
                 "swing_label": swing_label,
                 "swing_status": swing_status,
                 "fdr_multiplier": fdr_multiplier,
+                "venue_multiplier": round(venue_multiplier, 3),
                 "ppm": round(ppm, 2),
                 "moneyball_score": round(base_exp, 2),
                 "moneyball_efficiency": round(moneyball_efficiency, 2),

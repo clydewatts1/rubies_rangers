@@ -18,6 +18,7 @@ import pandas as pd
 from clients.fpl_client import FPLClient
 from clients.tactical_client import TacticalClient, normalize_name
 from config_manager import get_system_config, get_params
+from analytics.venue_model import compute_effective_venue_multiplier
 
 DEFAULT_SQUAD = get_system_config("default_squad") or [
     "Roefs", "Verbruggen",
@@ -319,6 +320,14 @@ class XPModel:
             xp = appearance_pts + (goal_fwd * match_xg) + (ast_pts * match_xa) + x_bonus
 
         xp = max(0.0, xp)
+
+        venue_cfg = get_params("venue") or {}
+        v_mult = compute_effective_venue_multiplier(
+            player_row={"position_name": pos, "club_short": team_short},
+            venue_cfg=venue_cfg,
+            fixture_str=m_info["fixture_str"]
+        )
+        xp *= v_mult
 
 
         # Decimal betting odds

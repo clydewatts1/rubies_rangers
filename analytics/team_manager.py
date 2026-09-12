@@ -19,11 +19,7 @@ from rich.text import Text
 
 from clients.fpl_client import FPLClient
 from analytics.optimizer import FPLOptimizer
-from trackers.trend import audit_squad_trends, show_player_deep_dive
-from trackers.tactical import audit_squad_tactical, show_league_leaders, show_player_shots
-from trackers.xp import display_lineup, display_squad, display_odds, display_captains
 from analytics.xp_model import XPModel
-from trackers.league import LeagueTracker, display_league_standings, display_team_leagues, display_rival_squad, display_league_history
 from config_manager import get_system_config, get_params, set_active_profile, get_active_profile
 
 DEFAULT_SQUAD = get_system_config("default_squad") or [

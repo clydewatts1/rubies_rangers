@@ -1,8 +1,8 @@
 # Brainstorm: Two-Stage "Screen & Simulate" Optimization Architecture
 ## Chaining Mixed-Integer Linear Programming (MILP) into Stochastic Monte Carlo Simulation
 
-**Status**: PROPOSED / BRAINSTORM  
-**Target Subsystems**: `fpl_optimizer.py`, `montecarlo_engine.py`, `app.py`, `config.yaml`  
+**Status**: IMPLEMENTED & VERIFIED (Branch: `modulerization`)  
+**Target Subsystems**: `analytics/two_stage_optimizer.py`, `analytics/optimizer.py`, `analytics/montecarlo.py`, `ui/tabs/tab_two_stage.py`, `tests/test_two_stage_optimizer.py`  
 **Related Rule**: [`.agents/rules/moneyball_strategy.md`](../.agents/rules/moneyball_strategy.md) (Section 1: Unconstrained Optimization & Section 2: Stochastic Modeling)  
 **Related Roadmap**: [`docs/brainstorm/codebase_modularization_roadmap.md`](./codebase_modularization_roadmap.md) (Decoupling Architecture & Execution Sequencing)
 
@@ -195,16 +195,15 @@ Candidate Plan 2 (Runner-Up - High Ceiling):
 
 ---
 
-## 6. Implementation Plan & Estimated Effort
+## 6. Implementation Status & Artifacts
 
-| Task | Subsystem | Estimated Time | Complexity |
-| :--- | :--- | :--- | :--- |
-| 1. Create `TwoStageOptimizer` Class | `fpl_optimizer.py` / `montecarlo_engine.py` | 45 minutes | Low |
-| 2. Multi-Objective MILP Screening Loop | Generate candidate squads across 4 objectives | 30 minutes | Low |
-| 3. Monte Carlo Tournament Batch Run | Batch evaluate candidate arrays | 30 minutes | Low |
-| 4. Add UI Card in Streamlit | `app.py` | 30 minutes | Low |
-| 5. Unit Tests | `tests/test_optimizer.py` | 20 minutes | Low |
-| **Total Estimated Time** | | **~2.5 Hours** | **Low to Moderate** |
+| Task | Target Implementation File | Status | Verification |
+| :--- | :--- | :---: | :--- |
+| **1. Create `TwoStageOptimizer` Class** | [`analytics/two_stage_optimizer.py`](../analytics/two_stage_optimizer.py) | **Completed [x]** | Chained pipeline with frozen dataclass contracts |
+| **2. Multi-Objective MILP Screening Loop** | `MILPCandidateGenerator` in [`analytics/two_stage_optimizer.py`](../analytics/two_stage_optimizer.py) | **Completed [x]** | 4 multi-objective sweeps with `frozenset` deduplication |
+| **3. Monte Carlo Tournament Batch Run** | `TwoStageOptimizer.run_screen_and_simulate` | **Completed [x]** | Full $P_{10}, P_{50}, P_{90}$, win probability, and net gain |
+| **4. Streamlit UI Presentation** | [`ui/tabs/tab_two_stage.py`](../ui/tabs/tab_two_stage.py) & [`app.py`](../app.py) | **Completed [x]** | Tab 1 in dashboard with interactive sliders & candidate cards |
+| **5. Automated Unit & Regression Tests** | [`tests/test_two_stage_optimizer.py`](../tests/test_two_stage_optimizer.py) | **Completed [x]** | 3/3 tests passing, integrated into 53-test suite |
 
 ---
 

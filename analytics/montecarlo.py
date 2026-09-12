@@ -19,6 +19,7 @@ import pandas as pd
 from clients.fpl_client import FPLClient
 from clients.tactical_client import TacticalClient, normalize_name
 from analytics.xp_model import XPModel, DEFAULT_SQUAD, GW4_MATCH_ODDS
+from analytics.venue_model import compute_effective_venue_multiplier
 from config_manager import get_system_config, get_params
 
 
@@ -49,6 +50,32 @@ class MonteCarloEngine:
         self.tac_client = tac_client or TacticalClient()
         self.xp_model = xp_model or XPModel()
         self.team_odds = self.xp_model.team_odds
+        self.macro_states: Dict[str, Dict[str, Any]] = {}
+
+    def generate_macro_match_states(
+        self,
+        fixtures: Optional[Any] = None,
+        n_sims: int = 5000,
+        pace_sigma: Optional[float] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Precomputes macro match states for all distinct Premier League fixtures.
+        Returns a dictionary mapping team_short -> Dict of arrays of shape (n_sims,).
+        """
+        from analytics.macro_engine import simulate_macro_fixtures, build_team_macro_lookup
+        if isinstance(fixtures, (int, np.integer)):
+            eff_fixtures = self.team_odds
+            eff_sims = int(fixtures)
+        elif fixtures is not None:
+            eff_fixtures = fixtures
+            eff_sims = n_sims
+        else:
+            eff_fixtures = self.team_odds
+            eff_sims = n_sims
+
+        f_states = simulate_macro_fixtures(eff_fixtures, n_sims=eff_sims, pace_sigma=pace_sigma)
+        self.macro_states = build_team_macro_lookup(f_states)
+        return self.macro_states
 
     def get_clean_player_pool(self, min_minutes: int = 15) -> pd.DataFrame:
         """
@@ -80,11 +107,12 @@ class MonteCarloEngine:
                          tac_dict: Optional[Dict[str, Any]] = None,
                          n_sims: int = 5000,
                          form_weight: float = 1.0,
-                         include_disciplinary: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                         include_disciplinary: bool = True,
+                         macro_state: Optional[Dict[str, Any]] = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Simulate N gameweek outcomes for a single player.
         Incorporates form weighting, bookmaker match odds, injury/doubt status,
-        and yellow/red card disciplinary risks.
+        yellow/red card disciplinary risks, and conditioned macro match states.
         Returns:
             sim_points: np.ndarray of shape (n_sims,)
             sim_minutes: np.ndarray of shape (n_sims,)
@@ -120,6 +148,24 @@ class MonteCarloEngine:
         prob_cfg = mc_cfg.get("probabilities", {})
         disc_cfg = mc_cfg.get("disciplinary", {})
         bps_cfg = mc_cfg.get("bps_weights", {})
+        venue_cfg = get_params("venue") or {}
+
+        v_mult = compute_effective_venue_multiplier(
+            player_row={"position_name": pos, "club_short": team_short},
+            venue_cfg=venue_cfg,
+            fixture_str=m_info["fixture_str"]
+        )
+
+        if v_mult == 0.0:
+            return np.zeros(n_sims), np.zeros(n_sims)
+
+        if v_mult > 0:
+            cs_prob = min(0.99, cs_prob * v_mult)
+            team_xg = team_xg * v_mult
+            team_xgc = team_xgc / v_mult
+            card_mult = 1.0 / v_mult
+        else:
+            card_mult = 1.0
 
         # 3. Minutes & Start probability
         mins_status = trends_dict.get("minutes_status", "REGULAR_STARTER")
@@ -172,18 +218,66 @@ class MonteCarloEngine:
         app_pts = np.where(mins >= 60.0, 2, np.where(mins > 0.0, 1, 0))
 
         # 5. Clean Sheet Points & Goals Conceded Penalty
-        cs_draw = (mins >= 60.0) * np.random.binomial(1, cs_prob, n_sims)
+        mj_cfg = mc_cfg.get("macro_jitter", {})
+        macro_enabled = mj_cfg.get("enabled", True)
+
+        # Fallback to engine-level macro states if not passed explicitly
+        if macro_state is None and self.macro_states:
+            macro_state = self.macro_states.get(team_short)
+
+        pace_mult = 1.0
+        if macro_enabled and macro_state is not None:
+            team_gc_vector = macro_state.get("goals_conceded")
+            pace_mult = macro_state.get("pace_mult", 1.0)
+            
+            # Align vector lengths with n_sims if mismatched
+            if team_gc_vector is not None and len(team_gc_vector) != n_sims:
+                if len(team_gc_vector) > n_sims:
+                    team_gc_vector = team_gc_vector[:n_sims]
+                else:
+                    team_gc_vector = np.resize(team_gc_vector, n_sims)
+            
+            if isinstance(pace_mult, np.ndarray) and len(pace_mult) != n_sims:
+                if len(pace_mult) > n_sims:
+                    pace_mult = pace_mult[:n_sims]
+                else:
+                    pace_mult = np.resize(pace_mult, n_sims)
+
+            if mj_cfg.get("enforce_discrete_poisson_gc", True) and team_gc_vector is not None:
+                # Conditional Poisson arrival process: goals conceded while player was on pitch
+                # G_on_pitch ~ Binomial(G_conceded, mins / 90.0)
+                mins_frac_clipped = np.clip(np.nan_to_num(mins / 90.0, nan=0.0), 0.0, 1.0)
+                gc_on_pitch = np.random.binomial(team_gc_vector, mins_frac_clipped)
+                
+                # FPL Clean Sheet rule: Played >= 60 mins AND conceded 0 goals on pitch
+                cs_draw = ((mins >= 60.0) & (gc_on_pitch == 0)).astype(int)
+                gc_penalty = np.where(np.isin(pos, ["DEF", "GKP"]), -(gc_on_pitch // 2), 0)
+                gc_draw = gc_on_pitch
+            elif mj_cfg.get("enforce_coupled_defense", True) and "clean_sheet" in macro_state:
+                cs_draw = (mins >= 60.0) * macro_state["clean_sheet"]
+                mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
+                gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction, 0.0, None), nan=0.0)
+                gc_draw = np.random.poisson(gc_lam)
+                gc_penalty = np.where(np.isin(pos, ["DEF", "GKP"]), -(gc_draw // 2), 0)
+            else:
+                cs_draw = (mins >= 60.0) * np.random.binomial(1, cs_prob, n_sims)
+                mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
+                gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction, 0.0, None), nan=0.0)
+                gc_draw = np.random.poisson(gc_lam)
+                gc_penalty = np.where(np.isin(pos, ["DEF", "GKP"]), -(gc_draw // 2), 0)
+        else:
+            cs_draw = (mins >= 60.0) * np.random.binomial(1, cs_prob, n_sims)
+            mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
+            gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction, 0.0, None), nan=0.0)
+            gc_draw = np.random.poisson(gc_lam)
+            gc_penalty = np.where(np.isin(pos, ["DEF", "GKP"]), -(gc_draw // 2), 0)
+
         if pos in ["DEF", "GKP"]:
             cs_pts = cs_draw * 4
         elif pos == "MID":
             cs_pts = cs_draw * 1
         else:
             cs_pts = np.zeros(n_sims)
-
-        mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
-        gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction, 0.0, None), nan=0.0)
-        gc_draw = np.random.poisson(gc_lam)
-        gc_penalty = np.where(np.isin(pos, ["DEF", "GKP"]), -(gc_draw // 2), 0)
 
         # Saves for GKP
         saves_lam = np.nan_to_num(np.clip(gc_draw * 1.3, 0.0, None), nan=0.0)
@@ -204,7 +298,10 @@ class MonteCarloEngine:
         pen_duty = (player_dict.get("penalties_order") == 1)
         pen_bonus = 0.14 if pen_duty else 0.0
 
-        match_xg = ((npxg_90 * mins_fraction * (team_xg / 1.35)) + (pen_bonus * (mins > 0))) * form_mult
+        mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
+        pace_scale = pace_mult if (macro_enabled and mj_cfg.get("enforce_pace_scaling", True)) else 1.0
+
+        match_xg = ((npxg_90 * mins_fraction * (team_xg / 1.35) * pace_scale) + (pen_bonus * (mins > 0))) * form_mult
         match_xg = np.nan_to_num(np.clip(match_xg, 0.0, None), nan=0.0)
         goals_draw = np.random.poisson(match_xg)
 
@@ -225,7 +322,7 @@ class MonteCarloEngine:
         fk_duty = (player_dict.get("direct_freekicks_order") in [1, 2])
         deadball_bonus = 0.07 if (crn_duty or fk_duty) else 0.0
 
-        match_xa = ((xa_90 * mins_fraction * (team_xg / 1.35)) + (deadball_bonus * (mins > 0))) * form_mult
+        match_xa = ((xa_90 * mins_fraction * (team_xg / 1.35) * pace_scale) + (deadball_bonus * (mins > 0))) * form_mult
         match_xa = np.nan_to_num(np.clip(match_xa, 0.0, None), nan=0.0)
         assists_draw = np.random.poisson(match_xa)
         assist_pts = assists_draw * 3
@@ -237,10 +334,10 @@ class MonteCarloEngine:
             yc_fac = disc_cfg.get("yc_card_factor", 0.02)
             yc_sc = disc_cfg.get("yc_max_cards_scaled", 3)
             yc_max = disc_cfg.get("yc_max_prob", 0.20)
-            yc_prob = min(yc_max, yc_base + yc_fac * min(yc_sc, y_cards_acc))
+            yc_prob = min(yc_max, (yc_base + yc_fac * min(yc_sc, y_cards_acc)) * card_mult)
             yc_draw = (mins > 0) * np.random.binomial(1, yc_prob, n_sims) * -1
 
-            rc_p = disc_cfg.get("rc_prob", 0.010)
+            rc_p = min(0.50, disc_cfg.get("rc_prob", 0.010) * card_mult)
             rc_pen = disc_cfg.get("rc_penalty_pts", -3.0)
             rc_draw = (mins > 0) * np.random.binomial(1, rc_p, n_sims)
             rc_pts = rc_draw * rc_pen
@@ -275,10 +372,16 @@ class MonteCarloEngine:
                                is_current_squad: bool = False,
                                n_sims: int = 5000,
                                form_weight: float = 1.0,
-                               include_disciplinary: bool = True) -> Dict[str, Dict[str, Any]]:
+                               include_disciplinary: bool = True,
+                               macro_states: Optional[Dict[str, Any]] = None) -> Dict[str, Dict[str, Any]]:
         """Precompute Monte Carlo simulation arrays for a set of players."""
         names = [p.get("web_name") or p.get("full_name") for p in player_dicts]
         
+        # Precompute shared macro match states for all clubs in this simulation batch
+        if macro_states is None:
+            macro_states = self.generate_macro_match_states(n_sims=n_sims)
+        self.macro_states = macro_states
+
         # Only fetch granular match element history for current squad (cached)
         trends_df = pd.DataFrame()
         if is_current_squad:
@@ -335,9 +438,12 @@ class MonteCarloEngine:
                 if not tac_m.empty:
                     tac_dict = tac_m.iloc[0].to_dict()
 
+            team_short = p.get("club_short", "UNK")
+            m_state = macro_states.get(team_short) if macro_states else None
             pts, mins = self.simulate_player(p, t_dict, tac_dict, n_sims=n_sims,
                                              form_weight=form_weight,
-                                             include_disciplinary=include_disciplinary)
+                                             include_disciplinary=include_disciplinary,
+                                             macro_state=m_state)
             sim_cache[name] = {
                 "player": p,
                 "pts": pts,

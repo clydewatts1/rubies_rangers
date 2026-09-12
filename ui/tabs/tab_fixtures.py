@@ -32,16 +32,19 @@ from ui.cache import (
 from analytics.xp_model import DEFAULT_SQUAD
 from trackers.price import PriceTracker
 from trackers.league import LeagueTracker, DEFAULT_LEAGUE_ID
+from clients.fpl_client import FPLClient
 
 
 def render_tab_fixtures(df: pd.DataFrame, current_squad):
     st.title("📅 Premier League Fixture Difficulty & Swing Ticker")
     st.markdown("Analyze rolling schedule difficulty and detect **critical fixture swings** (teams transitioning from tough games into easy runs, or heading into red walls).")
     
+    st.info("🏟️ **Live Matchday Hub**: To track real-time Premier League match scores and active squad performance for the current active gameweek, select **'🏟️ Matchday Center & Live Gameweek Scores'** in the sidebar workflow menu.")
+
     client = FPLClient()
     current_gw = client.get_current_gameweek() or 1
     
-    horizon = st.sidebar.slider("Rolling Schedule Horizon (Gameweeks)", 3, 6, 5)
+    horizon = st.sidebar.slider("Rolling Schedule Horizon (Gameweeks)", 3, 6, 5, key="fixtures_horizon")
     fdr_data = load_fdr_map(n_gameweeks=horizon)
     swings = client.get_fixture_swings(n_gameweeks=horizon)
     next_gws = list(range(current_gw + 1, current_gw + horizon + 1))

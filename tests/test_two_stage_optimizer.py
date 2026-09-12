@@ -89,3 +89,22 @@ def test_two_stage_optimizer_pipeline(fpl_opt, mc_engine):
     assert 0.0 <= winner.win_probability_pct <= 100.0
     assert report.winner_safe_floor is not None
     assert report.winner_explosive_ceiling is not None
+
+    # Assert stochastic visual analytics suite fields
+    assert isinstance(report.baseline_raw_totals, np.ndarray)
+    assert len(report.baseline_raw_totals) == 100
+    assert isinstance(winner.raw_totals, np.ndarray)
+    assert len(winner.raw_totals) == 100
+
+    import pandas as pd
+    assert isinstance(report.all_results_df, pd.DataFrame)
+    assert not report.all_results_df.empty
+    assert "objective" in report.all_results_df.columns
+    assert "mean_points" in report.all_results_df.columns
+    assert "win_prob" in report.all_results_df.columns
+    assert "net_mean_gain" in report.all_results_df.columns
+
+    # Verify archetype winners are tagged
+    assert winner.archetype != ""
+    assert report.winner_safe_floor.archetype != ""
+    assert report.winner_explosive_ceiling.archetype != ""

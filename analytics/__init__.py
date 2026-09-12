@@ -24,6 +24,19 @@ from analytics.domain_intel import (
     TTLWindow,
 )
 
+from analytics.macro_engine import (
+    FixtureMacroState,
+    simulate_macro_fixtures,
+    build_team_macro_lookup,
+)
+
+from analytics.matchday_hub import (
+    MatchdayHub,
+    MatchdayPlayer,
+    MatchdayFixture,
+    MatchdaySummary,
+)
+
 __all__ = [
     "FPLOptimizer",
     "MonteCarloEngine",
@@ -43,4 +56,12 @@ __all__ = [
     "EligibilityOption",
     "TacticalOption",
     "TTLWindow",
+    "FixtureMacroState",
+    "simulate_macro_fixtures",
+    "build_team_macro_lookup",
+    "MatchdayHub",
+    "MatchdayPlayer",
+    "MatchdayFixture",
+    "MatchdaySummary",
 ]
+

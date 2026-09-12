@@ -11,8 +11,8 @@ from analytics.optimizer import FPLOptimizer
 
 def render_tab_draft(df: pd.DataFrame, opt: FPLOptimizer, objective: str = "fdr_moneyball"):
     st.title("🏆 Mathematical 15-Man Squad Draft")
-    budget = st.sidebar.slider("Total Squad Budget (£m)", 90.0, 110.0, 100.0, 0.5)
-    lock_player = st.sidebar.text_input("Lock Player (Optional, e.g. Haaland)")
+    budget = st.sidebar.slider("Total Squad Budget (£m)", 90.0, 110.0, 100.0, 0.5, key="draft_budget")
+    lock_player = st.sidebar.text_input("Lock Player (Optional, e.g. Haaland)", key="draft_lock_player")
     
     if st.button("⚡ Solve Optimal Squad", type="primary"):
         locks = [lock_player] if lock_player else None

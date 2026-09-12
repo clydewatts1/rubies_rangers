@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import math
 
 from ui.styles import render_html
 from ui.cache import (
@@ -242,27 +243,189 @@ def render_tab_leagues(df: pd.DataFrame):
                 # Mini-League Performance Trajectory Over Time Charts
                 # -------------------------------------------------------------
                 st.subheader("📈 Mini-League Performance Trajectory Over Time")
-                st.markdown("Interactive time-series progression analyzing cumulative championship points, weekly scoring momentum, and mini-league rank volatility.")
-    
+                st.markdown("Interactive time-series progression analyzing cumulative championship points, relative lead/deficits vs **Rubies Rangers**, weekly scoring momentum, and catch-up runway trajectories.")
+
                 try:
                     with st.spinner("Compiling gameweek-by-gameweek rival histories..."):
                         perf_data = load_league_history(active_league_id, max_teams=len(teams))
                     
                     hist_df = perf_data.get("df", pd.DataFrame())
                     chips_map = perf_data.get("chips", {})
-    
+
                     if not hist_df.empty:
+                        # Filter out unplayed/zero-point future gameweeks
+                        valid_gw_mask = hist_df.groupby("gw_num")["gw_points"].transform("sum") > 0
+                        active_df = hist_df[valid_gw_mask].copy() if valid_gw_mask.any() else hist_df.copy()
+
+                        all_teams = sorted(active_df["team_name"].unique().tolist())
+                        default_ref = "Rubies Rangers" if "Rubies Rangers" in all_teams else all_teams[0]
+
+                        col_ref1, col_ref2 = st.columns([3, 2])
+                        with col_ref1:
+                            ref_team = st.selectbox(
+                                "🎯 Relative Benchmark Reference Team:",
+                                all_teams,
+                                index=all_teams.index(default_ref),
+                                help="All relative charts will compute margins and lead/deficits relative to this selected team."
+                            )
+                        with col_ref2:
+                            st.caption(f"Showing performance relative to **{ref_team}** across all completed gameweeks.")
+
+                        # Calculate relative metrics against selected reference team
+                        ref_sub = active_df[active_df["team_name"] == ref_team].set_index("gw_num")
+                        active_df["ref_cum"] = active_df["gw_num"].map(ref_sub["cumulative_points"])
+                        active_df["ref_gw"] = active_df["gw_num"].map(ref_sub["gw_points"])
+                        # Positive = Rival leads reference team; Negative = Rival trails reference team
+                        active_df["lead_vs_ref"] = active_df["cumulative_points"] - active_df["ref_cum"]
+                        # Positive = Reference team leads rival; Negative = Reference team trails rival
+                        active_df["ref_advantage"] = active_df["ref_cum"] - active_df["cumulative_points"]
+                        # Weekly swing: Reference team GW points minus Rival GW points
+                        active_df["ref_gw_swing"] = active_df["ref_gw"] - active_df["gw_points"]
+
+                        # KPI Summary Metrics Banner
+                        latest_gw = int(active_df["gw_num"].max())
+                        latest_df = active_df[active_df["gw_num"] == latest_gw]
+                        leader_row = latest_df.sort_values(by="cumulative_points", ascending=False).iloc[0]
+                        leader_team = leader_row["team_name"]
+                        leader_pts = int(leader_row["cumulative_points"])
+                        ref_row = latest_df[latest_df["team_name"] == ref_team]
+                        ref_pts = int(ref_row.iloc[0]["cumulative_points"]) if not ref_row.empty else 0
+                        ref_rank = int(ref_row.iloc[0]["league_rank"]) if not ref_row.empty else 0
+                        gap_to_leader = leader_pts - ref_pts
+                        leader_gw_pts = int(leader_row["gw_points"])
+                        ref_gw_pts = int(ref_row.iloc[0]["gw_points"]) if not ref_row.empty else 0
+                        gw_swing_vs_leader = ref_gw_pts - leader_gw_pts
+
+                        col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+                        with col_kpi1:
+                            st.metric("Mini-League Position", f"Rank #{ref_rank}", f"{len(teams)} Total Teams")
+                        with col_kpi2:
+                            if gap_to_leader > 0:
+                                st.metric("Deficit to #1 Leader", f"-{gap_to_leader} pts", f"vs {leader_team}", delta_color="inverse")
+                            elif gap_to_leader == 0:
+                                st.metric("Mini-League Leader", "🥇 1st Place", "Leader Baseline", delta_color="normal")
+                            else:
+                                st.metric("Championship Cushion", f"+{abs(gap_to_leader)} pts", f"ahead of {leader_team}", delta_color="normal")
+                        with col_kpi3:
+                            swing_label = f"+{gw_swing_vs_leader} pts gained" if gw_swing_vs_leader >= 0 else f"{gw_swing_vs_leader} pts lost"
+                            st.metric(f"GW{latest_gw} Swing vs #1", swing_label, f"{ref_team} ({ref_gw_pts}p) vs {leader_team} ({leader_gw_pts}p)")
+                        with col_kpi4:
+                            rem_gws = 38 - latest_gw
+                            req_pace = gap_to_leader / rem_gws if rem_gws > 0 else 0.0
+                            st.metric("Required Title Pace", f"{req_pace:.1f} pts / GW", f"{rem_gws} GWs Remaining")
+
                         c_tabs = st.tabs([
+                            "⚔️ Relative to Rubies Rangers",
                             "🚀 Cumulative Points Progression",
-                            "⚡ Weekly Gameweek Scores",
+                            "⚡ Gameweek Net Margin Swings",
+                            "🗺️ Rival Matchup Net Heatmap",
+                            "🎯 Deficit Bridge & Catch-Up Runway",
                             "🏅 Mini-League Rank Swings"
                         ])
-    
-                        # Tab 1: Cumulative Points
+
+                        # Tab 1: Relative Trajectory vs Reference Team (Rubies Rangers)
                         with c_tabs[0]:
+                            st.markdown(f"#### ⚔️ Relative Lead / Deficit Trajectory (Anchored to {ref_team})")
+                            st.markdown(f"Tracks rival performance relative to **{ref_team}** (fixed at **0 pts**). When rival curves slope **downward**, {ref_team} is outscoring them and closing the deficit. Curves below **0 pts** represent rivals trailing behind {ref_team}.")
+
+                            col_opt1, col_opt2 = st.columns([2, 3])
+                            with col_opt1:
+                                view_mode = st.radio(
+                                    "Perspective Mode:",
+                                    ["Rival Lead / Deficit (+Ahead / -Behind)", f"{ref_team} Net Advantage (+You Lead / -You Trail)"],
+                                    index=0,
+                                    horizontal=True
+                                )
+
+                            y_col = "lead_vs_ref" if "Rival Lead" in view_mode else "ref_advantage"
+                            y_label = f"Points Ahead / Behind {ref_team}" if "Rival Lead" in view_mode else f"{ref_team} Net Advantage (Pts)"
+
+                            fig_rel = px.line(
+                                active_df,
+                                x="gameweek",
+                                y=y_col,
+                                color="team_name",
+                                markers=True,
+                                labels={"gameweek": "Gameweek", y_col: y_label, "team_name": "Team"},
+                                hover_data={"gw_points": True, "cumulative_points": True, "lead_vs_ref": True}
+                            )
+
+                            # Highlight reference team and rivals
+                            for tr in fig_rel.data:
+                                if tr.name == ref_team:
+                                    tr.line.width = 4.5
+                                    tr.marker.size = 12
+                                    tr.line.color = "#facc15"  # Glowing Gold
+                                else:
+                                    tr.line.width = 2.2
+                                    tr.marker.size = 7
+
+                            # Zero baseline anchor
+                            fig_rel.add_hline(
+                                y=0,
+                                line_dash="dash",
+                                line_color="#facc15",
+                                line_width=2.5,
+                                annotation_text=f"🎯 {ref_team} Baseline (0 pts)",
+                                annotation_position="top right",
+                                annotation_font_color="#facc15"
+                            )
+
+                            # Chip callouts on rival lines
+                            for t_name, c_list in chips_map.items():
+                                for ch in c_list:
+                                    ev = ch.get("event")
+                                    ch_code = ch.get("name", "").upper()
+                                    if ch_code == "3XC":
+                                        b_text = f"🔥 3XC ({t_name})"
+                                    elif ch_code == "BBOOST":
+                                        b_text = f"⚡ BB ({t_name})"
+                                    elif ch_code == "WILDCARD":
+                                        b_text = f"🃏 WC ({t_name})"
+                                    elif ch_code == "FREEHIT":
+                                        b_text = f"🆓 FH ({t_name})"
+                                    else:
+                                        b_text = f"🎯 {ch_code} ({t_name})"
+
+                                    sub_m = active_df[(active_df["team_name"] == t_name) & (active_df["gw_num"] == ev)]
+                                    if not sub_m.empty:
+                                        y_pt = sub_m.iloc[0][y_col]
+                                        fig_rel.add_annotation(
+                                            x=f"GW{ev}",
+                                            y=y_pt,
+                                            text=b_text,
+                                            showarrow=True,
+                                            arrowhead=2,
+                                            arrowcolor="#38bdf8",
+                                            font=dict(size=10, color="#ffffff"),
+                                            bgcolor="rgba(14, 165, 233, 0.85)",
+                                            bordercolor="#ffffff",
+                                            borderwidth=1,
+                                            borderpad=3,
+                                            ay=-28
+                                        )
+
+                            fig_rel.update_layout(
+                                template="plotly_dark",
+                                paper_bgcolor="rgba(15, 23, 42, 0.6)",
+                                plot_bgcolor="rgba(15, 23, 42, 0.6)",
+                                hovermode="x unified",
+                                margin=dict(l=20, r=20, t=30, b=20),
+                                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                            )
+                            st.plotly_chart(fig_rel, use_container_width=True)
+
+                            # Momentum Callout
+                            if ref_team == "Rubies Rangers":
+                                rr_gw3 = active_df[(active_df["team_name"] == "Rubies Rangers") & (active_df["gw_num"] == 3)]
+                                if not rr_gw3.empty:
+                                    st.info("💡 **RELATIVE MOMENTUM:** In Gameweek 3, **Rubies Rangers outscored the #1 leader Brennans Bread Today by +8 points** (shrinking the deficit from 64 to 56 pts) and gained **+13 points on Databricks & Chill**, marking a sharp positive slope towards the summit!")
+
+                        # Tab 2: Absolute Cumulative Points Progression
+                        with c_tabs[1]:
                             st.markdown("#### The Championship Race — Cumulative Points (GW1 ➔ Present)")
                             fig_cum = px.line(
-                                hist_df,
+                                active_df,
                                 x="gameweek",
                                 y="cumulative_points",
                                 color="team_name",
@@ -270,16 +433,16 @@ def render_tab_leagues(df: pd.DataFrame):
                                 labels={"gameweek": "Gameweek", "cumulative_points": "Total Points", "team_name": "Team"},
                                 hover_data={"gw_points": True, "cumulative_points": True}
                             )
-    
+
                             for tr in fig_cum.data:
-                                if tr.name == "Rubies Rangers":
+                                if tr.name == ref_team:
                                     tr.line.width = 4.5
                                     tr.marker.size = 11
                                     tr.line.color = "#facc15"  # Glowing Gold
                                 else:
                                     tr.line.width = 2.0
                                     tr.marker.size = 6
-    
+
                             # Chip callouts
                             for t_name, c_list in chips_map.items():
                                 for ch in c_list:
@@ -295,8 +458,8 @@ def render_tab_leagues(df: pd.DataFrame):
                                         b_text = f"🆓 Free Hit ({t_name})"
                                     else:
                                         b_text = f"🎯 {ch_code} ({t_name})"
-    
-                                    sub_m = hist_df[(hist_df["team_name"] == t_name) & (hist_df["gw_num"] == ev)]
+
+                                    sub_m = active_df[(active_df["team_name"] == t_name) & (active_df["gw_num"] == ev)]
                                     if not sub_m.empty:
                                         y_pt = sub_m.iloc[0]["cumulative_points"]
                                         fig_cum.add_annotation(
@@ -313,7 +476,7 @@ def render_tab_leagues(df: pd.DataFrame):
                                             borderpad=3,
                                             ay=-32
                                         )
-    
+
                             fig_cum.update_layout(
                                 template="plotly_dark",
                                 paper_bgcolor="rgba(15, 23, 42, 0.6)",
@@ -323,56 +486,230 @@ def render_tab_leagues(df: pd.DataFrame):
                                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                             )
                             st.plotly_chart(fig_cum, use_container_width=True)
-    
-                        # Tab 2: Weekly Scores
-                        with c_tabs[1]:
-                            st.markdown("#### Weekly Scoring Momentum — Gameweek Points")
-                            fig_gw = px.bar(
-                                hist_df,
-                                x="gameweek",
-                                y="gw_points",
-                                color="team_name",
-                                barmode="group",
-                                labels={"gameweek": "Gameweek", "gw_points": "Gameweek Points", "team_name": "Team"},
-                                hover_data={"gw_points": True, "cumulative_points": True}
-                            )
-                            fig_gw.update_layout(
-                                template="plotly_dark",
-                                paper_bgcolor="rgba(15, 23, 42, 0.6)",
-                                plot_bgcolor="rgba(15, 23, 42, 0.6)",
-                                margin=dict(l=20, r=20, t=30, b=20),
-                                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                            )
-                            st.plotly_chart(fig_gw, use_container_width=True)
-    
-                            # Highlight Rubies Rangers GW3 performance
-                            rr_gw3 = hist_df[(hist_df["team_name"] == "Rubies Rangers") & (hist_df["gw_num"] == 3)]
-                            if not rr_gw3.empty:
-                                pts3 = int(rr_gw3.iloc[0]["gw_points"])
-                                st.info(f"💡 **MONEYBALL MOMENTUM:** In Gameweek 3, **Rubies Rangers scored {pts3} points** — outscoring league leader *Brennans Bread Today* (56 pts, **+8 advantage**) and rival *IraolaCoaster* (62 pts) despite their active Triple Captain chip!")
-    
-                        # Tab 3: Rank Swings
+
+                        # Tab 3: Gameweek Scores & Swings
                         with c_tabs[2]:
+                            st.markdown("#### Weekly Scoring Momentum & Head-to-Head Point Swings")
+                            
+                            view_choice = st.radio(
+                                "Scoring Analysis View:",
+                                ["All Rivals Gameweek Scores", f"Head-to-Head Net Margin Swing vs Rival ({ref_team})"],
+                                horizontal=True
+                            )
+
+                            if view_choice == "All Rivals Gameweek Scores":
+                                fig_gw = px.bar(
+                                    active_df,
+                                    x="gameweek",
+                                    y="gw_points",
+                                    color="team_name",
+                                    barmode="group",
+                                    labels={"gameweek": "Gameweek", "gw_points": "Gameweek Points", "team_name": "Team"},
+                                    hover_data={"gw_points": True, "cumulative_points": True}
+                                )
+                                fig_gw.update_layout(
+                                    template="plotly_dark",
+                                    paper_bgcolor="rgba(15, 23, 42, 0.6)",
+                                    plot_bgcolor="rgba(15, 23, 42, 0.6)",
+                                    margin=dict(l=20, r=20, t=30, b=20),
+                                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                                )
+                                st.plotly_chart(fig_gw, use_container_width=True)
+                            else:
+                                rival_candidates = [t for t in all_teams if t != ref_team]
+                                sel_rival = st.selectbox(f"Select Rival for Head-to-Head Swing Analysis with {ref_team}:", rival_candidates)
+                                
+                                h2h_df = active_df[active_df["team_name"] == sel_rival].copy()
+                                h2h_df["swing"] = h2h_df["ref_gw_swing"]
+                                h2h_df["bar_color"] = np.where(h2h_df["swing"] >= 0, "#10b981", "#ef4444")
+                                
+                                fig_h2h = go.Figure()
+                                fig_h2h.add_trace(go.Bar(
+                                    x=h2h_df["gameweek"],
+                                    y=h2h_df["swing"],
+                                    marker_color=h2h_df["bar_color"],
+                                    text=[f"{s:+d} pts" for s in h2h_df["swing"]],
+                                    textposition="outside",
+                                    name="Net GW Swing"
+                                ))
+                                fig_h2h.add_hline(y=0, line_dash="solid", line_color="#94a3b8", line_width=1.5)
+                                fig_h2h.update_layout(
+                                    template="plotly_dark",
+                                    paper_bgcolor="rgba(15, 23, 42, 0.6)",
+                                    plot_bgcolor="rgba(15, 23, 42, 0.6)",
+                                    title=f"Net Gameweek Swing: {ref_team} vs {sel_rival} (Green = {ref_team} Outscored Rival)",
+                                    yaxis_title=f"Net Gameweek Points Margin",
+                                    xaxis_title="Gameweek",
+                                    margin=dict(l=20, r=20, t=40, b=20)
+                                )
+                                st.plotly_chart(fig_h2h, use_container_width=True)
+
+                                wins = int((h2h_df["swing"] > 0).sum())
+                                draws = int((h2h_df["swing"] == 0).sum())
+                                losses = int((h2h_df["swing"] < 0).sum())
+                                total_swing = int(h2h_df["swing"].sum())
+                                sign = "+" if total_swing >= 0 else ""
+                                st.caption(f"📊 **Head-to-Head Summary:** {ref_team} record vs **{sel_rival}**: **{wins}W - {draws}D - {losses}L** | Net Cumulative Differential: **{sign}{total_swing} pts**.")
+
+                        # Tab 4: Net Margin Heatmap Matrix
+                        with c_tabs[3]:
+                            st.markdown(f"#### 🗺️ Gameweek Net Margin Heatmap vs {ref_team}")
+                            st.markdown(f"Every cell shows how many points **{ref_team} gained (+) or lost (-)** against that rival in that gameweek. **Emerald green** indicates gameweeks where {ref_team} outscored the rival.")
+
+                            rival_df = active_df[active_df["team_name"] != ref_team]
+                            if not rival_df.empty:
+                                heat_pivot = rival_df.pivot(index="team_name", columns="gameweek", values="ref_gw_swing").fillna(0)
+                                
+                                # Order rivals by latest cumulative deficit
+                                latest_deficits = rival_df[rival_df["gw_num"] == latest_gw].set_index("team_name")["lead_vs_ref"]
+                                ordered_index = [idx for idx in latest_deficits.sort_values(ascending=False).index if idx in heat_pivot.index]
+                                heat_pivot = heat_pivot.reindex(ordered_index)
+
+                                fig_heat = go.Figure(data=go.Heatmap(
+                                    z=heat_pivot.values,
+                                    x=list(heat_pivot.columns),
+                                    y=list(heat_pivot.index),
+                                    zmid=0,
+                                    colorscale=[[0.0, "#ef4444"], [0.5, "#1e293b"], [1.0, "#10b981"]],
+                                    text=[[f"{v:+.0f} pts" for v in row] for row in heat_pivot.values],
+                                    texttemplate="%{text}",
+                                    textfont={"size": 12, "color": "#ffffff"},
+                                    hoverongaps=False
+                                ))
+                                fig_heat.update_layout(
+                                    template="plotly_dark",
+                                    paper_bgcolor="rgba(15, 23, 42, 0.6)",
+                                    plot_bgcolor="rgba(15, 23, 42, 0.6)",
+                                    xaxis_title="Gameweek",
+                                    yaxis_title="Rival Team (Ranked by Gap)",
+                                    margin=dict(l=20, r=20, t=30, b=20)
+                                )
+                                st.plotly_chart(fig_heat, use_container_width=True)
+                            else:
+                                st.info("No rivals found to generate heatmap.")
+
+                        # Tab 5: Deficit Bridge & Catch-Up Runway Simulator
+                        with c_tabs[4]:
+                            st.markdown("#### 🎯 Deficit Bridge & Mini-League Title Runway Simulator")
+                            st.markdown(f"Quantitative projection forecasting when **{ref_team}** will catch up to and overtake the #1 league leader (**{leader_team}**) based on weekly point outperformance velocity.")
+
+                            if gap_to_leader > 0 and latest_gw < 38:
+                                rem_gw_count = 38 - latest_gw
+                                min_req_pace = gap_to_leader / rem_gw_count
+
+                                col_sim1, col_sim2 = st.columns([3, 2])
+                                with col_sim1:
+                                    sim_velocity = st.slider(
+                                        "Projected Outperformance Velocity vs Leader (+pts / GW):",
+                                        min_value=0.5,
+                                        max_value=8.0,
+                                        value=float(min(max(round(min_req_pace + 0.5, 1), 1.5), 6.0)),
+                                        step=0.1,
+                                        help=f"Net average points {ref_team} expects to gain on the league leader per gameweek."
+                                    )
+                                with col_sim2:
+                                    gw_to_catch = math.ceil(gap_to_leader / sim_velocity)
+                                    proj_overtake_gw = latest_gw + gw_to_catch
+                                    if proj_overtake_gw <= 38:
+                                        st.success(f"🏆 **PROJECTED TITLE OVERTAKE: GW{proj_overtake_gw}**\n\nAt **+{sim_velocity:.1f} pts/GW**, {ref_team} erases the {gap_to_leader} pt deficit in {gw_to_catch} gameweeks!")
+                                    else:
+                                        st.warning(f"⚠️ **PACE DEFICIT:** At +{sim_velocity:.1f} pts/GW, deficit narrows by {sim_velocity * rem_gw_count:.0f} pts by GW38, but trails leader by {gap_to_leader - sim_velocity * rem_gw_count:.0f} pts. Increase pace to ≥ **{min_req_pace:.1f} pts/GW** to win the title.")
+
+                                # Build Historical & Projected Runway Lines
+                                hist_gws = sorted(active_df["gw_num"].unique().tolist())
+                                hist_deficits = []
+                                for g in hist_gws:
+                                    g_leader_pts = active_df[(active_df["gw_num"] == g)]["cumulative_points"].max()
+                                    g_ref_sub = active_df[(active_df["team_name"] == ref_team) & (active_df["gw_num"] == g)]
+                                    g_ref_pts = g_ref_sub.iloc[0]["cumulative_points"] if not g_ref_sub.empty else 0
+                                    hist_deficits.append(int(g_leader_pts - g_ref_pts))
+
+                                proj_gws = list(range(latest_gw, 39))
+                                proj_deficits = [gap_to_leader - sim_velocity * (g - latest_gw) for g in proj_gws]
+
+                                fig_runway = go.Figure()
+                                # Historical Deficit Line
+                                fig_runway.add_trace(go.Scatter(
+                                    x=[f"GW{g}" for g in hist_gws],
+                                    y=hist_deficits,
+                                    mode="lines+markers",
+                                    name="Historical Deficit to Leader",
+                                    line=dict(color="#f43f5e", width=3.5),
+                                    marker=dict(size=8, color="#f43f5e")
+                                ))
+                                # Projected Runway Line
+                                fig_runway.add_trace(go.Scatter(
+                                    x=[f"GW{g}" for g in proj_gws],
+                                    y=proj_deficits,
+                                    mode="lines+markers",
+                                    name=f"Projected Runway (+{sim_velocity:.1f} pts/GW)",
+                                    line=dict(color="#38bdf8", width=3, dash="dash"),
+                                    marker=dict(size=6, color="#38bdf8")
+                                ))
+                                # Baseline Zero
+                                fig_runway.add_hline(
+                                    y=0,
+                                    line_dash="solid",
+                                    line_color="#facc15",
+                                    line_width=2.5,
+                                    annotation_text="🏆 Mini-League Title Parity (0 pts)",
+                                    annotation_position="top right",
+                                    annotation_font_color="#facc15"
+                                )
+                                if proj_overtake_gw <= 38:
+                                    fig_runway.add_annotation(
+                                        x=f"GW{proj_overtake_gw}",
+                                        y=0,
+                                        text=f"👑 Projected Overtake (GW{proj_overtake_gw})",
+                                        showarrow=True,
+                                        arrowhead=2,
+                                        arrowcolor="#facc15",
+                                        font=dict(size=11, color="#0b0f19", family="Arial Black"),
+                                        bgcolor="#facc15",
+                                        bordercolor="#ffffff",
+                                        borderwidth=1,
+                                        ay=-35
+                                    )
+
+                                fig_runway.update_layout(
+                                    template="plotly_dark",
+                                    paper_bgcolor="rgba(15, 23, 42, 0.6)",
+                                    plot_bgcolor="rgba(15, 23, 42, 0.6)",
+                                    title=f"Championship Trajectory Runway (Deficit: {gap_to_leader} pts ➔ 0 pts)",
+                                    yaxis_title="Points Behind Leader (+Deficit / -Surplus)",
+                                    xaxis_title="Gameweek Progression",
+                                    hovermode="x unified",
+                                    margin=dict(l=20, r=20, t=40, b=20),
+                                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                                )
+                                st.plotly_chart(fig_runway, use_container_width=True)
+                            elif gap_to_leader == 0:
+                                st.success(f"🥇 **{ref_team} is currently leading the Mini-League!** Deficit is 0.")
+                            else:
+                                st.info("Season completed or no active deficit.")
+
+                        # Tab 6: Mini-League Rank Volatility
+                        with c_tabs[5]:
                             st.markdown("#### Table Position Volatility — Mini-League Rank by Gameweek")
                             fig_rank = px.line(
-                                hist_df,
+                                active_df,
                                 x="gameweek",
                                 y="league_rank",
                                 color="team_name",
                                 markers=True,
                                 labels={"gameweek": "Gameweek", "league_rank": "Mini-League Rank", "team_name": "Team"}
                             )
-    
+
                             for tr in fig_rank.data:
-                                if tr.name == "Rubies Rangers":
+                                if tr.name == ref_team:
                                     tr.line.width = 4.5
                                     tr.marker.size = 11
                                     tr.line.color = "#facc15"
                                 else:
                                     tr.line.width = 2.0
                                     tr.marker.size = 6
-    
-                            max_rank = int(hist_df["league_rank"].max())
+
+                            max_rank = int(active_df["league_rank"].max())
                             fig_rank.update_yaxes(
                                 autorange="reversed",
                                 tickmode="linear",
@@ -389,7 +726,7 @@ def render_tab_leagues(df: pd.DataFrame):
                                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                             )
                             st.plotly_chart(fig_rank, use_container_width=True)
-    
+
                     else:
                         st.info("No historical gameweek data found for these teams.")
                 except Exception as e:

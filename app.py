@@ -12,7 +12,7 @@ from ui.cache import load_data
 from analytics.optimizer import FPLOptimizer
 from analytics.xp_model import DEFAULT_SQUAD
 from trackers.league import LeagueTracker
-from config_manager import get_system_config, get_active_profile, set_active_profile
+from config_manager import get_system_config, get_active_profile, set_active_profile, get_config
 from ui.tabs import (
     render_tab_two_stage,
     render_tab_domain_intel,
@@ -28,6 +28,8 @@ from ui.tabs import (
     render_tab_setpieces,
     render_tab_draft,
     render_tab_explorer,
+    render_tab_venue,
+    render_tab_matchday,
 )
 
 # 1. Page Configuration
@@ -49,6 +51,15 @@ active_prof = get_active_profile()
 prof_choice = st.sidebar.selectbox("Active Calibration Profile", ["tuned", "heuristic"], index=0 if active_prof == "tuned" else 1)
 if prof_choice != active_prof:
     set_active_profile(prof_choice)
+    st.cache_data.clear()
+    st.rerun()
+
+st.sidebar.markdown("---")
+cfg = get_config()
+is_venue_active = cfg.get(active_prof, {}).get("venue", {}).get("enabled", True)
+venue_enabled = st.sidebar.toggle("🏟️ Enable Venue Impact", value=is_venue_active, key="venue_enabled_toggle")
+if is_venue_active != venue_enabled:
+    cfg[active_prof]["venue"]["enabled"] = venue_enabled
     st.cache_data.clear()
     st.rerun()
 
@@ -108,6 +119,7 @@ with st.sidebar.expander("👥 Active Squad & Live FPL Sync", expanded=False):
 
 # 5. Workflow Dispatcher
 mode = st.sidebar.selectbox("Workflow", [
+    "🏟️ Matchday Center & Live Gameweek Scores",
     "⚔️ Two-Stage Tournament (Screen & Simulate)",
     "🧠 Shane's Domain Intel Desk",
     "Modify Current Team (Transfers)",
@@ -120,6 +132,7 @@ mode = st.sidebar.selectbox("Workflow", [
     "Market Velocity & Price Predictor",
     "Fixture Difficulty (FDR) Ticker",
     "Set-Piece & Penalty Hierarchy",
+    "🏟️ Venue Impact & Home/Away Analysis",
     "Draft New Optimal Squad",
     "Player Explorer"
 ])
@@ -128,20 +141,22 @@ mode = st.sidebar.selectbox("Workflow", [
 bank_balance = float(get_system_config("default_bank") or 3.7)
 
 # Dispatch to modular tab renderers
-if mode == "⚔️ Two-Stage Tournament (Screen & Simulate)":
+if mode == "🏟️ Matchday Center & Live Gameweek Scores":
+    render_tab_matchday(df, current_squad)
+elif mode == "⚔️ Two-Stage Tournament (Screen & Simulate)":
     render_tab_two_stage(df, current_squad, bank=bank_balance)
 elif mode == "🧠 Shane's Domain Intel Desk":
     render_tab_domain_intel(df, current_squad)
 elif mode == "Modify Current Team (Transfers)":
-    num_transfers = st.sidebar.slider("Number of Transfers", 1, 4, 1)
+    num_transfers = st.sidebar.slider("Number of Transfers", 1, 4, 1, key="mod_transfers_count")
     objective = st.sidebar.selectbox("Optimization Metric", ["fdr_moneyball", "setpiece_moneyball", "moneyball", "points", "form"], format_func=lambda x: {
         "fdr_moneyball": "Fixture-Adjusted Moneyball (xGI & FDR)",
         "setpiece_moneyball": "Set-Piece & Dead-Ball Moneyball (xG/xA Boost)",
         "moneyball": "Base Moneyball Score (xGI / Expected Return)",
         "points": "Total Points",
         "form": "Current Form"
-    }[x])
-    bank_slider = st.sidebar.slider("Bank Balance (£m)", 0.0, 15.0, bank_balance, 0.1)
+    }[x], key="mod_transfers_obj")
+    bank_slider = st.sidebar.slider("Bank Balance (£m)", 0.0, 15.0, bank_balance, 0.1, key="mod_transfers_bank")
     render_tab_transfers(df, opt, current_squad, bank_balance=bank_slider, num_transfers=num_transfers, objective=objective)
 elif mode == "🏆 Mini-League Scout & Rival Spy":
     render_tab_leagues(df)
@@ -161,6 +176,8 @@ elif mode == "Fixture Difficulty (FDR) Ticker":
     render_tab_fixtures(df, current_squad)
 elif mode == "Set-Piece & Penalty Hierarchy":
     render_tab_setpieces(df)
+elif mode == "🏟️ Venue Impact & Home/Away Analysis":
+    render_tab_venue(df, current_squad=current_squad)
 elif mode == "Draft New Optimal Squad":
     objective = st.sidebar.selectbox("Optimization Metric", ["fdr_moneyball", "setpiece_moneyball", "moneyball", "points", "form"], format_func=lambda x: {
         "fdr_moneyball": "Fixture-Adjusted Moneyball (xGI & FDR)",

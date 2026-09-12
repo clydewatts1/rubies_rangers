@@ -37,9 +37,6 @@ from analytics.optimizer import FPLOptimizer
 def render_tab_transfers(df: pd.DataFrame, opt, current_squad, bank_balance: float = 3.7, num_transfers: int = 1, objective: str = 'fdr_moneyball'):
     st.title("🛡️ Squad Audit & Transfer Optimizer")
     
-    bank_balance = st.sidebar.slider("Bank Balance (£m)", 0.0, 15.0, 3.7, 0.1)
-    num_transfers = st.sidebar.slider("Number of Transfers", 1, 4, 1)
-    
     # Match current squad
     matched = []
     for name in DEFAULT_SQUAD:

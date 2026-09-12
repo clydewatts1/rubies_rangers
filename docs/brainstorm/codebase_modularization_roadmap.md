@@ -239,6 +239,47 @@ STEP 3 [COMPLETED ON BRANCH `modulerization`]:
 ================================================================================
 ```
 
+### Modularization Micro-Task Execution Checklist
+
+- [x] **Phase 1: Foundation & Leaf Package Extraction (`clients/`)**
+  - [x] **1.1**: Create `clients/` directory and `clients/__init__.py`.
+  - [x] **1.2**: Relocate `fpl_client.py` to `clients/fpl_client.py` and replace root `fpl_client.py` with backward-compatible shim.
+  - [x] **1.3**: Relocate `tactical_client.py` to `clients/tactical_client.py` and replace root `tactical_client.py` with backward-compatible shim.
+  - [x] **1.4**: Add `tests/test_clients.py` and verify leaf client exports, contracts, and caching.
+- [x] **Phase 2: Trackers Subsystem Modularization (`trackers/`)**
+  - [x] **2.1**: Create `trackers/` directory and `trackers/__init__.py`.
+  - [x] **2.2**: Relocate all 8 trackers (`fixture`, `price`, `league`, `tactical`, `trend`, `setpiece`, `xp`, `montecarlo`) to `trackers/`.
+  - [x] **2.3**: Establish root backward-compatible re-export shims for all 8 tracker files.
+  - [x] **2.4**: Add `tests/test_trackers.py` and verify imports, initialization, and root shim dispatching.
+- [x] **Phase 3: Core Analytical & Mathematical Engines (`analytics/`)**
+  - [x] **3.1**: Create `analytics/` directory and `analytics/__init__.py`.
+  - [x] **3.2**: Relocate `xp_model.py`, `fpl_optimizer.py`, `montecarlo_engine.py`, and `team_manager.py` to `analytics/`.
+  - [x] **3.3**: Establish root backward-compatible shims for all four analytical engines.
+  - [x] **3.4**: Upgrade `clean_nans` to guarantee native JSON serialization for NumPy arrays and scalars.
+  - [x] **3.5**: Add `tests/test_analytics.py` and verify MILP solver initialization and NaN cleaning.
+- [x] **Phase 4: Two-Stage Optimization Orchestrator (`analytics/two_stage_optimizer.py`)**
+  - [x] **4.1**: Define typed frozen contracts: `ParetoCandidateSquad`, `StochasticSquadEvaluation`, `TwoStageOptimizationReport`.
+  - [x] **4.2**: Implement `MILPCandidateGenerator` with multi-objective knapsack sweeps and deduplication.
+  - [x] **4.3**: Implement `TwoStageOptimizer` chaining Stage 1 Pareto generator into Stage 2 Monte Carlo tournament.
+  - [x] **4.4**: Add `tests/test_two_stage_optimizer.py` verifying full end-to-end tournament distribution analysis.
+- [x] **Phase 5: Shane Domain Intel Engine & Ephemeral Overrides (`analytics/domain_intel.py`)**
+  - [x] **5.1**: Define discrete enums and contracts (`AvailabilityOption`, `EligibilityOption`, `TTLWindow`, `PlayerOverride`).
+  - [x] **5.2**: Implement mathematical identity invariant ($f(\text{data}, \text{defaults}) \equiv f(\text{data})$).
+  - [x] **5.3**: Implement Gameweek TTL auto-decay and state persistence.
+  - [x] **5.4**: Add `tests/test_domain_intel.py` verifying mathematical invariant and TTL expiration.
+- [x] **Phase 6: Streamlit UI Monolith Decomposition (`ui/`)**
+  - [x] **6.1**: Create `ui/`, `ui/tabs/`, `ui/styles.py`, `ui/components.py`, and `ui/cache.py`.
+  - [x] **6.2**: Implement `ui/tabs/tab_two_stage.py` (Two-Stage Screen & Simulate UI).
+  - [x] **6.3**: Implement `ui/tabs/tab_domain_intel.py` (Shane's Sliders & Option Selectors Desk).
+  - [x] **6.4**: Extract all 10 existing tabs into dedicated single-responsibility renderers in `ui/tabs/`.
+  - [x] **6.5**: Decompose 2,641-line `app.py` into a lightweight ~150-line router and session initializer.
+  - [x] **6.6**: Add `tests/test_ui.py` and verify headless compilation via `python -m py_compile app.py`.
+- [x] **Phase 7: System Integration, Cleanup & Final Verification**
+  - [x] **7.1**: Update `api.py` and `backtest/simulator.py` to use package paths.
+  - [x] **7.2**: Replace duplicate `docs/brainstorm/modularization.md` with pointer to canonical roadmap.
+  - [x] **7.3**: Update `README.md` repository architecture tree and test coverage documentation.
+  - [x] **7.4**: Execute full automated test suite: 53 passed in 19.09s (100% pass rate).
+
 ---
 
 ## 8. Summary

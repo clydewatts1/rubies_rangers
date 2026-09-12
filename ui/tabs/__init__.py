@@ -14,6 +14,8 @@ from ui.tabs.tab_market import render_tab_market
 from ui.tabs.tab_fixtures import render_tab_fixtures
 from ui.tabs.tab_setpieces import render_tab_setpieces
 from ui.tabs.tab_draft import render_tab_draft, render_tab_explorer
+from ui.tabs.tab_venue import render_tab_venue
+from ui.tabs.tab_matchday import render_tab_matchday
 
 __all__ = [
     "render_tab_two_stage",
@@ -30,4 +32,6 @@ __all__ = [
     "render_tab_setpieces",
     "render_tab_draft",
     "render_tab_explorer",
+    "render_tab_venue",
+    "render_tab_matchday",
 ]

@@ -40,6 +40,19 @@ class StochasticSquadEvaluation:
     win_probability_pct: float
     zero_minute_rate_pct: float = 0.0
     sharpe_ratio: float = 0.0
+    raw_totals: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    out_player: str = ""
+    in_player: str = ""
+    out_club: str = ""
+    in_club: str = ""
+    out_cost: float = 0.0
+    in_cost: float = 0.0
+    cost_diff: float = 0.0
+    bank_remaining: float = 0.0
+    out_mean: float = 0.0
+    in_mean: float = 0.0
+    rationale: str = ""
+    archetype: str = ""
 
 
 @dataclass
@@ -53,6 +66,8 @@ class TwoStageOptimizationReport:
     winner_balanced: Optional[StochasticSquadEvaluation]
     winner_safe_floor: Optional[StochasticSquadEvaluation]
     winner_explosive_ceiling: Optional[StochasticSquadEvaluation]
+    baseline_raw_totals: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    all_results_df: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 class MILPCandidateGenerator:
@@ -163,7 +178,11 @@ class TwoStageOptimizer:
         3. Stress-tests all candidate squads in Stage 2 Monte Carlo simulations.
         4. Ranks candidate squads by utility and returns a structured report.
         """
-        # 1. Baseline squad Monte Carlo simulation
+        # 1. Precompute shared macro match states for consistent joint covariance
+        shared_macro = self.mc_engine.generate_macro_match_states(n_sims=n_sims)
+        self.mc_engine.macro_states = shared_macro
+
+        # 2. Baseline squad Monte Carlo simulation
         base_eval = self.mc_engine.optimize_lineup_and_substitutions(
             squad_names=current_squad,
             n_sims=n_sims
@@ -187,7 +206,9 @@ class TwoStageOptimizer:
         )
 
         # 3. Stage 2: Monte Carlo evaluation of candidates
+        df_players = getattr(self.optimizer, "df", None)
         evaluated: List[StochasticSquadEvaluation] = []
+        rows = []
         for cand in candidates:
             cand_eval = self.mc_engine.optimize_lineup_and_substitutions(
                 squad_names=cand.squad_names,
@@ -210,7 +231,45 @@ class TwoStageOptimizer:
             win_prob = round(float(np.mean(diff > 0) * 100), 1)
             sharpe = round(float(net_gain / (c_std + 1e-6)), 3)
 
-            evaluated.append(StochasticSquadEvaluation(
+            # Extract detailed transfer metadata
+            out_names = cand.transfers_out
+            in_names = cand.transfers_in
+            out_str = ", ".join(out_names) if out_names else "None"
+            in_str = ", ".join(in_names) if in_names else "None"
+
+            out_club = ""
+            in_club = ""
+            out_cost = 0.0
+            in_cost = 0.0
+            out_mean = 0.0
+            in_mean = 0.0
+            fdr_next_5 = 3.0
+            in_pos = "ALL"
+
+            if df_players is not None and not df_players.empty:
+                out_rows = df_players[df_players["web_name"].isin(out_names)]
+                in_rows = df_players[df_players["web_name"].isin(in_names)]
+                if not out_rows.empty:
+                    out_club = ", ".join(out_rows["club_short"].dropna().unique()) if "club_short" in out_rows.columns else ""
+                    out_cost = round(float(out_rows["now_cost"].sum()), 1) if "now_cost" in out_rows.columns else 0.0
+                    out_mean = round(float(out_rows["fdr_moneyball_score"].sum()), 2) if "fdr_moneyball_score" in out_rows.columns else 0.0
+                if not in_rows.empty:
+                    in_club = ", ".join(in_rows["club_short"].dropna().unique()) if "club_short" in in_rows.columns else ""
+                    in_cost = round(float(in_rows["now_cost"].sum()), 1) if "now_cost" in in_rows.columns else 0.0
+                    in_mean = round(float(in_rows["fdr_moneyball_score"].sum()), 2) if "fdr_moneyball_score" in in_rows.columns else 0.0
+                    if "position_name" in in_rows.columns:
+                        in_pos = in_rows.iloc[0]["position_name"]
+                    if "fdr_next_5" in in_rows.columns:
+                        fdr_next_5 = round(float(in_rows["fdr_next_5"].mean()), 1)
+
+            cost_diff = round(in_cost - out_cost, 1)
+            rationale = (
+                f"Generated via Stage 1 {cand.objective_name.upper()} knapsack sweep. "
+                f"Stage 2 Monte Carlo simulated {net_gain:+.2f} pts net return across {n_sims:,} draws "
+                f"({win_prob:.1f}% win prob vs current squad)."
+            )
+
+            eval_item = StochasticSquadEvaluation(
                 candidate=cand,
                 mean_points=c_mean,
                 floor_p10=c_p10,
@@ -219,18 +278,57 @@ class TwoStageOptimizer:
                 standard_deviation=c_std,
                 net_gain_vs_current=net_gain,
                 win_probability_pct=win_prob,
-                sharpe_ratio=sharpe
-            ))
+                sharpe_ratio=sharpe,
+                raw_totals=c_totals,
+                out_player=out_str,
+                in_player=in_str,
+                out_club=out_club,
+                in_club=in_club,
+                out_cost=out_cost,
+                in_cost=in_cost,
+                cost_diff=cost_diff,
+                bank_remaining=cand.bank_remaining,
+                out_mean=out_mean,
+                in_mean=in_mean,
+                rationale=rationale
+            )
+            evaluated.append(eval_item)
+
+            rows.append({
+                "objective": cand.objective_name,
+                "out_player": out_str,
+                "in_player": in_str,
+                "in_pos": in_pos,
+                "in_club": in_club,
+                "cost_diff": cost_diff,
+                "bank_remaining": cand.bank_remaining,
+                "net_mean_gain": net_gain,
+                "win_prob": win_prob,
+                "floor_p10": c_p10,
+                "median_p50": c_p50,
+                "ceiling_p90": c_p90,
+                "sharpe": sharpe,
+                "fdr_next_5": fdr_next_5,
+                "mean_points": c_mean,
+                "std": c_std
+            })
 
         # 4. Determine winners across risk dimensions
         if evaluated:
             winner_balanced = max(evaluated, key=lambda x: x.net_gain_vs_current)
+            winner_balanced.archetype = "OPTION 1: 🏆 MAX EXPECTED VALUE"
+
             winner_safe_floor = max(evaluated, key=lambda x: x.floor_p10)
+            winner_safe_floor.archetype = "OPTION 2: 🛡️ MAX FLOOR & SAFETY"
+
             winner_explosive_ceiling = max(evaluated, key=lambda x: x.ceiling_p90)
+            winner_explosive_ceiling.archetype = "OPTION 3: 🚀 MAX CEILING & DIFFERENTIAL"
         else:
             winner_balanced = None
             winner_safe_floor = None
             winner_explosive_ceiling = None
+
+        all_results_df = pd.DataFrame(rows) if rows else pd.DataFrame()
 
         return TwoStageOptimizationReport(
             baseline_squad=current_squad,
@@ -240,5 +338,7 @@ class TwoStageOptimizer:
             evaluated_candidates=evaluated,
             winner_balanced=winner_balanced,
             winner_safe_floor=winner_safe_floor,
-            winner_explosive_ceiling=winner_explosive_ceiling
+            winner_explosive_ceiling=winner_explosive_ceiling,
+            baseline_raw_totals=base_totals,
+            all_results_df=all_results_df
         )

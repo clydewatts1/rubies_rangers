@@ -177,3 +177,19 @@ def load_montecarlo_lineup(squad_names: tuple = None,
         form_weight=form_weight,
         include_disciplinary=include_disciplinary
     )
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def load_matchday_summary(entry_id: Optional[int] = None,
+                          gameweek: Optional[int] = None,
+                          squad_names: Optional[Tuple[str, ...]] = None,
+                          force_refresh: bool = False):
+    from analytics.matchday_hub import MatchdayHub
+    hub = MatchdayHub()
+    override = list(squad_names) if squad_names else None
+    return hub.get_matchday_summary(
+        entry_id=entry_id,
+        gameweek=gameweek,
+        active_squad_override=override,
+        force_refresh=force_refresh
+    )
