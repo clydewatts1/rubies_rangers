@@ -28,10 +28,10 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from montecarlo_engine import MonteCarloEngine
-from xp_model import XPModel, DEFAULT_SQUAD
-from fpl_client import FPLClient
-from league_tracker import LeagueTracker, DEFAULT_LEAGUE_ID
+from analytics.montecarlo import MonteCarloEngine
+from analytics.xp_model import XPModel, DEFAULT_SQUAD
+from clients.fpl_client import FPLClient
+from trackers.league import LeagueTracker, DEFAULT_LEAGUE_ID
 from config_manager import get_system_config, get_params, get_active_profile, set_active_profile
 
 # Initialize FastAPI app

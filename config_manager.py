@@ -64,7 +64,16 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
             "default_sims": 5000,
             "api_default_sims": 2500,
             "default_form_weight": 0.25,
-            "form_multiplier": {"baseline": 4.5, "step": 0.04, "min_clip": 0.75, "max_clip": 1.30}
+            "form_multiplier": {"baseline": 4.5, "step": 0.04, "min_clip": 0.75, "max_clip": 1.30},
+            "macro_jitter": {
+                "enabled": True,
+                "pace_volatility": 0.15,
+                "clip_pace_min": 0.50,
+                "clip_pace_max": 2.00,
+                "enforce_coupled_defense": True,
+                "enforce_discrete_poisson_gc": True,
+                "enforce_pace_scaling": True,
+            }
         },
         "optimizer": {
             "budget": 100.0,

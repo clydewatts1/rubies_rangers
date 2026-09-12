@@ -128,7 +128,7 @@ def main():
 
     # run
     p_run = subparsers.add_parser("run", help="Run Optuna multi-season hyperparameter optimization")
-    p_run.add_argument("--trials", type=int, default=50, help="Total trials to run")
+    p_run.add_argument("--trials", "--n-trials", type=int, default=50, help="Total trials to run")
     p_run.add_argument("--n-jobs", type=int, default=4, help="Concurrent worker threads")
     p_run.add_argument("--study-name", type=str, default="rubies_rangers_moneyball", help="Optuna study name")
     p_run.add_argument("--train-seasons", nargs="+", default=["2021-22", "2022-23"], help="Training seasons")

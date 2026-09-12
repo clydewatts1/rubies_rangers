@@ -36,6 +36,15 @@ def get_param_ranges() -> Dict:
         "moneyball.gkp_weights.form_weight": (0.5, 3.0, 0.1),
         # FDR scaling
         "moneyball.fdr.scaling_factor": (0.05, 0.35, 0.05),
+        # Venue Impact Multipliers
+        "venue.def_home_mult": (1.05, 1.35, 0.05),
+        "venue.gkp_home_mult": (1.00, 1.20, 0.02),
+        "venue.att_home_mult": (1.00, 1.20, 0.02),
+        "venue.away_mult": (0.84, 1.00, 0.02),
+        "venue.gkp_away_save_boost": (1.05, 1.35, 0.05),
+        "venue.tier_damping.mid_table": (1.10, 1.50, 0.05),
+        # Macro Match Jitter
+        "monte_carlo.macro_jitter.pace_volatility": (0.05, 0.30, 0.05),
     }
 
 
@@ -127,6 +136,22 @@ def sample_config_params(trial: optuna.Trial, base_config: Optional[Dict] = None
     fdr_m["scaling_factor"] = fdr_scale
     mb.setdefault("fdr", {})["scaling_factor"] = fdr_scale
 
+    # 5. Venue Impact
+    venue = base_params.setdefault("venue", {})
+    venue["def_home_mult"] = round(trial.suggest_float("mb_def_home_mult", 1.05, 1.35, step=0.05), 2)
+    venue["gkp_home_mult"] = round(trial.suggest_float("mb_gkp_home_mult", 1.00, 1.20, step=0.02), 2)
+    venue["att_home_mult"] = round(trial.suggest_float("mb_att_home_mult", 1.00, 1.20, step=0.02), 2)
+    venue["away_mult"] = round(trial.suggest_float("mb_away_mult", 0.84, 1.00, step=0.02), 2)
+    venue["gkp_away_save_boost"] = round(trial.suggest_float("mb_gkp_away_save_boost", 1.05, 1.35, step=0.05), 2)
+    
+    tier = venue.setdefault("tier_damping", {})
+    tier["mid_table"] = round(trial.suggest_float("mb_mid_tier_mult", 1.10, 1.50, step=0.05), 2)
+
+    # 6. Macro Match Jitter
+    mc = base_params.setdefault("monte_carlo", {})
+    mj = mc.setdefault("macro_jitter", {})
+    mj["pace_volatility"] = round(trial.suggest_float("mc_pace_volatility", 0.05, 0.30, step=0.05), 2)
+
     return base_params
 
 
@@ -206,5 +231,21 @@ def reconstruct_params_from_dict(params_dict: Dict, base_config: Optional[Dict] 
     fdr_m = mb.setdefault("fdr_multiplier", {})
     fdr_m["scaling_factor"] = fdr_scale
     mb.setdefault("fdr", {})["scaling_factor"] = fdr_scale
+
+    # Venue Impact
+    venue = base_params.setdefault("venue", {})
+    venue["def_home_mult"] = round(params_dict.get("mb_def_home_mult", 1.18), 2)
+    venue["gkp_home_mult"] = round(params_dict.get("mb_gkp_home_mult", 1.08), 2)
+    venue["att_home_mult"] = round(params_dict.get("mb_att_home_mult", 1.08), 2)
+    venue["away_mult"] = round(params_dict.get("mb_away_mult", 0.92), 2)
+    venue["gkp_away_save_boost"] = round(params_dict.get("mb_gkp_away_save_boost", 1.20), 2)
+    
+    tier = venue.setdefault("tier_damping", {})
+    tier["mid_table"] = round(params_dict.get("mb_mid_tier_mult", 1.30), 2)
+
+    # Macro Match Jitter
+    mc = base_params.setdefault("monte_carlo", {})
+    mj = mc.setdefault("macro_jitter", {})
+    mj["pace_volatility"] = round(params_dict.get("mc_pace_volatility", 0.15), 2)
 
     return base_params
