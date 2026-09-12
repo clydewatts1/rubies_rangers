@@ -1,26 +1,38 @@
 # Project Rules & Guidelines: Rubies Rangers FPL
 
-## Team Management Strategy: Moneyball
+Welcome to **Rubies Rangers**, an advanced quantitative optimization engine and analytics platform for Fantasy Premier League (FPL).
 
-This project follows a strict **Moneyball strategy** for Fantasy Premier League (FPL) team selection, transfer decisions, and squad management.
+All development and automated decision-making in this repository are governed by modular rules located in [`.agents/rules/`](.agents/rules/):
 
-### Core Moneyball Principles
+---
 
-1. **Underlying Expected Metrics over Past Hype**:
-   - Prioritize expected performance indicators: `expected_goals_per_90` (xG/90), `expected_assists_per_90` (xA/90), and combined `expected_goal_involvements_per_90` (xGI/90).
-   - Evaluate process over pure outcome (avoid chasing lucky historical spikes or unsustainable finishing streaks).
+## Active Repository Rules
 
-2. **Cost Efficiency & Points Per Million (PPM)**:
-   - Maximize return on investment (points or expected points per £1.0m of squad cost).
-   - Identify undervalued assets (e.g. £5.0m–£6.5m defenders and midfielders with underlying numbers comparable to £8.0m+ assets).
+1. **[Quantitative Strategy & Optimization Principles](.agents/rules/moneyball_strategy.md)**:
+   - **Unconstrained Solvers**: Imposes only physical FPL rules (budget, squad quotas, club caps, formations); rejects human tactical dogma so optimal strategies emerge naturally.
+   - **Stochastic & Monte Carlo Modeling**: Propagates full joint probability distributions with covariance, minutes volatility, and downside/upside tail metrics (P10, P50, P90).
+   - **Multi-Period Stochastic Utility**: Formulates transfers and hits as rolling-horizon dynamic decisions maximizing cumulative expected utility without arbitrary hit hurdle rates.
+   - **Game-Theoretic Adversarial Optimization**: Maximizes mini-league win probability P(Squad > Rival) by simulating competitor portfolio distributions.
+   - **First-Principles Alpha vs. Folk Wisdom**: Rejects conventional community "best practices"; mandates empirical ablation backtesting and strict point-in-time isolation.
+   - **Lifecycle (Baseline Priors to Empirical Settings)**: Uses heuristic configurations strictly as initial cold-start defaults before Monte Carlo simulation or tuning; once training finishes, empirical settings take over completely and heuristic rules are avoided.
 
-3. **Defensive Contribution & Consistency**:
-   - Evaluate defenders and defensive midfielders using `defensive_contribution_per_90` (tackles, interceptions, recoveries, and clean sheets per 90).
-   - Prefer reliable, high-floor players with guaranteed minutes (90s played) over volatile rotation risks.
+2. **[Python Engineering & Coding Standards](.agents/rules/python_standards.md)**:
+   - **Separation of Concerns & Modularity**: Enforces strict domain layering (UI -> Orchestration -> Analytical Engines -> Data Clients) and single-responsibility modules.
+   - **Anti-Pattern Avoidance**: Explicitly prohibits God Object monoliths, leaky abstractions, circular dependencies, flat-namespace clutter, mutating global state, and premature in-flight refactoring.
+   - **Performance & Types**: Enforces strict type annotations, frozen `@dataclass` contracts, PEP 8 compliance, vectorization (`pandas`/`numpy`), and prohibits slow row iteration (`.iterrows()`).
+   - **Defensive Engineering**: Requires graceful config fallbacks, structured logging, mathematical docstrings, and deterministic random seed configuration.
 
-4. **ICT Index & Composite Modeling**:
-   - Leverage Influence, Creativity, and Threat (ICT Index) alongside Fixture Difficulty Ratings (FDR) to identify breakout candidates before price rises occur.
+---
 
-5. **Balanced Squad Optimization**:
-   - Maximize total output across the full starting XI plus playing bench cover rather than starving the squad to overspend on non-performing premium names.
-   - All transfer recommendations must be justified with mathematical data comparisons (cost vs. expected return delta).
+## Architectural Hierarchy
+
+```text
+rubies_rangers/
+├── AGENTS.md                                # Root Project Guidelines (This File)
+├── config.yaml                              # Central Parameter & Hyperparameter Store
+├── README.md                                # Comprehensive Platform & Subsystem Guide
+└── .agents/
+    └── rules/
+        ├── moneyball_strategy.md            # FPL Team Selection & Analytical Rules
+        └── python_standards.md              # Python & Vectorization Coding Standards
+```

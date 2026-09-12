@@ -18,8 +18,11 @@ def test_get_param_ranges():
     assert "moneyball.def_weights.def_contribution_per_90" in ranges
     assert "moneyball.gkp_weights.saves_per_90" in ranges
     assert "moneyball.fdr.scaling_factor" in ranges
-    # Active search space has 14 Moneyball parameters (MC/XP pruned per ISSUE-10)
-    assert len(ranges) == 14
+    assert "venue.def_home_mult" in ranges
+    assert "venue.away_mult" in ranges
+    assert "monte_carlo.macro_jitter.pace_volatility" in ranges
+    # Active search space has 14 Moneyball + 6 Venue + 1 Macro Jitter = 21 parameters
+    assert len(ranges) == 21
 
 
 def test_sample_config_params():
@@ -30,7 +33,10 @@ def test_sample_config_params():
         assert "fwd_mid_weights" in params["moneyball"]
         assert "xgi_per_90" in params["moneyball"]["fwd_mid_weights"]
         assert 2.0 <= params["moneyball"]["fwd_mid_weights"]["xgi_per_90"] <= 6.0
-        assert "xp_model" in params
+        assert "venue" in params
+        assert "monte_carlo" in params
+        assert "macro_jitter" in params["monte_carlo"]
+        assert 0.05 <= params["monte_carlo"]["macro_jitter"]["pace_volatility"] <= 0.30
         return 1.0
 
     study = optuna.create_study(direction="maximize")

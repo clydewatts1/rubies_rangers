@@ -35,9 +35,11 @@ def test_heuristic_and_tuned_profiles_exist():
     assert "monte_carlo" in h_params
     assert "optimizer" in h_params
 
-    # Verify initially identical values
-    assert h_params["moneyball"]["fwd_mid"]["xgi_weight"] == t_params["moneyball"]["fwd_mid"]["xgi_weight"]
-    assert h_params["monte_carlo"]["default_form_weight"] == t_params["monte_carlo"]["default_form_weight"]
+    # Verify both profiles have valid positive weights
+    assert h_params["moneyball"]["fwd_mid"]["xgi_weight"] > 0
+    assert t_params["moneyball"]["fwd_mid"]["xgi_weight"] > 0
+    assert h_params["monte_carlo"]["default_form_weight"] > 0
+    assert t_params["monte_carlo"]["default_form_weight"] > 0
 
 
 def test_set_active_profile():

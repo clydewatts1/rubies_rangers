@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from .data_loader import HistoricalDataLoader
-from fpl_optimizer import FPLOptimizer
+from analytics.optimizer import FPLOptimizer
 
 logger = logging.getLogger("backtest.simulator")
 

@@ -45,7 +45,7 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
    - [Heuristic vs. Tuned Parameter Profiles](#heuristic-vs-tuned-parameter-profiles)
    - [Historical Season Rules & FT Rollover Limits](#historical-season-rules--ft-rollover-limits)
    - [Python API Access (`config_manager.py`)](#python-api-access-config_managerpy)
-7. [Automated Test Suite & Quality Assurance (33/33 Tests Passing)](#automated-test-suite--quality-assurance-3333-tests-passing)
+7. [Automated Test Suite & Quality Assurance (53/53 Tests Passing)](#automated-test-suite--quality-assurance-5353-tests-passing)
 8. [REST API Documentation & cURL Examples](#rest-api-documentation--curl-examples)
 9. [CLI Command Cheat Sheet](#cli-command-cheat-sheet)
 10. [Repository Architecture](#repository-architecture)
@@ -627,9 +627,9 @@ ft_cap = sys_rules["max_banked_ft"].get("2024-25", 5)
 
 ---
 
-## Automated Test Suite & Quality Assurance (33/33 Tests Passing)
+## Automated Test Suite & Quality Assurance (53/53 Tests Passing)
 
-The platform is fortified with **33 automated unit and regression tests** in the [`tests/`](tests/) directory, executed via `pytest`:
+The platform is fortified with **53 automated unit and regression tests** across all architectural layers in the [`tests/`](tests/) directory, executed via `pytest`:
 
 ```powershell
 python -m pytest tests/ -v
@@ -639,6 +639,12 @@ python -m pytest tests/ -v
 
 | Test File | Tests | Functional Scope Covered |
 | :--- | :---: | :--- |
+| **`tests/test_clients.py`** | 4 | Package exports, player name normalization, FPL client bootstrap data ingestion, Understat client initialization. |
+| **`tests/test_trackers.py`** | 3 | Package exports, price velocity tracker initialization, mini-league scout initialization. |
+| **`tests/test_analytics.py`** | 3 | Core analytics package exports, PuLP / MILP optimizer initialization, NaN cleaning and numpy serialization. |
+| **`tests/test_two_stage_optimizer.py`** | 3 | Frozen dataclass contracts, multi-objective Pareto knapsack sweeps & deduplication, two-stage MILP-to-Monte-Carlo simulation pipeline. |
+| **`tests/test_domain_intel.py`** | 4 | Shane Domain Intel Desk mathematical identity invariant (Stage 1 & Stage 2), Gameweek TTL decay and expiration, multiplier/status overrides. |
+| **`tests/test_ui.py`** | 3 | Custom CSS tokens & dark theme palette, FDR badge styling helper, modular tab function signatures and callables. |
 | **`tests/test_backtest.py`** | 8 | Dataset normalization, point-in-time anti-leakage isolation, lineup & bench selection, auto-subs & captain doubling, position-differentiated scoring (BUG-1), form window sensitivity (BUG-3), hit penalty accounting (BUG-2), season-dependent FT caps (BUG-4). |
 | **`tests/test_tuner.py`** | 4 | Search space parameter boundaries, 14-parameter Optuna sampling, safe parameter reconstruction from frozen trials (`reconstruct_params_from_dict`), atomic config updating. |
 | **`tests/test_config.py`** | 5 | Config YAML parsing, system keys, profile schema equality between `heuristic` and `tuned`, runtime profile switching, section retrieval. |
@@ -647,7 +653,7 @@ python -m pytest tests/ -v
 | **`tests/test_fpl_client.py`** | 4 | Bootstrap data structures, fixtures structures, players DataFrame column schemas, team FDR maps. |
 | **`tests/test_api.py`** | 5 | Root endpoint, odds endpoint, clean players endpoint, lineup simulation endpoint, config endpoint. |
 
-*Result: **33 passed in ~4.0s** with 0 warnings or failures.*
+*Result: **53 passed** with 0 warnings or failures.*
 
 ---
 
@@ -953,7 +959,7 @@ python -m tuner.cli evaluate --profile tuned --season 2023-24 --start-gw 1 --end
 # =============================================================
 # AUTOMATED QUALITY ASSURANCE & UNIT TESTS
 # =============================================================
-# Run all 33 unit and regression tests with verbose output
+# Run all 53 unit and regression tests with verbose output
 python -m pytest tests/ -v
 
 # Run only backtester regression tests
@@ -972,43 +978,100 @@ rubies_rangers/
 ├── AGENTS.md                  # Strict Moneyball governance rules & prompt directives
 ├── README.md                  # Comprehensive platform documentation & guides
 ├── api.py                     # FastAPI REST microservice
-├── app.py                     # Streamlit multi-page dashboard application
+├── app.py                     # Modularized Streamlit entry router & navigation
 ├── config.yaml                # Centralized configuration with heuristic & tuned profiles
 ├── config_manager.py          # Centralized configuration manager & dynamic profile switcher
 ├── launch_api.bat             # Batch launcher for FastAPI microservice (port 8000)
 ├── launch_dashboard.bat       # Batch launcher for Streamlit Web App (port 8001/8501)
-├── montecarlo_engine.py       # Vectorized Monte Carlo simulation engine
-├── montecarlo_tracker.py      # Dedicated CLI runner for Monte Carlo simulations
-├── team_manager.py            # Master CLI command dispatcher
-├── xp_model.py                # Bookmaker odds & linear expected points solver
-├── xp_tracker.py              # CLI tracker for Starting XI, Captaincy & Odds
-├── tactical_client.py         # Understat scraper & shot coordinate client
-├── tactical_tracker.py        # CLI tracker for shot quality & tactical process
-├── trend_tracker.py           # Match-by-match element summary & rotation risk detector
-├── price_tracker.py           # Market velocity & nightly price change predictor
-├── fixture_tracker.py         # 5-GW rolling FDR & schedule swing analyzer
-├── setpiece_tracker.py        # Dead-ball & penalty taker hierarchy tracker
-├── league_tracker.py          # Mini-league scout, rival spy & effective ownership
-├── fpl_client.py              # Official FPL API wrapper with local caching
-├── fpl_optimizer.py           # PuLP / MILP linear programming squad builder
+├── pytest.ini                 # Pytest configuration (testpaths = tests)
+│
+├── clients/                   # Specialized external API & scraping clients
+│   ├── __init__.py
+│   ├── fpl_client.py          # Official FPL API wrapper with disk caching
+│   └── tactical_client.py     # Understat shot coordinate client & scraper
+│
+├── trackers/                  # Modular CLI tracking utilities & report generators
+│   ├── __init__.py
+│   ├── fixture.py             # 5-GW rolling FDR & schedule swing analyzer
+│   ├── league.py              # Mini-league scout, rival spy & effective ownership
+│   ├── montecarlo.py          # Dedicated CLI runner for Monte Carlo simulations
+│   ├── price.py               # Market velocity & nightly price change predictor
+│   ├── setpiece.py            # Dead-ball & penalty taker hierarchy tracker
+│   ├── tactical.py            # CLI tracker for shot quality & tactical process
+│   ├── trend.py               # Match-by-match element summary & rotation risk detector
+│   └── xp.py                  # CLI tracker for Starting XI, Captaincy & Odds
+│
+├── analytics/                 # Core quantitative engines & mathematical models
+│   ├── __init__.py
+│   ├── domain_intel.py        # Shane's Domain Intel Desk (ephemeral overrides, TTL decay)
+│   ├── montecarlo.py          # Vectorized 7-stage Monte Carlo simulation engine
+│   ├── optimizer.py           # PuLP / MILP linear programming squad builder
+│   ├── team_manager.py        # Master CLI command dispatcher & squad manager
+│   ├── two_stage_optimizer.py # Two-Stage Optimizer (MILP Pareto -> Monte Carlo tournament)
+│   └── xp_model.py            # Bookmaker odds & linear expected points solver
+│
+├── ui/                        # Modular Streamlit UI subsystem
+│   ├── __init__.py
+│   ├── cache.py               # Cached data loaders (@st.cache_data)
+│   ├── components.py          # Reusable UI component renderers & badge helpers
+│   ├── styles.py              # Dark theme design system tokens & CSS injection
+│   └── tabs/                  # Independent tab renderers
+│       ├── tab_two_stage.py   # Two-Stage Optimizer tab (MILP Pareto -> MC tournament)
+│       ├── tab_domain_intel.py# Shane's Domain Intel Desk (ephemeral sliders & selectors)
+│       ├── tab_transfers.py   # Monte Carlo transfer simulation tab
+│       ├── tab_leagues.py     # Mini-league scout & rival spy tab
+│       ├── tab_odds_xp.py     # Odds-implied xP & lineup solver tab
+│       ├── tab_montecarlo.py  # Monte Carlo simulation deep dive tab
+│       ├── tab_tactical.py    # Tactical process & shot quality tab
+│       ├── tab_trends.py      # Form, trends & rotation risk tab
+│       ├── tab_market.py      # Market velocity & price change tab
+│       ├── tab_fixtures.py    # Fixture difficulty & schedule swing tab
+│       ├── tab_setpieces.py   # Set-piece hierarchy matrix tab
+│       └── tab_draft.py       # Live Draft & Wildcard builder tab
+│
 ├── backtest/                  # Multi-season walk-forward backtesting subsystem
 │   ├── __init__.py
 │   ├── data_loader.py         # Anti-leakage point-in-time historical dataset loader
 │   └── simulator.py           # 38-GW walk-forward season simulator with auto-subs & Sharpe scoring
+│
 ├── tuner/                     # Optuna hyperparameter optimization & dashboard
 │   ├── __init__.py
 │   ├── cli.py                 # Standalone CLI for tuning, evaluation & dashboard
 │   ├── engine.py              # Optuna study manager with multi-season train/test splits
 │   ├── search_space.py        # 14-parameter Moneyball search space & frozen reconstruction
 │   └── updater.py             # Hot-updater for config.yaml tuned: profile with audit logs
-├── tests/                     # 33 comprehensive automated unit & regression tests
-│   ├── test_api.py
-│   ├── test_backtest.py
-│   ├── test_config.py
-│   ├── test_fpl_client.py
-│   ├── test_montecarlo.py
-│   ├── test_optimizer.py
-│   └── test_tuner.py
+│
+├── tests/                     # 53 comprehensive automated unit & regression tests
+│   ├── test_analytics.py      # Analytics exports, MILP optimizer init, clean_nans
+│   ├── test_api.py            # FastAPI endpoints & schemas
+│   ├── test_backtest.py       # Walk-forward simulation, anti-leakage, rules
+│   ├── test_clients.py        # Package exports, name normalization, FPL/Understat clients
+│   ├── test_config.py         # YAML schema equality, runtime profile switching
+│   ├── test_domain_intel.py   # Shane's Domain Intel math identity, TTL decay, overrides
+│   ├── test_fpl_client.py     # FPL bootstrap data, fixtures, FDR mapping
+│   ├── test_montecarlo.py     # Monte Carlo NaN hygiene, substitution simulation
+│   ├── test_optimizer.py      # PuLP / MILP constraints & transfer solver
+│   ├── test_trackers.py       # Tracker exports, price velocity & league init
+│   ├── test_tuner.py          # Optuna search space, sampling, config update
+│   ├── test_two_stage_optimizer.py # Two-Stage Pareto sweeps & MC evaluation
+│   └── test_ui.py             # CSS tokens, FDR badges, tab callables
+│
+├── [Root Shims]               # Backward-compatible shims for legacy scripts & CLI commands
+│   ├── fpl_client.py          # -> clients.fpl_client
+│   ├── tactical_client.py     # -> clients.tactical_client
+│   ├── fpl_optimizer.py       # -> analytics.optimizer
+│   ├── montecarlo_engine.py   # -> analytics.montecarlo
+│   ├── xp_model.py            # -> analytics.xp_model
+│   ├── team_manager.py        # -> analytics.team_manager
+│   ├── fixture_tracker.py     # -> trackers.fixture
+│   ├── league_tracker.py      # -> trackers.league
+│   ├── montecarlo_tracker.py  # -> trackers.montecarlo
+│   ├── price_tracker.py       # -> trackers.price
+│   ├── setpiece_tracker.py    # -> trackers.setpiece
+│   ├── tactical_tracker.py    # -> trackers.tactical
+│   ├── trend_tracker.py       # -> trackers.trend
+│   └── xp_tracker.py          # -> trackers.xp
+│
 └── data/                      # Local storage for historical season CSVs & Optuna SQLite DB
     ├── historical/
     └── tuning_history.db
