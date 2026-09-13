@@ -12,6 +12,7 @@ import pandas as pd
 
 from analytics.optimizer import FPLOptimizer
 from analytics.montecarlo import MonteCarloEngine
+from analytics.chip_strategy import BackwardInductionSolver, ChipLiftCalculator, StochasticFixtureMatrix
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,7 @@ class TwoStageOptimizationReport:
     winner_balanced: Optional[StochasticSquadEvaluation]
     winner_safe_floor: Optional[StochasticSquadEvaluation]
     winner_explosive_ceiling: Optional[StochasticSquadEvaluation]
+    chip_recommendation: Optional[dict] = None
     baseline_raw_totals: np.ndarray = field(default_factory=lambda: np.zeros(0))
     all_results_df: pd.DataFrame = field(default_factory=pd.DataFrame)
 
@@ -161,6 +163,16 @@ class TwoStageOptimizer:
         self.optimizer = optimizer
         self.mc_engine = mc_engine
         self.generator = MILPCandidateGenerator(optimizer)
+        self.dp_solver = BackwardInductionSolver()
+        
+    def evaluate_long_term_chip_strategy(self, current_squad_ev: float, current_gw: int = 4) -> dict:
+        """
+        Queries the DP solver to check if we should play a chip right now.
+        For demonstration, we check Wildcard opportunity cost against current squad EV.
+        """
+        simulated_wc_lift = current_squad_ev * 0.15 # Assume 15% bump
+        decision = self.dp_solver.evaluate_chip_decision("WC", simulated_wc_lift, current_gw, 38)
+        return decision
 
     def run_screen_and_simulate(
         self,
@@ -339,6 +351,7 @@ class TwoStageOptimizer:
             winner_balanced=winner_balanced,
             winner_safe_floor=winner_safe_floor,
             winner_explosive_ceiling=winner_explosive_ceiling,
+            chip_recommendation=self.evaluate_long_term_chip_strategy(base_mean),
             baseline_raw_totals=base_totals,
             all_results_df=all_results_df
         )

@@ -49,7 +49,8 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
 8. [REST API Documentation & cURL Examples](#rest-api-documentation--curl-examples)
 9. [CLI Command Cheat Sheet](#cli-command-cheat-sheet)
 10. [Repository Architecture](#repository-architecture)
-11. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop)
+11. [Brainstorm & Design Documents](#brainstorm--design-documents)
+12. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop)
 
 ---
 
@@ -1076,6 +1077,17 @@ rubies_rangers/
     ├── historical/
     └── tuning_history.db
 ```
+
+---
+
+## Brainstorm & Design Documents
+
+The following design specifications document future architectural directions. They are maintained in `docs/brainstorm/` and serve as formal blueprints when the time comes to implement each subsystem.
+
+| Document | Status | Description |
+| :--- | :--- | :--- |
+| [`autonomous_execution_pipeline.md`](docs/brainstorm/autonomous_execution_pipeline.md) | PROPOSED | Formal Coloured Petri Net (CPN) architecture for autonomous FPL API execution with Kleene 3-valued ($K_3$) transition guards, deadline-safe disambiguation, and session keepalive. |
+| [`macro_match_jitter_covariance.md`](docs/brainstorm/macro_match_jitter_covariance.md) | IMPLEMENTED | Macro match-state jitter and teammate covariance modeling via discrete Poisson arrival processes. |
 
 ---
 

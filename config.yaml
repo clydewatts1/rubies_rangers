@@ -286,6 +286,11 @@ heuristic:
       relegation: 1.15
     derby_damping_factor: 0.5
     opponent_fragility_gamma: 0.15
+  chips:
+    cup_elo_model_enabled: true
+    variance_buffer: 0.15
+    discount_factor_gamma: 0.92
+    macro_state_abstraction: true
 tuned:
   moneyball:
     fwd_mid:
@@ -479,6 +484,11 @@ tuned:
       relegation: 1.15
     derby_damping_factor: 0.5
     opponent_fragility_gamma: 0.15
+  chips:
+    cup_elo_model_enabled: true
+    variance_buffer: 0.15
+    discount_factor_gamma: 0.92
+    macro_state_abstraction: true
 tuning_metadata:
   best_trial_id: 1685
   train_seasons:

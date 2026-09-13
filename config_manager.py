@@ -80,6 +80,12 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
             "max_players_per_club": 3,
             "position_quotas": {"GKP": 2, "DEF": 5, "MID": 5, "FWD": 3},
             "default_objective": "moneyball"
+        },
+        "chips": {
+            "cup_elo_model_enabled": True,
+            "variance_buffer": 0.15,
+            "discount_factor_gamma": 0.92,
+            "macro_state_abstraction": True
         }
     }
 }

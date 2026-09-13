@@ -30,6 +30,7 @@ from ui.tabs import (
     render_tab_explorer,
     render_tab_venue,
     render_tab_matchday,
+    render_tab_chip_strategy,
 )
 
 # 1. Page Configuration
@@ -121,6 +122,7 @@ with st.sidebar.expander("👥 Active Squad & Live FPL Sync", expanded=False):
 mode = st.sidebar.selectbox("Workflow", [
     "🏟️ Matchday Center & Live Gameweek Scores",
     "⚔️ Two-Stage Tournament (Screen & Simulate)",
+    "🎴 Long-Term Chip Strategy & Season Roadmap",
     "🧠 Shane's Domain Intel Desk",
     "Modify Current Team (Transfers)",
     "🏆 Mini-League Scout & Rival Spy",
@@ -145,6 +147,8 @@ if mode == "🏟️ Matchday Center & Live Gameweek Scores":
     render_tab_matchday(df, current_squad)
 elif mode == "⚔️ Two-Stage Tournament (Screen & Simulate)":
     render_tab_two_stage(df, current_squad, bank=bank_balance)
+elif mode == "🎴 Long-Term Chip Strategy & Season Roadmap":
+    render_tab_chip_strategy()
 elif mode == "🧠 Shane's Domain Intel Desk":
     render_tab_domain_intel(df, current_squad)
 elif mode == "Modify Current Team (Transfers)":

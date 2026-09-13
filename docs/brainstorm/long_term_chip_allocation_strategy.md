@@ -83,7 +83,7 @@ $$V_t(S_t, C) = \max \Big\{ \underbrace{V_{\text{exercise}}(t, C)}_{\text{Immedi
   - In a major DGW, a properly structured squad features **15 starting players who all have two matches** (30 player appearances!).
   - 4 bench players playing 2 matches each yields 8 player appearances:
     $$\text{Bench Output} \approx 4 \text{ players} \times 2 \text{ matches} \times 3.5 \text{ pts} = \mathbf{24\text{ to }32\text{ points}}.$$
-* **The Benchmark Synergy**: Bench Boost should almost **never be played in isolation**. It is paired with **Wildcard 2** one gameweek prior to build an optimal 15-man active squad with zero dead weight.
+* **The Emergent Synergy (Discovered, Not Hardcoded)**: Because the Dynamic Programming solver evaluates the *continuation value* of a perfectly aligned 15-man squad, it naturally discovers that Bench Boost generates the highest EV when paired with **Wildcard 2** one gameweek prior. The solver finds this synergy mathematically; we do not force it via heuristics.
 
 ---
 
@@ -102,12 +102,9 @@ $$V_t(S_t, C) = \max \Big\{ \underbrace{V_{\text{exercise}}(t, C)}_{\text{Immedi
 * **Official Rules**:
   * **Wildcard 1**: Must be played before the **Gameweek 19 deadline** (December/January). If unused, it expires permanently.
   * **Wildcard 2**: Available from **Gameweek 20** to Gameweek 38.
-* **Optimal Timing for WC1 (GW6 to GW10)**:
-  - By Gameweek 6, Premier League teams have established tactical identities, new signings have settled, and early sample noise has resolved into statistically significant underlying xG/xA trends.
-  - Major fixture swings occur (e.g. Arsenal's brutal early fixtures turn into an ultra-green 8-game run).
-  - Wildcard 1 enables a permanent structural pivot without hits.
-* **Optimal Timing for WC2 (GW30 to GW34)**:
-  - Deployed immediately ahead of the season's largest Double Gameweek to set up the Bench Boost chip.
+* **Algorithmic Triggers (No Fixed Windows)**:
+  - We strictly avoid hardcoding "GW6-GW10" windows. Instead, the solver identifies the optimal Wildcard deployment when the **structural lift $\Delta \text{EV}_{\text{WC}}$** over the upcoming rolling horizon strictly exceeds the continuation value of holding the chip.
+  - This typically occurs during massive fixture swings (e.g., when a top team transitions from a red to a green run), which the solver detects purely through xG/xA probability spikes, not calendar dogma.
 
 ---
 
@@ -142,12 +139,18 @@ $$V_t(S_t, C) = \max \Big\{ \underbrace{V_{\text{exercise}}(t, C)}_{\text{Immedi
 └──────────────────┘        └──────────────────┘        └──────────────────┘
 ```
 
-### Step 1: Calendar Matrix & Fixture Density Detection
-The engine scans the Premier League schedule from the FPL API and detects non-standard gameweeks:
-* `is_double_gw(team, gw)`: True if team has $\ge 2$ fixtures in gameweek.
-* `is_blank_gw(team, gw)`: True if team has 0 fixtures in gameweek.
+### Step 1: Stochastic Fixture Matrix (Probabilistic Cup Trees)
+The engine does *not* treat the Premier League calendar as deterministic truth. Due to FA Cup and Carabao Cup ties, future fixtures are probabilistically modeled:
+* `P(Blank | team, gw)`: The probability a team has 0 fixtures (derived from Cup advancement odds/ELO).
+* `P(Double | team, gw)`: The probability a team has 2 fixtures.
+* The solver maximizes **Expected Value under Uncertainty**: $\text{EV} = P(\text{Blank}) \times \text{Blank\_EV} + P(\text{Double}) \times \text{Double\_EV}$.
 
-### Step 2: Expected Chip Lift Functions
+### Step 2: Macro-State Abstraction & Backward Induction
+To prevent state-space explosion over a 38-week horizon, the DP solver abstracts future gameweeks into macroeconomic buckets (`Standard`, `Mini DGW`, `Massive DGW`, `Massive BGW`).
+* Using **Backward Induction**, it assigns a static Option Continuation Value to these macro-states.
+* By evaluating today's exact simulated micro-state against the future macro-state Option Value, the solver calculates opportunity cost perfectly without simulating trillions of multi-week player permutations.
+
+### Step 3: Expected Chip Lift Functions
 
 1. **Triple Captain Expected Lift**:
    $$\Delta \text{EV}_{\text{TC}}(t) = \max_{p \in \text{Squad}} \Big(\mathbb{E}[\text{Points}(p, t)]\Big)$$
@@ -204,14 +207,14 @@ Peak Spikes highlighted:
 ```yaml
 chips:
   enabled: true
-  min_dgw_expected_lift: 15.0       # Minimum EV gain to trigger Triple Captain
-  min_bb_fixture_count: 7           # Minimum bench fixtures (out of 8) for Bench Boost
   wc1_expiry_gameweek: 19
   wc2_start_gameweek: 20
-  target_windows:
-    wc1_window_start: 6
-    wc1_window_end: 10
-    free_hit_min_blank_players: 5   # Trigger FH if >= 5 current starters blank
+  stochastic_fixtures:
+    cup_elo_model_enabled: true     # Use ELO to generate P(Blank) and P(Double)
+    variance_buffer: 0.15           # Standard deviation buffer for long-term options
+  dp_solver:
+    discount_factor_gamma: 0.92     # Discount distant future option values
+    macro_state_abstraction: true   # Prevent state-space explosion
 ```
 
 ---
