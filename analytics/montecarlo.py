@@ -130,6 +130,14 @@ class MonteCarloEngine:
         if tac_dict is None:
             tac_dict = {}
 
+        # Apply Shane's Domain Intel pre-stage 2 overrides if active
+        try:
+            from analytics.domain_intel import ShaneIntelManager
+            intel_mgr = ShaneIntelManager()
+            player_dict = intel_mgr.apply_pre_stage2_overrides(player_dict, current_gw=4)
+        except Exception:
+            pass
+
         pos = player_dict.get("position_name", "MID")
         team_short = player_dict.get("club_short", "UNK")
         status = player_dict.get("status", "a")
@@ -336,7 +344,14 @@ class MonteCarloEngine:
         mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
         pace_scale = pace_mult if (macro_enabled and mj_cfg.get("enforce_pace_scaling", True)) else 1.0
 
-        match_xg = ((npxg_90 * mins_fraction * (team_xg / 1.35) * pace_scale) + (pen_bonus * (mins > 0))) * form_mult * w_damp
+        # Tactical Alpha Modulations (Finishing True Skill & Talisman Share)
+        fin_delta = float(tac_dict.get("finishing_skill_delta") or (float(player_dict.get("goals_scored", 0)) - float(player_dict.get("expected_goals", 0))))
+        finishing_factor = float(np.clip(1.0 + 0.04 * (fin_delta / 1.5), 0.85, 1.20))
+
+        tal_share = float(tac_dict.get("talisman_share") or player_dict.get("talisman_share_fpl") or 0.0)
+        talisman_factor = float(np.clip(1.0 + 0.03 * ((tal_share - 20.0) / 15.0), 0.90, 1.15))
+
+        match_xg = ((npxg_90 * mins_fraction * (team_xg / 1.35) * pace_scale * talisman_factor) + (pen_bonus * (mins > 0))) * form_mult * w_damp * finishing_factor
         match_xg = np.nan_to_num(np.clip(match_xg, 0.0, None), nan=0.0)
         goals_draw = np.random.poisson(match_xg)
 
@@ -388,8 +403,11 @@ class MonteCarloEngine:
         df_rate = df_cfg.get("rate_factor", 0.1)
         def_floor = np.where((pos == "DEF") & (mins >= 60), np.random.binomial(1, min(df_max, def_actions * df_rate), n_sims), 0)
 
-        # 9. Bonus Points (BPS) from config
-        bps = (goals_draw * bps_cfg.get("goals", 24)) + (assists_draw * bps_cfg.get("assists", 18)) + (cs_draw * bps_cfg.get("clean_sheet", 12)) + (def_floor * bps_cfg.get("def_floor", 4)) + (saves_pts * bps_cfg.get("saves", 6))
+        # 9. Bonus Points (BPS) from config & attacking pressing work rate
+        def_disruption = float(player_dict.get("defensive_disruption_per_90") or 0.0)
+        pressing_bps = 2 if (pos in ["MID", "FWD"] and def_disruption >= 5.0) else (1 if (pos in ["MID", "FWD"] and def_disruption >= 3.5) else 0)
+
+        bps = (goals_draw * bps_cfg.get("goals", 24)) + (assists_draw * bps_cfg.get("assists", 18)) + (cs_draw * bps_cfg.get("clean_sheet", 12)) + (def_floor * bps_cfg.get("def_floor", 4)) + (saves_pts * bps_cfg.get("saves", 6)) + pressing_bps
         bps += np.where(mins >= 60, bps_cfg.get("mins_60", 2), 0)
         t3 = bps_cfg.get("tier_3_threshold", 32)
         t2 = bps_cfg.get("tier_2_threshold", 22)

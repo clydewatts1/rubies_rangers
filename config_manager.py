@@ -113,6 +113,23 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
                 "box_x_threshold": 0.82,
                 "so_t_conversion_benchmark": 0.38
             }
+        },
+        "two_stage_optimizer": {
+            "default_sims": 2500,
+            "risk_profile": "balanced",
+            "pareto_objectives": [
+                {"label": "balanced", "metric": "fdr_moneyball", "enabled": True, "tier": "core", "description": "Fixture Difficulty Rating & venue-adjusted base Moneyball efficiency"},
+                {"label": "forward_alpha", "metric": "forward_moneyball", "enabled": True, "tier": "core", "description": "High-alpha tactical metrics: Talisman Share, Finishing Skill & Pressing Disruption"},
+                {"label": "weather_resilience", "metric": "weather_moneyball", "enabled": True, "tier": "core", "description": "Pitch-level wind shear, precipitation dampening & turnaround rest fatigue"},
+                {"label": "mean_reversion", "metric": "mean_reversion_score", "enabled": True, "tier": "core", "description": "Big Chances Missed (BCM) and (xG - G)+ buy-low mean-reversion breakout"},
+                {"label": "high_attack", "metric": "xgi", "enabled": True, "tier": "core", "description": "Pure underlying expected goal involvements per 90 (shot creation + threat)"},
+                {"label": "defensive_solidity", "metric": "defensive_contribution_per_90", "enabled": False, "tier": "contextual", "description": "High floor defensive actions (tackles, recoveries, clearances) & clean sheet security"},
+                {"label": "odds_implied_xp", "metric": "xp", "enabled": False, "tier": "contextual", "description": "Consensus liquid betting market implied clean sheet and anytime goal probabilities"},
+                {"label": "cost_efficiency", "metric": "ppm", "enabled": False, "tier": "contextual", "description": "Points Per Million (PPM) & budget surplus generation for future flexibility"},
+                {"label": "low_block_threat", "metric": "outside_box_xg", "enabled": False, "tier": "contextual", "description": "Perimeter snipers breaking compact low blocks & FPL Challenge outside-box bonus"},
+                {"label": "setpiece_focus", "metric": "setpiece_moneyball", "enabled": False, "tier": "contextual", "description": "Penalties, direct free kicks & corner duties for high dead-ball floor"},
+                {"label": "momentum", "metric": "form", "enabled": False, "tier": "contextual", "description": "Short-term 30-day streak tracking"}
+            ]
         }
     }
 }
@@ -211,3 +228,42 @@ def get_params(section: Optional[str] = None, profile: Optional[str] = None) -> 
     if not fallback_sec and section in ["montecarlo", "monte_carlo"]:
         fallback_sec = _DEFAULT_CONFIG.get("heuristic", {}).get("monte_carlo", {})
     return fallback_sec
+
+
+def save_config(config: Dict[str, Any]) -> None:
+    """Safely persist updated configuration dictionary to config.yaml and clear cache."""
+    global _CACHED_CONFIG
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        yaml.dump(config, f, sort_keys=False, default_flow_style=False, allow_unicode=True)
+    _CACHED_CONFIG = None
+
+
+def get_pareto_objectives(profile: Optional[str] = None) -> list[Dict[str, Any]]:
+    """
+    Retrieve configured Pareto-efficient objectives for Stage 1 MILP sweeps.
+    Returns list of dicts with keys: label, metric, enabled, description, tier.
+    """
+    two_stage_cfg = get_params("two_stage_optimizer", profile=profile)
+    objectives = two_stage_cfg.get("pareto_objectives", [])
+    if not objectives:
+        # Fallback to core defaults if missing
+        objectives = _DEFAULT_CONFIG["heuristic"]["two_stage_optimizer"]["pareto_objectives"]
+    return copy.deepcopy(objectives)
+
+
+def update_pareto_objectives(objectives: list[Dict[str, Any]], profile: Optional[str] = None) -> None:
+    """
+    Update and persist Pareto objectives to config.yaml for the specified profile
+    (or both profiles if profile is None).
+    """
+    config = copy.deepcopy(get_config())
+    profiles_to_update = [profile.lower().strip()] if profile else ["heuristic", "tuned"]
+
+    for prof in profiles_to_update:
+        if prof in config:
+            if "two_stage_optimizer" not in config[prof]:
+                config[prof]["two_stage_optimizer"] = {}
+            config[prof]["two_stage_optimizer"]["pareto_objectives"] = objectives
+
+    save_config(config)
+

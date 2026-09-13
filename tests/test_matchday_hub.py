@@ -12,9 +12,11 @@ from analytics.matchday_hub import (
     MatchdayPlayer,
     MatchdayFixture,
     MatchdaySummary,
+    MemberDayScore,
+    MiniLeagueScoreboard,
 )
 from clients.fpl_client import FPLClient
-from trackers.league import DEFAULT_ENTRY_ID
+from trackers.league import DEFAULT_ENTRY_ID, DEFAULT_LEAGUE_ID
 
 
 @pytest.fixture
@@ -133,3 +135,84 @@ def test_fixture_status_label_upcoming_day_of_week(matchday_hub):
         parts = f.status_label.split()
         assert parts[0] in days, f"Expected day of week in status_label, got {f.status_label}"
         assert ":" in parts[1], f"Expected time with colon, got {f.status_label}"
+
+
+def test_minileague_dataclass_immutability():
+    """Verify MemberDayScore and MiniLeagueScoreboard contracts are immutable frozen dataclasses."""
+    m = MemberDayScore(
+        entry_id=1,
+        team_name="Test FC",
+        manager_name="Tester",
+        rank=1,
+        last_rank=1,
+        captain_name="Haaland",
+        captain_multiplier=2,
+        captain_points=26,
+        captain_day="Saturday",
+        active_chip=None,
+        transfer_cost=0,
+        starters_played=11,
+        starters_playing=0,
+        starters_to_play=0,
+        day_points={"Saturday": 50, "Sunday": 20},
+        cumulative_day_points={"Saturday": 50, "Sunday": 70},
+        live_gw_points=70,
+        net_gw_points=70,
+        projected_final_points=70.0,
+        total_league_points=320
+    )
+    assert m.team_name == "Test FC"
+    assert m.net_gw_points == 70
+    with pytest.raises(FrozenInstanceError):
+        m.net_gw_points = 80
+
+
+def test_minileague_scoreboard_gw4_extraction(matchday_hub):
+    """Verify MiniLeagueScoreboard aggregates members, active days, and valid totals for GW4."""
+    scoreboard = matchday_hub.get_mini_league_scoreboard(
+        league_id=DEFAULT_LEAGUE_ID,
+        gameweek=4,
+        max_teams=6
+    )
+
+    assert isinstance(scoreboard, MiniLeagueScoreboard)
+    assert scoreboard.gameweek == 4
+    assert len(scoreboard.members) > 0
+    assert len(scoreboard.active_days) > 0
+    assert "Saturday" in scoreboard.active_days
+
+    # League summary statistics
+    assert scoreboard.league_avg_live_points > 0
+    assert scoreboard.league_avg_net_points > 0
+    assert len(scoreboard.top_captains) > 0
+
+
+def test_minileague_day_points_sum_equals_live_total(matchday_hub):
+    """Verify that sum of day-of-week points equals live_gw_points for every member."""
+    scoreboard = matchday_hub.get_mini_league_scoreboard(
+        league_id=DEFAULT_LEAGUE_ID,
+        gameweek=4,
+        max_teams=6
+    )
+
+    for m in scoreboard.members:
+        day_sum = sum(m.day_points.values())
+        assert day_sum == m.live_gw_points, f"Mismatch for {m.team_name}: sum={day_sum} vs live={m.live_gw_points}"
+        assert m.net_gw_points == (m.live_gw_points - m.transfer_cost)
+
+
+def test_minileague_cumulative_progression_monotonic(matchday_hub):
+    """Verify cumulative day-of-week points are monotonically non-decreasing."""
+    scoreboard = matchday_hub.get_mini_league_scoreboard(
+        league_id=DEFAULT_LEAGUE_ID,
+        gameweek=4,
+        max_teams=6
+    )
+
+    for m in scoreboard.members:
+        running = 0
+        for d in scoreboard.active_days:
+            cum = m.cumulative_day_points.get(d, 0)
+            assert cum >= running, f"Cumulative points decreased for {m.team_name} on {d}: {cum} < {running}"
+            running = cum
+

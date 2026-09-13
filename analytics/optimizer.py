@@ -21,7 +21,8 @@ class FPLOptimizer:
         # Ensure numeric columns
         for col in ["now_cost", "total_points", "form", "points_per_game", 
                     "moneyball_score", "fdr_moneyball_score", "setpiece_moneyball_score", 
-                    "forward_moneyball_score", "weather_moneyball_score", "expected_goal_involvements_per_90"]:
+                    "forward_moneyball_score", "weather_moneyball_score", "expected_goal_involvements_per_90",
+                    "mean_reversion_score", "defensive_contribution_per_90", "xp", "ppm", "outside_box_xg"]:
             if col in self.df.columns:
                 self.df[col] = pd.to_numeric(self.df[col], errors="coerce").fillna(0.0)
 
@@ -44,6 +45,30 @@ class FPLOptimizer:
                 return -self.df["weather_moneyball_score"].values
             elif "fdr_moneyball_score" in self.df.columns:
                 return -self.df["fdr_moneyball_score"].values
+            return -self.df["moneyball_score"].values
+        elif objective in ["mean_reversion", "reversion_alpha", "mean_reversion_score"]:
+            if "mean_reversion_score" in self.df.columns:
+                return -self.df["mean_reversion_score"].values
+            elif "fdr_moneyball_score" in self.df.columns:
+                return -self.df["fdr_moneyball_score"].values
+            return -self.df["moneyball_score"].values
+        elif objective in ["defensive_solidity", "defensive_floor", "defensive_contribution", "defensive_contribution_per_90"]:
+            if "defensive_contribution_per_90" in self.df.columns:
+                return -self.df["defensive_contribution_per_90"].values
+            return -self.df["moneyball_score"].values
+        elif objective in ["odds_implied_xp", "odds_xp", "xp"]:
+            if "xp" in self.df.columns:
+                return -self.df["xp"].values
+            elif "fdr_moneyball_score" in self.df.columns:
+                return -self.df["fdr_moneyball_score"].values
+            return -self.df["moneyball_score"].values
+        elif objective in ["cost_efficiency", "ppm", "value_season"]:
+            if "ppm" in self.df.columns:
+                return -self.df["ppm"].values
+            return -self.df["moneyball_score"].values
+        elif objective in ["low_block_threat", "outside_box", "outside_box_xg"]:
+            if "outside_box_xg" in self.df.columns:
+                return -self.df["outside_box_xg"].values
             return -self.df["moneyball_score"].values
         elif objective in ["fdr", "fdr_moneyball", "fixtures"]:
             if "fdr_moneyball_score" in self.df.columns:
@@ -244,9 +269,9 @@ class FPLOptimizer:
         b_l.append(len(current_indices) - max_transfers)
         b_u.append(len(current_indices))
 
-        # 5. Availability filter
+        # 5. Availability filter: newly transferred IN players cannot be unavailable
         if available_only and "status" in df.columns:
-            unavail_mask = (df["status"] != "a").astype(float).values
+            unavail_mask = ((df["status"] != "a") & (~df.index.isin(current_indices))).astype(float).values
             A_rows.append(unavail_mask)
             b_l.append(0.0)
             b_u.append(0.0)

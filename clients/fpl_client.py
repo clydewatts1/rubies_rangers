@@ -631,7 +631,10 @@ class FPLClient:
                 "forward_moneyball_score": forward_moneyball_score,
                 "forward_moneyball_efficiency": forward_moneyball_efficiency,
                 "weather_moneyball_score": weather_moneyball_score,
-                "weather_moneyball_efficiency": weather_moneyball_efficiency
+                "weather_moneyball_efficiency": weather_moneyball_efficiency,
+                "mean_reversion_score": round(1.25 * round(max(0.0, max(0.0, xG - float(p.get("goals_scored", 0))) / 0.38), 1) + 2.0 * max(0.0, xG - float(p.get("goals_scored", 0))), 2),
+                "outside_box_xg": round(max(0.0, (float(p.get("threat") or 0.0) / 100.0) * 0.25), 2),
+                "xp": round(fdr_adjusted_mb * (1.0 if not fwd_enabled else fwd_stage1_mod), 2)
             })
 
         return pd.DataFrame(rows)

@@ -68,3 +68,20 @@ def test_section_retrieval():
     opt = config_manager.get_params("optimizer")
     assert opt["budget"] == 100.0
     assert opt["max_players_per_club"] == 3
+
+
+def test_pareto_objectives_config():
+    objs = config_manager.get_pareto_objectives()
+    assert isinstance(objs, list)
+    assert len(objs) >= 5
+    labels = [o["label"] for o in objs]
+    assert "balanced" in labels
+    assert "forward_alpha" in labels
+    assert "weather_resilience" in labels
+    assert "mean_reversion" in labels
+    assert "high_attack" in labels
+
+    # Verify enabled flags exist
+    enabled_objs = [o for o in objs if o.get("enabled")]
+    assert len(enabled_objs) >= 3
+

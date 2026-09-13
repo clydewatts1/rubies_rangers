@@ -27,6 +27,10 @@ def render_tab_two_stage(df: pd.DataFrame, current_squad: List[str], bank: float
     - **Stage 2: Monte Carlo Stochastic Tournament** stress-tests each unique candidate squad across 1,000–10,000 parallel gameweek draws, modeling Gaussian minutes jitter, bench auto-substitutions, and full risk distributions ($P_{10}, P_{50}, P_{90}$).
     """)
 
+    from config_manager import get_pareto_objectives, update_pareto_objectives
+    current_objs = get_pareto_objectives()
+    active_objs = [o for o in current_objs if o.get("enabled", True)]
+
     # -------------------------------------------------------------
     # Simulation Settings & Control Panel
     # -------------------------------------------------------------
@@ -60,15 +64,109 @@ def render_tab_two_stage(df: pd.DataFrame, current_squad: List[str], bank: float
                 key="two_stage_sims"
             )
         with sc3:
-            st.markdown("**Strategic Objectives Evaluated in Stage 1:**")
-            st.markdown("""
-            • 🏆 **Balanced**: Fixture & Weather-Adjusted Moneyball (`fdr_moneyball`)  
-            • 👑 **Forward Alpha**: Talisman Share & Disruption (`forward_moneyball`)  
-            • 🌤️ **Weather Resilience**: Wind Shear & Turnaround Rest (`weather_moneyball`)  
-            • ⚡ **Attack**: Understat Shot Quality (`xgi`)  
-            • 🎯 **Dead-Ball**: Set-Piece & Penalty Duties (`setpiece`)  
-            • 🔥 **Momentum**: 30-Day Form Streak (`form`)
-            """)
+            st.markdown(f"**Active Stage 1 Pareto Objectives ({len(active_objs)} Enabled):**")
+            for o in active_objs[:6]:
+                st.markdown(f"• **{o['label'].replace('_', ' ').title()}** (`{o['metric']}`)")
+            if len(active_objs) > 6:
+                st.caption(f"+ {len(active_objs) - 6} more enabled in config panel below")
+
+    # -------------------------------------------------------------
+    # Configurable Pareto Objectives Panel (Saved to config.yaml)
+    # -------------------------------------------------------------
+    with st.expander("🛠️ Configure Pareto-Efficient Objectives (Saved to config.yaml)", expanded=False):
+        st.markdown("""
+        Configure which objective dimensions Stage 1 MILP sweeps across. Enabling more objectives broadens the Pareto frontier; disabling narrows candidate focus.  
+        Changes saved here are **persisted to `config.yaml`** and take effect immediately.
+        """)
+        st.markdown("##### ⚡ Quick Strategy Combination Presets")
+        presets = {
+            "🌟 Core Moneyball (5)": ["balanced", "forward_alpha", "weather_resilience", "high_attack", "setpiece_focus"],
+            "⚡ Attacking Edge (4)": ["high_attack", "forward_alpha", "low_block_threat", "mean_reversion"],
+            "🛡️ Defensive & Weather (4)": ["defensive_solidity", "weather_resilience", "setpiece_focus", "balanced"],
+            "📈 Value & Momentum (4)": ["cost_efficiency", "momentum", "mean_reversion", "odds_implied_xp"],
+            "🌌 All 11 Dimensions": [o["label"] for o in current_objs],
+        }
+        p_cols = st.columns(len(presets))
+        for p_idx, (p_name, p_keys) in enumerate(presets.items()):
+            with p_cols[p_idx]:
+                if st.button(p_name, key=f"preset_btn_{p_idx}", use_container_width=True):
+                    for o in current_objs:
+                        o["enabled"] = (o["label"] in p_keys)
+                    update_pareto_objectives(current_objs)
+                    st.rerun()
+
+        st.markdown("---")
+        st.markdown("##### ⚙️ Custom Pareto Objective Toggles")
+        updated_objs = []
+        c_left, c_right = st.columns(2)
+        half = (len(current_objs) + 1) // 2
+        for idx, obj in enumerate(current_objs):
+            col = c_left if idx < half else c_right
+            with col:
+                tier_badge = "🌟 CORE" if obj.get("tier") == "core" else "🎯 CONTEXTUAL"
+                chk = st.checkbox(
+                    f"{tier_badge}: **{obj['label'].replace('_', ' ').title()}** (`{obj['metric']}`)",
+                    value=bool(obj.get("enabled", True)),
+                    help=obj.get("description", ""),
+                    key=f"pareto_chk_{obj['label']}"
+                )
+                updated_objs.append({
+                    "label": obj["label"],
+                    "metric": obj["metric"],
+                    "enabled": chk,
+                    "tier": obj.get("tier", "core"),
+                    "description": obj.get("description", "")
+                })
+
+        if st.button("💾 Save Objectives to config.yaml", key="save_pareto_cfg_btn", type="secondary"):
+            update_pareto_objectives(updated_objs)
+            st.success("✅ Pareto objectives successfully updated and saved to `config.yaml`!")
+            st.rerun()
+
+    # -------------------------------------------------------------
+    # Live Transfer Sensitivity & Differences Inspector
+    # -------------------------------------------------------------
+    with st.expander("🔍 Live Transfer Sensitivity: Compare Selections Across Objective Sets", expanded=False):
+        st.markdown(f"""
+        **Direct Side-by-Side Comparison:** Evaluates the optimal **{num_transfers} transfer{' (Single Swap)' if num_transfers == 1 else 's'}** across all 11 objective dimensions for your squad and available bank (£{bank_balance:.1f}m).  
+        Notice how the recommended transfers shift based on tactical philosophy:
+        - **Attacking / Low-Block**: Targets high-xGI shot volume and outside-the-box long-range threats.
+        - **Defensive / Weather**: Targets sheltered stadiums, high wind resilience, and defensive baseline contributors.
+        - **Mean Reversion / Value**: Targets under-rewarded breakout candidates (Big Chances Missed - BCM) and high points-per-million (PPM) enablers.
+        """)
+        sens_opt = FPLOptimizer(df)
+        sens_rows = []
+        for o in current_objs:
+            label = o["label"]
+            metric = o["metric"]
+            tier = "🌟 Core" if o.get("tier") == "core" else "🎯 Contextual"
+            res = sens_opt.optimize_transfers(
+                current_squad,
+                bank_balance=bank_balance,
+                max_transfers=num_transfers,
+                objective=metric,
+                available_only=False
+            )
+            if res.get("success"):
+                tin_df = res.get("transfers_in")
+                tout_df = res.get("transfers_out")
+                tin = ", ".join(tin_df["web_name"].tolist()) if isinstance(tin_df, pd.DataFrame) else "None"
+                tout = ", ".join(tout_df["web_name"].tolist()) if isinstance(tout_df, pd.DataFrame) else "None"
+                cost_in = tin_df["now_cost"].sum() if isinstance(tin_df, pd.DataFrame) else 0.0
+                cost_out = tout_df["now_cost"].sum() if isinstance(tout_df, pd.DataFrame) else 0.0
+                cost_diff = cost_in - cost_out
+                sens_rows.append({
+                    "Tier": tier,
+                    "Objective": label.replace("_", " ").title(),
+                    "Metric Key": metric,
+                    "Transfer OUT": tout,
+                    "Transfer IN": tin,
+                    "Cost Δ": f"{cost_diff:+.1f}m",
+                    "Bank Left": f"£{res.get('bank_remaining', 0):.1f}m",
+                    "Status in Sweep": "✅ Active" if o.get("enabled", True) else "⬜ Disabled"
+                })
+        if sens_rows:
+            st.dataframe(pd.DataFrame(sens_rows), use_container_width=True, hide_index=True)
 
     hit_penalty = max(0, num_transfers - free_transfers) * 4
     if hit_penalty > 0:

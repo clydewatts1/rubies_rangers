@@ -1,8 +1,8 @@
 {
   "date": "2026-09-13",
-  "total_events": 5,
+  "total_events": 7,
   "event_counts": {
-    "pipeline_init": 5
+    "pipeline_init": 7
   },
-  "max_memory_rss_mb": 85.55
+  "max_memory_rss_mb": 94.3
 }

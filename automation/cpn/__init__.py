@@ -49,6 +49,7 @@ from automation.cpn.transitions import (
 )
 from automation.cpn.engine import CPNEngine
 from automation.cpn.diagnostics import CPNDiagnosticJournal
+from automation.cpn.daemon import CPNDaemon, get_cpn_daemon
 
 __all__ = [
     "K3Status",
@@ -89,4 +90,6 @@ __all__ = [
     "t_reconcile_lineup",
     "CPNEngine",
     "CPNDiagnosticJournal",
+    "CPNDaemon",
+    "get_cpn_daemon",
 ]

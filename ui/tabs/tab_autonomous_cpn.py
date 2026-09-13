@@ -93,9 +93,22 @@ async def _run_async_cycle(gameweek: int, scenario: str, deadline_mins: int = 35
     deadline = datetime.now(timezone.utc) + timedelta(minutes=deadline_mins)
     journal = CPNDiagnosticJournal()
 
-    client = ScenarioFPLClient(scenario=scenario)
-    solver = DemoSolverEngine()
-    legal_formations = {(3, 5, 2), (3, 4, 3), (4, 4, 2), (4, 3, 3), (5, 3, 2)}
+    if scenario == "Live FPL API (Dry Run)":
+        from automation.runner import LiveFPLClient, LiveSolverEngine
+        from config_manager import get_system_config
+        eid = get_system_config("default_entry_id") or 6173410
+        client = LiveFPLClient(entry_id=eid, dry_run=True)
+        solver = LiveSolverEngine()
+    elif scenario == "Live FPL API (Live Commit)":
+        from automation.runner import LiveFPLClient, LiveSolverEngine
+        from config_manager import get_system_config
+        eid = get_system_config("default_entry_id") or 6173410
+        client = LiveFPLClient(entry_id=eid, dry_run=False)
+        solver = LiveSolverEngine()
+    else:
+        client = ScenarioFPLClient(scenario=scenario)
+        solver = DemoSolverEngine()
+    legal_formations = {(3, 5, 2), (3, 4, 3), (4, 4, 2), (4, 3, 3), (5, 3, 2), (5, 4, 1)}
 
     engine = CPNEngine(
         fpl_client=client,
@@ -958,6 +971,76 @@ def render_tab_autonomous_cpn(df: pd.DataFrame | None = None, current_squad: lis
                 st.warning(f"Initial CPN telemetry preflight skipped: {e}")
 
     # -------------------------------------------------------------------------
+    # Autonomous 24/7 Background Daemon HUD
+    # -------------------------------------------------------------------------
+    from automation.cpn.daemon import get_cpn_daemon
+    daemon = get_cpn_daemon()
+    daemon_status = daemon.get_status()
+
+    st.subheader("🤖 Autonomous 24/7 Background Daemon")
+    d_col1, d_col2 = st.columns([3, 1])
+
+    with d_col1:
+        if daemon_status["is_running"]:
+            next_gw = daemon_status.get("next_gameweek") or "?"
+            time_left = daemon_status.get("time_until_deadline_human", "N/A")
+            mode = daemon_status.get("mode", "Dry Run")
+            st.markdown(
+                f"""
+                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; border-radius: 8px; padding: 12px 16px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="color: #4ade80; font-weight: 700; font-size: 15px;">
+                            🟢 CPN AUTONOMOUS DAEMON: ACTIVE & WATCHING
+                        </span>
+                        <span style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                            {mode}
+                        </span>
+                    </div>
+                    <div style="color: #cbd5e1; font-size: 12px; margin-top: 6px; font-family: monospace;">
+                        Watching GW{next_gw} Deadline • Window opens at D-35m • Auto-execution countdown: <strong style="color: #38bdf8;">{time_left}</strong>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid #334155; border-radius: 8px; padding: 12px 16px;">
+                    <div style="color: #94a3b8; font-weight: 600; font-size: 14px;">
+                        ⚪ CPN AUTONOMOUS DAEMON: INACTIVE (STOPPED)
+                    </div>
+                    <div style="color: #64748b; font-size: 12px; margin-top: 4px;">
+                        The background watcher is idle. Start the daemon to monitor deadlines 24/7 and auto-dispatch without manual intervention.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    with d_col2:
+        if daemon_status["is_running"]:
+            if st.button("⏹️ Stop Daemon", type="secondary", use_container_width=True, key="cpn_daemon_stop_btn"):
+                asyncio.run(daemon.stop())
+                st.rerun()
+        else:
+            daemon_target = st.radio(
+                "Daemon Target",
+                ["Dry Run", "Live Commit"],
+                horizontal=True,
+                key="cpn_daemon_target_choice",
+                help="Dry Run simulates execution without mutating your team. Live Commit makes real transfers."
+            )
+            is_dry = (daemon_target == "Dry Run")
+            btn_label = "🚨 Start Live Daemon" if not is_dry else "▶️ Start Dry Daemon"
+            btn_type = "primary" if not is_dry else "secondary"
+            if st.button(btn_label, type=btn_type, use_container_width=True, key="cpn_daemon_start_btn"):
+                asyncio.run(daemon.start(live=True, dry_run=is_dry, check_interval_seconds=60, preflight_lead_minutes=35))
+                st.rerun()
+
+    st.divider()
+
+    # -------------------------------------------------------------------------
     # Control Panel
     # -------------------------------------------------------------------------
     st.subheader("🎛️ CPN Execution Controller")
@@ -971,6 +1054,8 @@ def render_tab_autonomous_cpn(df: pd.DataFrame | None = None, current_squad: lis
             "Adversarial Scenario / Flow Mode",
             [
                 "Nominal Full-Pipeline Flow",
+                "Live FPL API (Dry Run)",
+                "Live FPL API (Live Commit)",
                 "ADV-1: 502 Gateway Recovery",
                 "ADV-3: Late Vice-Captain Red Flag",
                 "Critical Auth Failure",

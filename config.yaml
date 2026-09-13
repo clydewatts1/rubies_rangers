@@ -6,27 +6,29 @@ system:
   - Verbruggen
   - Pedro Porro
   - Senesi
-  - "Gu\xE9hi"
+  - Guéhi
   - Robinson
   - Thiaw
   - Foden
-  - "\xD8degaard"
+  - Ødegaard
   - Mbeumo
   - Cherki
   - Rogers
-  - "Jo\xE3o Pedro"
+  - João Pedro
   - Isak
   - Solanke
   default_bank: 3.7
   default_league_id: 325320
   default_entry_id: 6173410
+  access_token: eyJhbGciOiJSUzI1NiIsImtpZCI6ImRlZmF1bHQifQ.eyJjbGllbnRfaWQiOiIxZjI0M2Q3MC1hMTQwLTQwMzUtOGM0MS0zNDFmNWFmNWFhMTIiLCJpc3MiOiJodHRwczovL2F1dGgucGluZ29uZS5ldS82ODM0MGRlMS1kZmI5LTQxMmUtOTM3Yy0yMDE3Mjk4NmQxMjkvYXMiLCJqdGkiOiI0MDUzYmUxMy05NmQ5LTQ0MTAtOGJmYS0yNjQ5ZjcyMWE2M2EiLCJpYXQiOjE3ODkyNDM3NDgsImV4cCI6MTc4OTI3MjU0OCwiYXVkIjpbImh0dHBzOi8vYXBpLnBpbmdvbmUuZXUiXSwic2NvcGUiOiJwMTpyZWFkOmRldmljZSBwMTp1cGRhdGU6dXNlciBvcGVuaWQgcHJvZmlsZSBvZmZsaW5lX2FjY2VzcyBwMTpyZXNldDp1c2VyUGFzc3dvcmQiLCJzdWIiOiI4MTBmNjljNi0yYmNlLTQ1NzUtYTNhZC1mMGEyYjM5MTA0YjMiLCJzaWQiOiJjNDhkMTJjMi1iMGYzLTQ3YmUtYjBiMS1jNjJiOTk5YjZkZmMiLCJhdXRoX3RpbWUiOjE3ODkwNjU3NjcsImFjciI6IjI2MmNlNGIwMWQxOWRkOWQzODVkMjZiZGRiNDI5N2I2IiwiYXV0aGVudGljYXRvciI6IiIsImh0dHA6Ly9tZWRpYWtpbmQuY29tL21mL3RpZCI6ImRlZmF1bHQiLCJlbnYiOiI2ODM0MGRlMS1kZmI5LTQxMmUtOTM3Yy0yMDE3Mjk4NmQxMjkiLCJvcmciOiIzYTY4NTAzMi04MzI2LTQ5NjktYTc4Yi1jYzI5Nzc1YjEzZDYiLCJwMS5yaWQiOiJiMzlkMjI1My1jZTBhLTQ2YTUtYWY4Yy1kMjIzZWFlODE2YzcifQ.SAqF9rp781v9mumPx8N352ywCOkdNKMWgGRI_vCsQsQ5aTCUTydvvhAfs7jgpwm9dNaVu9CHKR9ex8zcjFZgsbVtyEc3tFLBpuFCd4FOdatb2UfW59H7zekb4sIwPuVkfSDPBz3V2bI8tCpJ2-uN1pgWQcCVvJBZs_oK6Itoiu-NUiqpyop10_fTGO-kS0rOk7Mb3GsEcOXY9dv1gCyopWMaGV28gwoi5iheWfdSO_q8Uz4L0yXrRPKl-b0Tqimotxvp7V0A0O2E6xpzWLOOTCYdra1XMy2OLFaKT0Rv9C8z9fPD9ME5ilugek20ItufOW4fjn73k5hRk3G3Q7zu1A
+  dry_run: true
   cache_ttl_seconds: 3600
   http_timeout_seconds: 15
   max_retries: 3
   retry_backoff_base: 0.5
   weather:
     enabled: true
-    cache_file: "data/weather_store.json"
+    cache_file: data/weather_store.json
     cache_ttl_hours: 6
     forecast_days_ahead: 14
     wind_threshold_moderate: 20.0
@@ -57,7 +59,9 @@ system:
       http_timeout_seconds: 12
       max_dispatch_retries: 3
       retry_backoff_base: 0.8
-      jitter_range_seconds: [0.1, 0.5]
+      jitter_range_seconds:
+      - 0.1
+      - 0.5
       state_audit_timeout_seconds: 8
   rules:
     max_banked_ft:
@@ -348,6 +352,73 @@ heuristic:
       big_chance_xg: 0.35
       box_x_threshold: 0.82
       so_t_conversion_benchmark: 0.38
+  two_stage_optimizer:
+    default_sims: 2500
+    risk_profile: balanced
+    pareto_objectives: &id001
+    - label: balanced
+      metric: fdr_moneyball
+      enabled: true
+      tier: core
+      description: Fixture Difficulty Rating & venue-adjusted base Moneyball efficiency
+    - label: forward_alpha
+      metric: forward_moneyball
+      enabled: true
+      tier: core
+      description: 'High-alpha tactical metrics: Talisman Share, Finishing Skill &
+        Pressing Disruption'
+    - label: weather_resilience
+      metric: weather_moneyball
+      enabled: true
+      tier: core
+      description: Pitch-level wind shear, precipitation dampening & turnaround rest
+        fatigue
+    - label: mean_reversion
+      metric: mean_reversion_score
+      enabled: true
+      tier: core
+      description: Big Chances Missed (BCM) and (xG - G)+ buy-low mean-reversion breakout
+    - label: high_attack
+      metric: xgi
+      enabled: true
+      tier: core
+      description: Pure underlying expected goal involvements per 90 (shot creation
+        + threat)
+    - label: defensive_solidity
+      metric: defensive_contribution_per_90
+      enabled: true
+      tier: contextual
+      description: High floor defensive actions (tackles, recoveries, clearances)
+        & clean sheet security
+    - label: odds_implied_xp
+      metric: xp
+      enabled: true
+      tier: contextual
+      description: Consensus liquid betting market implied clean sheet and anytime
+        goal probabilities
+    - label: cost_efficiency
+      metric: ppm
+      enabled: true
+      tier: contextual
+      description: Points Per Million (PPM) & budget surplus generation for future
+        flexibility
+    - label: low_block_threat
+      metric: outside_box_xg
+      enabled: true
+      tier: contextual
+      description: Perimeter snipers breaking compact low blocks & FPL Challenge outside-box
+        bonus
+    - label: setpiece_focus
+      metric: setpiece_moneyball
+      enabled: true
+      tier: contextual
+      description: Penalties, direct free kicks & corner duties for high dead-ball
+        floor
+    - label: momentum
+      metric: form
+      enabled: true
+      tier: contextual
+      description: Short-term 30-day streak tracking
 tuned:
   moneyball:
     fwd_mid:
@@ -568,6 +639,10 @@ tuned:
       big_chance_xg: 0.35
       box_x_threshold: 0.82
       so_t_conversion_benchmark: 0.38
+  two_stage_optimizer:
+    default_sims: 2500
+    risk_profile: balanced
+    pareto_objectives: *id001
 tuning_metadata:
   best_trial_id: 1685
   train_seasons:

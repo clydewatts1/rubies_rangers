@@ -81,13 +81,31 @@ class MILPCandidateGenerator:
         ("balanced", "fdr_moneyball"),
         ("forward_alpha", "forward_moneyball"),
         ("weather_resilience", "weather_moneyball"),
+        ("mean_reversion", "mean_reversion_score"),
         ("high_attack", "xgi"),
+        ("defensive_solidity", "defensive_contribution_per_90"),
+        ("odds_implied_xp", "xp"),
+        ("cost_efficiency", "ppm"),
+        ("low_block_threat", "outside_box_xg"),
         ("setpiece_focus", "setpiece_moneyball"),
         ("momentum", "form")
     ]
 
     def __init__(self, optimizer: FPLOptimizer):
         self.optimizer = optimizer
+
+    @classmethod
+    def get_configured_objectives(cls) -> List[Tuple[str, str]]:
+        """Fetch enabled Pareto objectives from config_manager or fallback to defaults."""
+        try:
+            from config_manager import get_pareto_objectives
+            configured = get_pareto_objectives()
+            enabled_pairs = [(o["label"], o["metric"]) for o in configured if o.get("enabled", True)]
+            if enabled_pairs:
+                return enabled_pairs
+        except Exception:
+            pass
+        return cls.DEFAULT_OBJECTIVES
 
     def generate_candidates(
         self,
@@ -100,7 +118,7 @@ class MILPCandidateGenerator:
         Runs MILP sweeps across multiple distinct objective weight vectors.
         Deduplicates identical 15-man squad compositions automatically.
         """
-        sweeps = objectives or self.DEFAULT_OBJECTIVES
+        sweeps = objectives or self.get_configured_objectives()
         candidates: List[ParetoCandidateSquad] = []
         seen_squads: Set[frozenset] = set()
 
@@ -156,6 +174,80 @@ class MILPCandidateGenerator:
 
         return candidates
 
+    def generate_draft_candidates(
+        self,
+        budget: float = 100.0,
+        lock_players: Optional[List[str]] = None,
+        exclude_players: Optional[List[str]] = None,
+        objectives: Optional[List[Tuple[str, str]]] = None,
+    ) -> List[ParetoCandidateSquad]:
+        """
+        Runs multi-objective 15-man squad draft sweeps via Scipy MILP.
+        Deduplicates identical full squad permutations across objectives.
+        """
+        sweeps = objectives or self.get_configured_objectives()
+        candidates: List[ParetoCandidateSquad] = []
+        seen_squads: Set[frozenset] = set()
+
+        for label, obj_name in sweeps:
+            result = self.optimizer.optimize_squad(
+                budget=budget,
+                objective=obj_name,
+                lock_players=lock_players,
+                exclude_players=exclude_players,
+            )
+            if not result.get("success"):
+                continue
+
+            squad_df = result.get("squad")
+            if squad_df is not None and "web_name" in squad_df.columns:
+                squad_names = squad_df["web_name"].tolist()
+            else:
+                squad_names = []
+
+            if not squad_names or len(squad_names) != 15:
+                continue
+
+            squad_key = frozenset(squad_names)
+            if squad_key in seen_squads:
+                continue
+            seen_squads.add(squad_key)
+
+            candidates.append(ParetoCandidateSquad(
+                objective_name=label,
+                generator_type="MILP Draft",
+                squad_names=squad_names,
+                transfers_in=squad_names,
+                transfers_out=[],
+                total_cost=float(result.get("total_cost", 0.0)),
+                bank_remaining=float(result.get("bank_remaining", 0.0)),
+                projected_score=float(result.get("total_points", 0.0)),
+            ))
+
+        return candidates
+
+
+def _resolve_objective_score_col(obj_name: str, available_cols: List[str]) -> str:
+    mapping = {
+        "forward_alpha": "forward_moneyball_score",
+        "weather_resilience": "weather_moneyball_score",
+        "mean_reversion": "mean_reversion_score",
+        "defensive_solidity": "defensive_contribution_per_90",
+        "odds_implied_xp": "xp",
+        "cost_efficiency": "ppm",
+        "low_block_threat": "outside_box_xg",
+        "high_attack": "expected_goal_involvements_per_90",
+        "setpiece_focus": "setpiece_moneyball_score",
+        "momentum": "form",
+        "balanced": "fdr_moneyball_score"
+    }
+    col = mapping.get(obj_name, "fdr_moneyball_score")
+    if col in available_cols:
+        return col
+    elif "fdr_moneyball_score" in available_cols:
+        return "fdr_moneyball_score"
+    return "moneyball_score" if "moneyball_score" in available_cols else ""
+
 
 class TwoStageOptimizer:
     """
@@ -197,6 +289,14 @@ class TwoStageOptimizer:
         self.mc_engine.macro_states = shared_macro
 
         df_players = getattr(self.optimizer, "df", None)
+        try:
+            from analytics.domain_intel import ShaneIntelManager
+            intel_mgr = ShaneIntelManager()
+            if df_players is not None and not df_players.empty:
+                df_players = intel_mgr.apply_pre_stage1_overrides(df_players, current_gw=4)
+                self.optimizer.df = df_players
+        except Exception:
+            pass
 
         # 2. Baseline squad Monte Carlo simulation
         base_eval = self.mc_engine.optimize_lineup_and_substitutions(
@@ -269,13 +369,13 @@ class TwoStageOptimizer:
                 if not out_rows.empty:
                     out_club = ", ".join(out_rows["club_short"].dropna().unique()) if "club_short" in out_rows.columns else ""
                     out_cost = round(float(out_rows["now_cost"].sum()), 1) if "now_cost" in out_rows.columns else 0.0
-                    score_col = "forward_moneyball_score" if cand.objective_name == "forward_alpha" and "forward_moneyball_score" in out_rows.columns else ("weather_moneyball_score" if cand.objective_name == "weather_resilience" and "weather_moneyball_score" in out_rows.columns else ("setpiece_moneyball_score" if cand.objective_name == "setpiece_focus" and "setpiece_moneyball_score" in out_rows.columns else "fdr_moneyball_score"))
-                    out_mean = round(float(out_rows[score_col].sum()), 2) if score_col in out_rows.columns else 0.0
+                    score_col = _resolve_objective_score_col(cand.objective_name, list(out_rows.columns))
+                    out_mean = round(float(pd.to_numeric(out_rows[score_col], errors="coerce").sum()), 2) if score_col in out_rows.columns else 0.0
                 if not in_rows.empty:
                     in_club = ", ".join(in_rows["club_short"].dropna().unique()) if "club_short" in in_rows.columns else ""
                     in_cost = round(float(in_rows["now_cost"].sum()), 1) if "now_cost" in in_rows.columns else 0.0
-                    score_col = "forward_moneyball_score" if cand.objective_name == "forward_alpha" and "forward_moneyball_score" in in_rows.columns else ("weather_moneyball_score" if cand.objective_name == "weather_resilience" and "weather_moneyball_score" in in_rows.columns else ("setpiece_moneyball_score" if cand.objective_name == "setpiece_focus" and "setpiece_moneyball_score" in in_rows.columns else "fdr_moneyball_score"))
-                    in_mean = round(float(in_rows[score_col].sum()), 2) if score_col in in_rows.columns else 0.0
+                    score_col = _resolve_objective_score_col(cand.objective_name, list(in_rows.columns))
+                    in_mean = round(float(pd.to_numeric(in_rows[score_col], errors="coerce").sum()), 2) if score_col in in_rows.columns else 0.0
                     if "position_name" in in_rows.columns:
                         in_pos = in_rows.iloc[0]["position_name"]
                     if "fdr_next_5" in in_rows.columns:
@@ -362,3 +462,167 @@ class TwoStageOptimizer:
             baseline_raw_totals=base_totals,
             all_results_df=all_results_df
         )
+
+    def run_draft_tournament(
+        self,
+        budget: float = 100.0,
+        lock_players: Optional[List[str]] = None,
+        exclude_players: Optional[List[str]] = None,
+        n_sims: int = 1500,
+        objectives: Optional[List[Tuple[str, str]]] = None,
+        reference_squad: Optional[List[str]] = None,
+    ) -> TwoStageOptimizationReport:
+        """
+        Executes the two-stage 15-man draft tournament:
+        1. Evaluates reference squad under N Monte Carlo simulations.
+        2. Generates multi-objective 15-man squad draft candidates via Stage 1 MILP.
+        3. Stress-tests all drafted squads in Stage 2 Monte Carlo simulations.
+        4. Crowns the Top 3 Archetype Winners (Max Mean, Max Floor, Max Ceiling).
+        """
+        from analytics.xp_model import DEFAULT_SQUAD
+
+        # 1. Precompute shared macro match states
+        shared_macro = self.mc_engine.generate_macro_match_states(n_sims=n_sims)
+        self.mc_engine.macro_states = shared_macro
+
+        df_players = getattr(self.optimizer, "df", None)
+
+        # 2. Reference squad Monte Carlo simulation for comparative net gain / win prob
+        ref_squad = reference_squad or DEFAULT_SQUAD
+        base_eval = self.mc_engine.optimize_lineup_and_substitutions(
+            squad_names=ref_squad,
+            n_sims=n_sims,
+            df=df_players
+        )
+        base_summary = base_eval["squad_summary"]
+        base_mean = float(base_summary["mean_total"])
+        base_p10 = float(base_summary["floor_p10"])
+        base_p90 = float(base_summary["ceiling_p90"])
+        base_raw = base_summary.get("simulation_totals")
+        if base_raw is not None:
+            base_totals = np.asarray(base_raw, dtype=float)
+        else:
+            base_totals = np.random.normal(base_mean, base_summary.get("std", 10.0), size=n_sims)
+
+        # 3. Stage 1: Generate Pareto 15-man draft candidate squads
+        candidates = self.generator.generate_draft_candidates(
+            budget=budget,
+            lock_players=lock_players,
+            exclude_players=exclude_players,
+            objectives=objectives,
+        )
+
+        # 4. Stage 2: Monte Carlo tournament evaluation of drafted squads
+        evaluated: List[StochasticSquadEvaluation] = []
+        rows = []
+        for cand in candidates:
+            cand_eval = self.mc_engine.optimize_lineup_and_substitutions(
+                squad_names=cand.squad_names,
+                n_sims=n_sims,
+                df=df_players
+            )
+            cand_summary = cand_eval["squad_summary"]
+            c_mean = float(cand_summary["mean_total"])
+            c_p10 = float(cand_summary["floor_p10"])
+            c_p50 = float(cand_summary["median_p50"])
+            c_p90 = float(cand_summary["ceiling_p90"])
+            c_std = float(cand_summary["std"])
+            c_raw = cand_summary.get("simulation_totals")
+            if c_raw is not None:
+                c_totals = np.asarray(c_raw, dtype=float)
+            else:
+                c_totals = np.random.normal(c_mean, c_std, size=n_sims)
+
+            diff = c_totals - base_totals
+            net_gain = round(float(np.mean(diff)), 2)
+            win_prob = round(float(np.mean(diff > 0) * 100), 1)
+            sharpe = round(float(c_mean / (c_std + 1e-6)), 3)
+
+            rationale = (
+                f"Drafted via Stage 1 {cand.objective_name.upper()} 15-man MILP knapsack. "
+                f"Stage 2 Monte Carlo simulated {c_mean:.2f} pts mean, {c_p10:.1f} floor, {c_p90:.1f} ceiling "
+                f"across {n_sims:,} draws ({win_prob:.1f}% win prob vs reference)."
+            )
+
+            eval_item = StochasticSquadEvaluation(
+                candidate=cand,
+                mean_points=c_mean,
+                floor_p10=c_p10,
+                median_p50=c_p50,
+                ceiling_p90=c_p90,
+                standard_deviation=c_std,
+                net_gain_vs_current=net_gain,
+                win_probability_pct=win_prob,
+                sharpe_ratio=sharpe,
+                raw_totals=c_totals,
+                out_player="",
+                in_player=", ".join(cand.squad_names[:4]) + "...",
+                out_club="",
+                in_club="",
+                out_cost=0.0,
+                in_cost=cand.total_cost,
+                cost_diff=0.0,
+                bank_remaining=cand.bank_remaining,
+                out_mean=0.0,
+                in_mean=cand.projected_score,
+                rationale=rationale
+            )
+            evaluated.append(eval_item)
+
+            rows.append({
+                "objective": cand.objective_name,
+                "cost": cand.total_cost,
+                "total_cost": cand.total_cost,
+                "bank_left": cand.bank_remaining,
+                "bank_remaining": cand.bank_remaining,
+                "mean_points": c_mean,
+                "floor_p10": c_p10,
+                "median_p50": c_p50,
+                "ceiling_p90": c_p90,
+                "std": c_std,
+                "std_dev": c_std,
+                "sharpe": sharpe,
+                "win_probability_pct": win_prob,
+                "win_prob_vs_ref": win_prob,
+                "net_mean_gain": net_gain,
+                "net_gain_vs_ref": net_gain,
+                "projected_score": cand.projected_score,
+                "squad": ", ".join(cand.squad_names),
+            })
+
+        # Add ranking to rows
+        rows.sort(key=lambda r: r["mean_points"], reverse=True)
+        for rank_idx, r in enumerate(rows, 1):
+            r["rank"] = rank_idx
+
+        # 5. Crown winners
+        if evaluated:
+            winner_balanced = max(evaluated, key=lambda x: x.mean_points)
+            winner_balanced.archetype = "OPTION 1: 🏆 MAX EXPECTED VALUE"
+
+            winner_safe_floor = max(evaluated, key=lambda x: x.floor_p10)
+            winner_safe_floor.archetype = "OPTION 2: 🛡️ MAX FLOOR & SAFETY"
+
+            winner_explosive_ceiling = max(evaluated, key=lambda x: x.ceiling_p90)
+            winner_explosive_ceiling.archetype = "OPTION 3: 🚀 MAX CEILING & DIFFERENTIAL"
+        else:
+            winner_balanced = None
+            winner_safe_floor = None
+            winner_explosive_ceiling = None
+
+        all_results_df = pd.DataFrame(rows) if rows else pd.DataFrame()
+
+        return TwoStageOptimizationReport(
+            baseline_squad=ref_squad,
+            baseline_mean=base_mean,
+            baseline_p10=base_p10,
+            baseline_p90=base_p90,
+            evaluated_candidates=evaluated,
+            winner_balanced=winner_balanced,
+            winner_safe_floor=winner_safe_floor,
+            winner_explosive_ceiling=winner_explosive_ceiling,
+            chip_recommendation=None,
+            baseline_raw_totals=base_totals,
+            all_results_df=all_results_df
+        )
+

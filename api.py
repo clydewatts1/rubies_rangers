@@ -88,15 +88,38 @@ class LineupSimRequest(BaseModel):
     include_disciplinary: bool = Field(default=True, description="Include yellow and in-match red card risks")
 
 
+_default_dry_run = bool(get_system_config("dry_run") if get_system_config("dry_run") is not None else True)
+
+class CPNExecutionRequest(BaseModel):
+    gameweek: Optional[int] = Field(default=None, description="Target Gameweek (defaults to current/next GW)")
+    live: bool = Field(default=True, description="Connect to live official Premier League API (False for synthetic demo)")
+    dry_run: bool = Field(default=_default_dry_run, description="Dry-run safety mode (simulates POST without mutating account)")
+    entry_id: Optional[int] = Field(default=None, description="Manager Team Entry ID (defaults to config.yaml)")
+    auth_cookie: Optional[str] = Field(default=None, description="access_token or pl_profile session cookie for authenticated execution")
+    deadline_mins: int = Field(default=5, ge=1, le=120, description="Lead time in minutes to target deadline")
+
+
+class CPNDaemonStartRequest(BaseModel):
+    live: bool = Field(default=True, description="Connect to live official Premier League API (False for synthetic demo)")
+    dry_run: bool = Field(default=_default_dry_run, description="Dry-run safety mode (simulates POST without mutating account)")
+    check_interval_seconds: int = Field(default=60, ge=10, le=3600, description="Interval in seconds between deadline status checks")
+    preflight_lead_minutes: int = Field(default=35, ge=5, le=120, description="Lead time in minutes prior to deadline when execution initiates")
+    entry_id: Optional[int] = Field(default=None, description="Manager Team Entry ID (defaults to config.yaml)")
+
+
 # -------------------------------------------------------------
 # Endpoints
 # -------------------------------------------------------------
 @app.get("/")
 def root():
+    from automation.cpn.daemon import get_cpn_daemon
+    daemon_status = get_cpn_daemon().get_status()
     return {
         "status": "online",
         "service": "Rubies Rangers FPL Moneyball & Monte Carlo API",
         "active_profile": get_active_profile(),
+        "cpn_daemon_active": daemon_status["is_running"],
+        "cpn_daemon_indicator": daemon_status["indicator"],
         "endpoints": [
             "/api/simulate/transfers",
             "/api/simulate/lineup",
@@ -104,7 +127,12 @@ def root():
             "/api/odds",
             "/api/league/standings",
             "/api/league/history",
-            "/api/config"
+            "/api/config",
+            "/api/cpn/run",
+            "/api/cpn/telemetry",
+            "/api/cpn/daemon/start",
+            "/api/cpn/daemon/status",
+            "/api/cpn/daemon/stop"
         ],
         "docs": "/docs"
     }
@@ -272,6 +300,128 @@ def get_league_history(league_id: int = Query(default=DEFAULT_LEAGUE_ID, descrip
     if "error" in data:
         raise HTTPException(status_code=400, detail=data["error"])
     return data
+
+
+@app.post("/api/cpn/run")
+async def run_cpn_automation(req: CPNExecutionRequest = CPNExecutionRequest()):
+    """
+    Trigger the Autonomous Coloured Petri Net (CPN) Execution Pipeline & Robotic Manager.
+    Supports synthetic demo mode, live read dry-run, or live mutating execution.
+    """
+    from automation.runner import LiveFPLClient, LiveSolverEngine, DemoFPLClient, DemoSolverEngine
+    from automation.cpn import CPNEngine, CPNDiagnosticJournal
+    from datetime import datetime, timezone, timedelta
+
+    resolved_entry_id = req.entry_id or get_system_config("default_entry_id") or 6173410
+    legal_formations = {(3, 5, 2), (3, 4, 3), (4, 4, 2), (4, 3, 3), (5, 3, 2), (5, 4, 1)}
+
+    if req.live:
+        client: Any = LiveFPLClient(entry_id=resolved_entry_id, auth_cookie=req.auth_cookie, dry_run=req.dry_run)
+        solver: Any = LiveSolverEngine()
+        target_gw = req.gameweek or fpl_client.get_current_gameweek() or 5
+        mode_label = "Live FPL API (Dry Run)" if req.dry_run else "Live FPL API (Live Commit)"
+    else:
+        client = DemoFPLClient(entry_id=resolved_entry_id)
+        solver = DemoSolverEngine()
+        target_gw = req.gameweek or 1
+        mode_label = "Synthetic Demo"
+
+    journal = CPNDiagnosticJournal(log_dir="logs/diagnostics")
+    engine = CPNEngine(fpl_client=client, solver_engine=solver, legal_formations=legal_formations, journal=journal)
+
+    now = datetime.now(timezone.utc)
+    deadline = now + timedelta(minutes=req.deadline_mins)
+
+    t0 = datetime.now(timezone.utc)
+    await engine.run_gameweek_cycle(gameweek=target_gw, deadline_utc=deadline)
+    duration_s = (datetime.now(timezone.utc) - t0).total_seconds()
+
+    snapshot = engine.get_telemetry_snapshot()
+
+    receipt_dict = None
+    if not engine.marking.P_Committed.empty():
+        receipt = await engine.marking.P_Committed.get()
+        receipt_dict = {
+            "confirmation_id": receipt.confirmation_id,
+            "payload_hash": receipt.payload_hash,
+            "http_status": receipt.http_status,
+            "timestamp": receipt.timestamp.isoformat(),
+        }
+
+    alert_dict = None
+    if not engine.marking.P_DeadLetter.empty():
+        alert = await engine.marking.P_DeadLetter.get()
+        alert_dict = {
+            "severity": alert.severity,
+            "reason": alert.reason,
+            "context": alert.context,
+            "timestamp": alert.timestamp.isoformat(),
+        }
+
+    await engine.shutdown()
+
+    return {
+        "success": receipt_dict is not None,
+        "mode": mode_label,
+        "gameweek": target_gw,
+        "entry_id": resolved_entry_id,
+        "duration_seconds": round(duration_s, 2),
+        "committed_receipt": receipt_dict,
+        "dead_letter_alert": alert_dict,
+        "place_counts": snapshot["place_counts"],
+        "executed_at_utc": now.isoformat(),
+    }
+
+
+@app.get("/api/cpn/telemetry")
+def get_cpn_telemetry():
+    """Retrieve CPN architectural specifications, place capacities, and transition formulas."""
+    from automation.cpn.engine import PLACE_SPECS, TRANSITION_SPECS
+    return {
+        "architecture": "Kurt Jensen Timed Coloured Petri Net (TCPN)",
+        "places": PLACE_SPECS,
+        "transitions": TRANSITION_SPECS,
+    }
+
+
+@app.post("/api/cpn/daemon/start")
+async def start_cpn_daemon(req: CPNDaemonStartRequest = CPNDaemonStartRequest()):
+    """
+    Start the autonomous 24/7 background daemon.
+    Continuously monitors FPL deadlines, sleeps between matches, and autonomously triggers
+    preflight and execution cycles when entering the deadline window.
+    """
+    from automation.cpn.daemon import get_cpn_daemon
+    daemon = get_cpn_daemon()
+    res = await daemon.start(
+        live=req.live,
+        dry_run=req.dry_run,
+        check_interval_seconds=req.check_interval_seconds,
+        preflight_lead_minutes=req.preflight_lead_minutes,
+        entry_id=req.entry_id
+    )
+    return res
+
+
+@app.post("/api/cpn/daemon/stop")
+async def stop_cpn_daemon():
+    """Stop the autonomous 24/7 background daemon."""
+    from automation.cpn.daemon import get_cpn_daemon
+    daemon = get_cpn_daemon()
+    res = await daemon.stop()
+    return res
+
+
+@app.get("/api/cpn/daemon/status")
+def get_cpn_daemon_status():
+    """
+    Inspect real-time telemetry, running state, next deadline countdown, and execution history
+    for the autonomous CPN background daemon.
+    """
+    from automation.cpn.daemon import get_cpn_daemon
+    daemon = get_cpn_daemon()
+    return daemon.get_status()
+
 
 
 if __name__ == "__main__":

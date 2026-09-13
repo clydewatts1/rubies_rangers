@@ -15,8 +15,49 @@ from typing import Dict, List, Any, Optional
 
 from clients.fpl_client import FPLClient
 from clients.weather_client import WeatherClient, WeatherObservation
-from trackers.league import DEFAULT_ENTRY_ID, LeagueTracker
+from trackers.league import DEFAULT_ENTRY_ID, DEFAULT_LEAGUE_ID, LeagueTracker
 from analytics.xp_model import DEFAULT_SQUAD
+
+
+@dataclass(frozen=True)
+class MemberDayScore:
+    """Live matchday breakdown for a single mini-league member."""
+    entry_id: int
+    team_name: str
+    manager_name: str
+    rank: int
+    last_rank: int
+    captain_name: str
+    captain_multiplier: int
+    captain_points: int
+    captain_day: str  # e.g., 'Saturday', 'Sunday', 'Upcoming'
+    active_chip: Optional[str]
+    transfer_cost: int
+    starters_played: int
+    starters_playing: int
+    starters_to_play: int
+    day_points: Dict[str, int]  # points scored on each day of week (e.g. {"Saturday": 58, "Sunday": 45})
+    cumulative_day_points: Dict[str, int]  # running sum across days (e.g. {"Saturday": 58, "Sunday": 103})
+    live_gw_points: int  # sum of starters effective points
+    net_gw_points: int  # live_gw_points - transfer_cost
+    projected_final_points: float  # live_gw_points + remaining_xp - transfer_cost
+    total_league_points: int
+    remaining_players: List[Dict[str, Any]] = field(default_factory=list)
+    auto_subs_pending: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class MiniLeagueScoreboard:
+    """Comprehensive Gameweek live scoreboard and day-of-week progression for a mini-league."""
+    league_id: int
+    league_name: str
+    gameweek: int
+    active_days: List[str]  # e.g., ['Friday', 'Saturday', 'Sunday', 'Monday']
+    members: List[MemberDayScore]
+    highest_day_scorers: Dict[str, Dict[str, Any]]  # day -> {"team": str, "points": int, "manager": str}
+    top_captains: Dict[str, int]  # captain_name -> count
+    league_avg_live_points: float
+    league_avg_net_points: float
 
 
 @dataclass(frozen=True)
@@ -435,4 +476,285 @@ class MatchdayHub:
             bench=bench,
             adverse_weather_count=adverse_count,
             squad_weather_alerts=squad_weather_alerts
+        )
+
+    def get_mini_league_scoreboard(
+        self,
+        league_id: Optional[int] = None,
+        gameweek: Optional[int] = None,
+        max_teams: int = 25,
+        force_refresh: bool = False
+    ) -> MiniLeagueScoreboard:
+        """
+        Builds the Live Gameweek Mini-League Scoreboard with Day-of-Week points progression,
+        played/in-play counts, captain returns, hits, and projected final finishes.
+        """
+        target_league_id = int(league_id or DEFAULT_LEAGUE_ID)
+
+        # 1. Determine active gameweek
+        if gameweek is None:
+            gameweek = self.fpl_client.get_current_gameweek() or 4
+
+        # 2. Fetch fixtures and map fixture ID to kickoff day of week
+        fixtures = self.fpl_client.get_gameweek_fixtures(gameweek=gameweek)
+        fixture_day_map: Dict[int, str] = {}
+        day_first_ko: Dict[str, datetime] = {}
+        fixture_status_map: Dict[int, Dict[str, Any]] = {}
+        team_fixtures_map: Dict[int, List[int]] = {}
+
+        for f in fixtures:
+            f_id = f.get("id")
+            ko = f.get("kickoff_time")
+            team_h = f.get("team_h")
+            team_a = f.get("team_a")
+            if team_h and f_id:
+                team_fixtures_map.setdefault(team_h, []).append(f_id)
+            if team_a and f_id:
+                team_fixtures_map.setdefault(team_a, []).append(f_id)
+
+            day_name = "Saturday"
+            if ko:
+                try:
+                    dt = datetime.fromisoformat(ko.replace("Z", "+00:00"))
+                    day_name = dt.strftime("%A")
+                    if day_name not in day_first_ko or dt < day_first_ko[day_name]:
+                        day_first_ko[day_name] = dt
+                except Exception:
+                    pass
+
+            if f_id:
+                fixture_day_map[f_id] = day_name
+                fixture_status_map[f_id] = {
+                    "started": f.get("started", False),
+                    "finished": f.get("finished", False),
+                    "minutes": f.get("minutes", 0),
+                    "day": day_name,
+                    "team_h": team_h,
+                    "team_a": team_a
+                }
+
+        # Chronologically ordered active days
+        days_order = ["Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]
+        if day_first_ko:
+            active_days = sorted(day_first_ko.keys(), key=lambda d: day_first_ko[d])
+        else:
+            unique_days = set(fixture_day_map.values())
+            active_days = [d for d in days_order if d in unique_days] or ["Saturday", "Sunday"]
+
+        # 3. Fetch live scoring events
+        live_raw = self.fpl_client.get_gameweek_live(gameweek=gameweek)
+        live_elements: Dict[int, Dict[str, Any]] = {}
+        for el in live_raw.get("elements", []):
+            el_id = el.get("id")
+            stats = el.get("stats", {})
+            explain = el.get("explain", [])
+            f_pts: Dict[int, int] = {}
+            for exp in explain:
+                fid = exp.get("fixture")
+                pts = sum(s.get("points", 0) for s in exp.get("stats", []))
+                f_pts[fid] = pts
+
+            live_elements[el_id] = {
+                "total_points": stats.get("total_points", 0),
+                "minutes": stats.get("minutes", 0),
+                "goals": stats.get("goals_scored", 0),
+                "assists": stats.get("assists", 0),
+                "clean_sheets": stats.get("clean_sheets", 0),
+                "bps": stats.get("bps", 0),
+                "bonus": stats.get("bonus", 0),
+                "fixture_pts": f_pts
+            }
+
+        # 4. Bootstrap data for club names and baseline xP
+        boot = self.fpl_client.get_bootstrap_data()
+        teams_short = {t["id"]: t["short_name"] for t in boot.get("teams", [])}
+        element_team_map = {el["id"]: el.get("team") for el in boot.get("elements", [])}
+        element_xp_map = {el["id"]: float(el.get("ep_this") or el.get("points_per_game") or 4.0) for el in boot.get("elements", [])}
+
+        # 5. Fetch league standings
+        standings = self.league_tracker.get_league_standings(target_league_id, max_teams=max_teams)
+        league_name = standings.get("league_name", "FPL Mini-League")
+        teams_list = standings.get("teams", [])
+
+        # 6. Process each member's squad
+        members: List[MemberDayScore] = []
+        top_captains_counter: Dict[str, int] = {}
+
+        for t in teams_list:
+            e_id = t["entry_id"]
+            try:
+                picks_data = self.league_tracker.get_team_picks(e_id, gameweek=gameweek)
+            except Exception:
+                continue
+
+            starters = picks_data.get("starters", [])
+            bench = picks_data.get("bench", [])
+            transfer_cost = int(picks_data.get("transfer_cost") or 0)
+            active_chip = picks_data.get("active_chip")
+
+            # Captaincy info
+            cap_obj = picks_data.get("captain")
+            cap_name = cap_obj.get("web_name", "Unknown") if cap_obj else "Unknown"
+            cap_id = cap_obj.get("id") if cap_obj else None
+            cap_mult = cap_obj.get("multiplier", 2) if cap_obj else 2
+            cap_day = "Upcoming"
+            cap_effective_pts = 0
+
+            top_captains_counter[cap_name] = top_captains_counter.get(cap_name, 0) + 1
+
+            day_points = {d: 0 for d in active_days}
+            played_count = 0
+            playing_count = 0
+            to_play_count = 0
+            remaining_players: List[Dict[str, Any]] = []
+
+            for p in starters:
+                p_id = p["id"]
+                p_mult = p.get("multiplier", 1)
+                p_live = live_elements.get(p_id, {"fixture_pts": {}, "minutes": 0, "total_points": 0})
+                p_team_id = element_team_map.get(p_id)
+                p_xp = element_xp_map.get(p_id, 4.0)
+
+                p_fixtures = list(p_live["fixture_pts"].keys())
+                if not p_fixtures and p_team_id:
+                    p_fixtures = team_fixtures_map.get(p_team_id, [])
+
+                has_started = False
+                has_finished = False
+                p_day = active_days[0] if active_days else "Saturday"
+
+                if p_fixtures:
+                    f_info = fixture_status_map.get(p_fixtures[0], {})
+                    has_started = f_info.get("started", False)
+                    has_finished = f_info.get("finished", False)
+                    p_day = f_info.get("day", p_day)
+
+                if p_live["minutes"] > 0:
+                    if has_finished:
+                        played_count += 1
+                    else:
+                        playing_count += 1
+                elif has_finished:
+                    played_count += 1
+                elif has_started:
+                    playing_count += 1
+                else:
+                    to_play_count += 1
+                    opp_short = "UNK"
+                    if p_fixtures:
+                        f_info = fixture_status_map.get(p_fixtures[0], {})
+                        h_team = f_info.get("team_h")
+                        a_team = f_info.get("team_a")
+                        is_home = (p_team_id == h_team)
+                        opp_id = a_team if is_home else h_team
+                        opp_short = teams_short.get(opp_id, "UNK")
+
+                    remaining_players.append({
+                        "name": p.get("web_name", f"Player {p_id}"),
+                        "club": p.get("club", "UNK"),
+                        "pos": p.get("pos", "MID"),
+                        "opp": opp_short,
+                        "day": p_day,
+                        "xp": round(p_xp, 1)
+                    })
+
+                # Day points calculation
+                if p_live["fixture_pts"]:
+                    for fid, pts in p_live["fixture_pts"].items():
+                        d_name = fixture_day_map.get(fid, p_day)
+                        if d_name in day_points:
+                            day_points[d_name] += (pts * p_mult)
+                else:
+                    if p_day in day_points:
+                        day_points[p_day] += (p_live["total_points"] * p_mult)
+
+                # Captain tracking
+                if p_id == cap_id:
+                    cap_day = p_day
+                    cap_effective_pts = p_live["total_points"] * cap_mult
+
+            # Cumulative day-of-week points
+            cum = 0
+            cumulative_day_points = {}
+            for d in active_days:
+                cum += day_points[d]
+                cumulative_day_points[d] = cum
+
+            live_gw = sum(day_points.values())
+            net_gw = live_gw - transfer_cost
+            remaining_xp_sum = sum(rem["xp"] for rem in remaining_players)
+            projected_final = round(live_gw + remaining_xp_sum - transfer_cost, 1)
+
+            # Check potential auto-subs
+            auto_subs_pending = []
+            for s in starters:
+                s_id = s["id"]
+                s_live = live_elements.get(s_id, {"minutes": 0, "total_points": 0})
+                s_team = element_team_map.get(s_id)
+                s_fix = team_fixtures_map.get(s_team, [])
+                s_finished = any(fixture_status_map.get(fid, {}).get("finished", False) for fid in s_fix)
+                if s_live["minutes"] == 0 and s_finished:
+                    for b in bench:
+                        b_id = b["id"]
+                        b_live = live_elements.get(b_id, {"minutes": 0, "total_points": 0})
+                        if b_live["minutes"] > 0:
+                            auto_subs_pending.append({
+                                "sub_out": s.get("web_name"),
+                                "sub_in": b.get("web_name"),
+                                "points": b_live["total_points"]
+                            })
+                            break
+
+            members.append(MemberDayScore(
+                entry_id=e_id,
+                team_name=t["team_name"],
+                manager_name=t["manager_name"],
+                rank=t["rank"],
+                last_rank=t.get("last_rank", t["rank"]),
+                captain_name=cap_name,
+                captain_multiplier=cap_mult,
+                captain_points=cap_effective_pts,
+                captain_day=cap_day,
+                active_chip=active_chip,
+                transfer_cost=transfer_cost,
+                starters_played=played_count,
+                starters_playing=playing_count,
+                starters_to_play=to_play_count,
+                day_points=day_points,
+                cumulative_day_points=cumulative_day_points,
+                live_gw_points=live_gw,
+                net_gw_points=net_gw,
+                projected_final_points=projected_final,
+                total_league_points=t.get("total_points", 0),
+                remaining_players=remaining_players,
+                auto_subs_pending=auto_subs_pending
+            ))
+
+        # Sort members by Net GW Points descending, then by mini-league rank
+        members.sort(key=lambda m: (-m.net_gw_points, m.rank))
+
+        # Compute Highest Day Scorers
+        highest_day_scorers: Dict[str, Dict[str, Any]] = {}
+        for d in active_days:
+            best_m = max(members, key=lambda m: m.day_points.get(d, 0), default=None)
+            if best_m and best_m.day_points.get(d, 0) > 0:
+                highest_day_scorers[d] = {
+                    "team": best_m.team_name,
+                    "manager": best_m.manager_name,
+                    "points": best_m.day_points[d]
+                }
+
+        avg_live = round(sum(m.live_gw_points for m in members) / max(1, len(members)), 1)
+        avg_net = round(sum(m.net_gw_points for m in members) / max(1, len(members)), 1)
+
+        return MiniLeagueScoreboard(
+            league_id=target_league_id,
+            league_name=league_name,
+            gameweek=gameweek,
+            active_days=active_days,
+            members=members,
+            highest_day_scorers=highest_day_scorers,
+            top_captains=top_captains_counter,
+            league_avg_live_points=avg_live,
+            league_avg_net_points=avg_net
         )

@@ -158,3 +158,90 @@ def test_weather_and_congestion_in_monte_carlo(mc_engine):
     assert len(pts) == 500
     assert len(mins) == 500
     assert pts.mean() > 0.0
+
+
+def test_new_pareto_objectives_in_candidate_generator(fpl_opt):
+    """Verify mean_reversion, defensive_solidity, and cost_efficiency generate valid squads."""
+    gen = MILPCandidateGenerator(fpl_opt)
+    test_sweeps = [
+        ("mean_reversion", "mean_reversion_score"),
+        ("defensive_solidity", "defensive_contribution_per_90"),
+        ("cost_efficiency", "ppm"),
+        ("low_block_threat", "outside_box_xg"),
+        ("odds_implied_xp", "xp")
+    ]
+    candidates = gen.generate_candidates(
+        current_squad=DEFAULT_SQUAD,
+        bank=3.7,
+        num_transfers=1,
+        objectives=test_sweeps
+    )
+    assert len(candidates) >= 1
+    for c in candidates:
+        assert len(c.squad_names) == 15
+        assert c.objective_name in [s[0] for s in test_sweeps]
+
+
+def test_finishing_and_disruption_modulation_in_monte_carlo(mc_engine):
+    """Verify that finishing skill delta and defensive disruption modulate simulation outcomes."""
+    p_clinical = {
+        "web_name": "ClinicalStriker",
+        "club_short": "MCI",
+        "position_name": "FWD",
+        "status": "a",
+        "goals_scored": 10,
+        "expected_goals": 6.0,
+        "expected_goals_per_90": 0.80,
+        "expected_assists_per_90": 0.20,
+        "defensive_disruption_per_90": 5.5,
+        "talisman_share_fpl": 45.0
+    }
+    pts, mins = mc_engine.simulate_player(p_clinical, n_sims=1000)
+    assert len(pts) == 1000
+    assert pts.mean() > 2.0
+
+
+def test_configurable_pareto_objectives_loading():
+    """Verify that MILPCandidateGenerator pulls objectives from config_manager."""
+    objs = MILPCandidateGenerator.get_configured_objectives()
+    assert isinstance(objs, list)
+    assert len(objs) >= 1
+    assert any(label == "balanced" for label, _ in objs)
+
+
+def test_candidate_generator_draft_sweeps(fpl_opt):
+    """Verify Stage 1 MILPCandidateGenerator drafts multi-objective 15-man squads."""
+    gen = MILPCandidateGenerator(fpl_opt)
+    test_sweeps = [("balanced", "fdr_moneyball"), ("forward_alpha", "forward_moneyball")]
+    candidates = gen.generate_draft_candidates(
+        budget=100.0,
+        lock_players=["Haaland"],
+        objectives=test_sweeps
+    )
+    assert len(candidates) >= 1
+    for c in candidates:
+        assert len(c.squad_names) == 15
+        assert c.total_cost <= 100.0
+        assert "Haaland" in c.squad_names
+        assert c.generator_type == "MILP Draft"
+
+
+def test_two_stage_draft_tournament(fpl_opt, mc_engine):
+    """Verify TwoStageOptimizer runs full 15-man draft tournament."""
+    two_stage = TwoStageOptimizer(fpl_opt, mc_engine)
+    test_sweeps = [("balanced", "fdr_moneyball"), ("forward_alpha", "forward_moneyball")]
+    report = two_stage.run_draft_tournament(
+        budget=100.0,
+        lock_players=None,
+        n_sims=300,
+        objectives=test_sweeps
+    )
+    assert report is not None
+    assert len(report.evaluated_candidates) >= 1
+    assert report.winner_balanced is not None
+    assert report.winner_safe_floor is not None
+    assert report.winner_explosive_ceiling is not None
+    assert not report.all_results_df.empty
+
+
+

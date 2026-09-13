@@ -195,3 +195,19 @@ def load_matchday_summary(entry_id: Optional[int] = None,
         active_squad_override=override,
         force_refresh=force_refresh
     )
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def load_mini_league_scoreboard(league_id: Optional[int] = None,
+                                gameweek: Optional[int] = None,
+                                max_teams: int = 25,
+                                force_refresh: bool = False):
+    from analytics.matchday_hub import MatchdayHub
+    hub = MatchdayHub()
+    return hub.get_mini_league_scoreboard(
+        league_id=league_id,
+        gameweek=gameweek,
+        max_teams=max_teams,
+        force_refresh=force_refresh
+    )
+
