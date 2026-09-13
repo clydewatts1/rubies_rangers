@@ -120,3 +120,16 @@ def test_fpl_client_gameweek_endpoints():
     assert len(fixtures) == 10
     assert "elements" in live_data
     assert len(live_data["elements"]) > 500
+
+
+def test_fixture_status_label_upcoming_day_of_week(matchday_hub):
+    """Verify that upcoming fixtures display the day of the week and kickoff time (e.g. Sat 15:00)."""
+    summary = matchday_hub.get_matchday_summary(entry_id=DEFAULT_ENTRY_ID, gameweek=5)
+    assert len(summary.fixtures) > 0
+    upcoming = [f for f in summary.fixtures if not f.started and not f.finished]
+    assert len(upcoming) > 0
+    days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+    for f in upcoming:
+        parts = f.status_label.split()
+        assert parts[0] in days, f"Expected day of week in status_label, got {f.status_label}"
+        assert ":" in parts[1], f"Expected time with colon, got {f.status_label}"

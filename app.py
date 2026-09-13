@@ -82,14 +82,15 @@ profile_mgr = ProfileManager()
 profile_mgr.ensure_seeded()
 all_profiles = profile_mgr.list_profiles()
 
+default_profile = profile_mgr.get_default_profile()
+default_pid = default_profile.profile_id if default_profile else "rubies_rangers"
+
 if "active_profile_id" not in st.session_state or not profile_mgr.get_profile(st.session_state["active_profile_id"]):
-    st.session_state["active_profile_id"] = all_profiles[0].profile_id if all_profiles else "rubies_rangers"
+    st.session_state["active_profile_id"] = default_pid
 
 active_profile = profile_mgr.get_profile(st.session_state["active_profile_id"])
 if not active_profile:
-    profile_mgr.ensure_seeded()
-    all_profiles = profile_mgr.list_profiles()
-    active_profile = all_profiles[0]
+    active_profile = default_profile
 
 st.session_state["active_squad"] = list(active_profile.active_squad)
 st.session_state["active_entry_id"] = active_profile.fpl_entry_id
@@ -108,8 +109,9 @@ with st.sidebar:
         p = profile_map.get(pid)
         if not p:
             return pid
-        tag = "🟢 [LIVE]" if p.profile_type == ProfileType.LIVE_FPL else "🧪 [DRAFT]"
-        return f"{tag} {p.display_name}"
+        default_tag = "⭐ [DEFAULT] " if p.is_default else ""
+        tag = "✏️ [WRITABLE]" if not p.is_read_only else "🔒 [READ-ONLY]"
+        return f"{default_tag}{tag} {p.display_name}"
 
     profile_ids = [p.profile_id for p in all_profiles]
     sel_idx = profile_ids.index(active_profile.profile_id) if active_profile.profile_id in profile_ids else 0
@@ -128,42 +130,48 @@ with st.sidebar:
     is_live = (active_profile.profile_type == ProfileType.LIVE_FPL)
     entry_str = f"FPL Entry #{active_profile.fpl_entry_id}" if active_profile.fpl_entry_id else "Hypothetical Draft"
     bank_str = f"Bank: £{active_profile.bank_balance:.1f}M"
-    st.caption(f"**{entry_str}** • {bank_str} • {len(current_squad)}/15 Players")
+    ro_badge = "🔒 READ-ONLY" if active_profile.is_read_only else "✏️ WRITABLE (Clyde Watts)"
+    def_badge = "⭐ DEFAULT • " if active_profile.is_default else ""
+    st.caption(f"**{entry_str}** • {bank_str} • **{def_badge}{ro_badge}** • {len(current_squad)}/15 Players")
 
     # 15-Player Roster & Swaps Expander
     with st.expander("📋 Roster & Player Swaps", expanded=False):
         st.caption(", ".join(current_squad))
         st.markdown("---")
-        st.markdown("**🔄 Swap a Player:**")
-        swap_out = st.selectbox("Sell Player", current_squad, key="sidebar_swap_out")
-        all_player_names = sorted(df["web_name"].dropna().unique().tolist())
-        swap_in = st.selectbox(
-            "Buy Player",
-            all_player_names,
-            index=all_player_names.index("João Pedro") if "João Pedro" in all_player_names else 0,
-            key="sidebar_swap_in"
-        )
-        if st.button("Apply Swap & Save to Profile", key="btn_apply_swap"):
-            if swap_out in current_squad:
-                idx = current_squad.index(swap_out)
-                new_squad = list(current_squad)
-                new_squad[idx] = swap_in
-                updated_profile = ManagerProfile(
-                    profile_id=active_profile.profile_id,
-                    display_name=active_profile.display_name,
-                    profile_type=active_profile.profile_type,
-                    fpl_entry_id=active_profile.fpl_entry_id,
-                    bank_balance=active_profile.bank_balance,
-                    active_squad=new_squad,
-                    mini_league_ids=active_profile.mini_league_ids,
-                    calibration_profile=active_profile.calibration_profile,
-                    notes=active_profile.notes
-                )
-                profile_mgr.save_profile(updated_profile)
-                st.session_state["active_squad"] = new_squad
-                st.cache_data.clear()
-                st.success(f"Swapped {swap_out} ➔ {swap_in}!")
-                st.rerun()
+        if active_profile.is_read_only:
+            st.info("🔒 **Profile is Read-Only**: Roster mutations and player swaps are locked for competitor profiles. To experiment with this team, clone it using 'Clone to Sandbox Draft' below.")
+        else:
+            st.markdown("**🔄 Swap a Player:**")
+            swap_out = st.selectbox("Sell Player", current_squad, key="sidebar_swap_out")
+            all_player_names = sorted(df["web_name"].dropna().unique().tolist())
+            swap_in = st.selectbox(
+                "Buy Player",
+                all_player_names,
+                index=all_player_names.index("João Pedro") if "João Pedro" in all_player_names else 0,
+                key="sidebar_swap_in"
+            )
+            if st.button("Apply Swap & Save to Profile", key="btn_apply_swap"):
+                if swap_out in current_squad:
+                    idx = current_squad.index(swap_out)
+                    new_squad = list(current_squad)
+                    new_squad[idx] = swap_in
+                    updated_profile = ManagerProfile(
+                        profile_id=active_profile.profile_id,
+                        display_name=active_profile.display_name,
+                        profile_type=active_profile.profile_type,
+                        fpl_entry_id=active_profile.fpl_entry_id,
+                        bank_balance=active_profile.bank_balance,
+                        active_squad=new_squad,
+                        mini_league_ids=active_profile.mini_league_ids,
+                        calibration_profile=active_profile.calibration_profile,
+                        notes=active_profile.notes,
+                        is_read_only=active_profile.is_read_only
+                    )
+                    profile_mgr.save_profile(updated_profile)
+                    st.session_state["active_squad"] = new_squad
+                    st.cache_data.clear()
+                    st.success(f"Swapped {swap_out} ➔ {swap_in}!")
+                    st.rerun()
 
     # Sync Live Picks Button (if LIVE_FPL)
     if is_live and active_profile.fpl_entry_id:
@@ -186,7 +194,8 @@ with st.sidebar:
                             active_squad=synced_squad,
                             mini_league_ids=active_profile.mini_league_ids,
                             calibration_profile=active_profile.calibration_profile,
-                            notes=active_profile.notes
+                            notes=active_profile.notes,
+                            is_read_only=active_profile.is_read_only
                         )
                         profile_mgr.save_profile(updated_p)
                         st.session_state["active_squad"] = synced_squad
@@ -214,6 +223,19 @@ with st.sidebar:
                     st.rerun()
             except Exception as e:
                 st.error(f"Failed to import team {import_id_input}: {e}")
+
+        st.markdown("---")
+        st.markdown("**🏆 Batch Import Mini-League Teams:**")
+        league_import_id = st.number_input("Mini-League ID", min_value=1, value=325320, step=1, key="import_league_id")
+        if st.button("📥 Import All Teams from League", key="btn_import_league"):
+            try:
+                with st.spinner(f"Fetching all competitor teams from League {league_import_id}..."):
+                    imported = profile_mgr.import_league_teams(int(league_import_id))
+                    st.cache_data.clear()
+                    st.success(f"Imported {len(imported)} teams from League {league_import_id}!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Failed to import league: {e}")
 
         st.markdown("---")
         st.markdown("**🧪 Clone to New Sandbox Draft:**")
@@ -264,7 +286,7 @@ bank_balance = float(get_system_config("default_bank") or 3.7)
 
 # Dispatch to modular tab renderers
 if mode == "🏟️ Matchday Center & Live Gameweek Scores":
-    render_tab_matchday(df, current_squad)
+    render_tab_matchday(df, current_squad, active_profile.display_name)
 elif mode == "⚔️ Two-Stage Tournament (Screen & Simulate)":
     render_tab_two_stage(df, current_squad, bank=bank_balance)
 elif mode == "🎴 Long-Term Chip Strategy & Season Roadmap":

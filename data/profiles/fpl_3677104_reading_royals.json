@@ -1,0 +1,37 @@
+{
+  "profile_id": "fpl_3677104_reading_royals",
+  "display_name": "Reading Royals (David Sprackling)",
+  "profile_type": "LIVE_FPL",
+  "fpl_entry_id": 3677104,
+  "bank_balance": 0.0,
+  "active_squad": [
+    "Kelleher",
+    "Gabriel",
+    "Maguire",
+    "Gvardiol",
+    "Van de Ven",
+    "Gakpo",
+    "Rogers",
+    "M.Sangaré",
+    "Cherki",
+    "João Pedro",
+    "Isak",
+    "Leno",
+    "O'Reilly",
+    "Gyökeres",
+    "Tielemans"
+  ],
+  "mini_league_ids": [
+    261,
+    276,
+    314,
+    317,
+    325320
+  ],
+  "calibration_profile": "tuned",
+  "notes": "Imported from FPL Entry 3677104 (Overall Rank: #6,507,109).",
+  "is_read_only": true,
+  "is_default": false,
+  "created_at": "2026-09-13T09:00:55.552976+00:00",
+  "updated_at": "2026-09-13T09:09:48.368509+00:00"
+}

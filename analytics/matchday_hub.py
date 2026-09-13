@@ -6,10 +6,15 @@ Maps active starters, captaincy multiplier (2x), and bench to real-time match ev
 
 import os
 from dataclasses import dataclass
+from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None  # type: ignore
 from typing import Dict, List, Any, Optional
 
 from clients.fpl_client import FPLClient
-from trackers.league import LeagueTracker, DEFAULT_ENTRY_ID
+from trackers.league import DEFAULT_ENTRY_ID, LeagueTracker
 from analytics.xp_model import DEFAULT_SQUAD
 
 
@@ -312,7 +317,20 @@ class MatchdayHub:
                 status_lbl = f"LIVE {m_mins}'"
             else:
                 ko = f.get("kickoff_time", "")
-                status_lbl = ko[11:16] if len(ko) >= 16 else "UPCOMING"
+                if ko:
+                    try:
+                        clean_ko = ko.replace("Z", "+00:00")
+                        dt = datetime.fromisoformat(clean_ko)
+                        if ZoneInfo is not None:
+                            try:
+                                dt = dt.astimezone(ZoneInfo("Europe/London"))
+                            except Exception:
+                                pass
+                        status_lbl = dt.strftime("%a %H:%M")
+                    except Exception:
+                        status_lbl = ko[11:16] if len(ko) >= 16 else "UPCOMING"
+                else:
+                    status_lbl = "UPCOMING"
 
             h_squad = players_by_fixture_home.get(f_id, [])
             a_squad = players_by_fixture_away.get(f_id, [])

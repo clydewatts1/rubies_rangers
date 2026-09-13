@@ -1,0 +1,43 @@
+{
+  "profile_id": "fpl_1745183_brennans_bread_today",
+  "display_name": "Brennans Bread Today (Vincent O'Connor)",
+  "profile_type": "LIVE_FPL",
+  "fpl_entry_id": 1745183,
+  "bank_balance": 0.0,
+  "active_squad": [
+    "Raya",
+    "Gvardiol",
+    "Calafiori",
+    "Konsa",
+    "Palmer",
+    "B.Fernandes",
+    "Szoboszlai",
+    "Rogers",
+    "Scott",
+    "Isak",
+    "João Pedro",
+    "Verbruggen",
+    "Barry",
+    "Hall",
+    "Mendy"
+  ],
+  "mini_league_ids": [
+    13,
+    124,
+    276,
+    314,
+    322,
+    5790,
+    325320,
+    334928,
+    334930,
+    431170,
+    586393
+  ],
+  "calibration_profile": "tuned",
+  "notes": "Imported from FPL Entry 1745183 (Overall Rank: #92,345).",
+  "is_read_only": true,
+  "is_default": false,
+  "created_at": "2026-09-13T09:00:54.631630+00:00",
+  "updated_at": "2026-09-13T09:09:48.361658+00:00"
+}

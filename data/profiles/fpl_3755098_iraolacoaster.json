@@ -1,0 +1,39 @@
+{
+  "profile_id": "fpl_3755098_iraolacoaster",
+  "display_name": "IraolaCoaster (Shane McLaughlin)",
+  "profile_type": "LIVE_FPL",
+  "fpl_entry_id": 3755098,
+  "bank_balance": 0.0,
+  "active_squad": [
+    "Raya",
+    "Gvardiol",
+    "Virgil",
+    "Calafiori",
+    "Vuskovic",
+    "Groß",
+    "Szoboszlai",
+    "Tzolis",
+    "Semenyo",
+    "João Pedro",
+    "Haaland",
+    "Kinsky",
+    "Calvert-Lewin",
+    "M.Sangaré",
+    "Shaw"
+  ],
+  "mini_league_ids": [
+    14,
+    124,
+    276,
+    314,
+    322,
+    325320,
+    586393
+  ],
+  "calibration_profile": "tuned",
+  "notes": "Imported from FPL Entry 3755098 (Overall Rank: #531,525).",
+  "is_read_only": true,
+  "is_default": false,
+  "created_at": "2026-09-13T09:00:54.864735+00:00",
+  "updated_at": "2026-09-13T09:09:48.365900+00:00"
+}

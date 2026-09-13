@@ -66,19 +66,60 @@ def test_profile_seeding(temp_profiles_dir: Path):
     assert "preseason_gw1_haaland_salah" in ids
     assert "preseason_gw1_balanced_depth" in ids
 
-    # Primary profile should be LIVE_FPL with an entry ID
+    # Primary profile should be LIVE_FPL with an entry ID and WRITABLE (not read-only)
     primary = manager.get_profile("rubies_rangers")
     assert primary is not None
     assert primary.profile_type == ProfileType.LIVE_FPL
     assert primary.fpl_entry_id == 6173410
     assert len(primary.active_squad) == 15
+    assert primary.is_read_only is False
 
-    # Sandbox drafts should have no entry ID
+    # Sandbox drafts should have no entry ID and be read-only
     draft = manager.get_profile("preseason_gw1_haaland_salah")
     assert draft is not None
     assert draft.profile_type == ProfileType.SANDBOX
     assert draft.fpl_entry_id is None
     assert draft.mini_league_ids == []
+    assert draft.is_read_only is True
+
+
+def test_read_only_rules(temp_profiles_dir: Path):
+    manager = ProfileManager(profiles_dir=temp_profiles_dir)
+    manager.ensure_seeded()
+
+    clyde = manager.get_profile("rubies_rangers")
+    assert clyde.is_read_only is False
+
+    # All non-Clyde profiles must be read-only
+    for p in manager.list_profiles():
+        if p.profile_id != "rubies_rangers":
+            assert p.is_read_only is True, f"Profile {p.profile_id} was expected to be read-only"
+
+
+def test_default_profile_rules(temp_profiles_dir: Path):
+    manager = ProfileManager(profiles_dir=temp_profiles_dir)
+    manager.ensure_seeded()
+
+    # Clyde Watts profile must be is_default = True
+    clyde = manager.get_profile("rubies_rangers")
+    assert clyde is not None
+    assert clyde.is_default is True
+    assert clyde.is_read_only is False
+
+    # get_default_profile() must return Clyde Watts
+    default_p = manager.get_default_profile()
+    assert default_p.profile_id == "rubies_rangers"
+    assert default_p.is_default is True
+
+    # In list_profiles(), Clyde Watts must be sorted first (index 0)
+    all_p = manager.list_profiles()
+    assert all_p[0].profile_id == "rubies_rangers"
+    assert all_p[0].is_default is True
+
+    # All other profiles must have is_default = False
+    for p in all_p[1:]:
+        assert p.is_default is False, f"Profile {p.profile_id} should not be default"
+        assert p.is_read_only is True
 
 
 def test_profile_crud_operations(temp_profiles_dir: Path):
@@ -179,3 +220,33 @@ def test_import_fpl_team_with_no_mini_leagues(temp_profiles_dir: Path):
         assert imported.fpl_entry_id == 777777
         assert imported.mini_league_ids == []
         assert len(imported.active_squad) == 15
+
+
+def test_import_league_teams_mocked(temp_profiles_dir: Path):
+    manager = ProfileManager(profiles_dir=temp_profiles_dir)
+
+    mock_standings = {
+        "league_name": "Test League",
+        "teams": [
+            {"entry_id": 111, "team_name": "Team One", "manager_name": "Alice"},
+            {"entry_id": 222, "team_name": "Team Two", "manager_name": "Bob"},
+        ]
+    }
+    mock_leagues = {"team_name": "Team", "manager_name": "Manager", "leagues": []}
+    mock_picks = {
+        "starters": [{"web_name": f"P_{i}"} for i in range(1, 12)],
+        "bench": [{"web_name": f"B_{i}"} for i in range(1, 5)],
+        "entry_history": {"bank": 5}
+    }
+
+    with patch("trackers.league.LeagueTracker") as MockLT:
+        mock_instance = MockLT.return_value
+        mock_instance.get_league_standings.return_value = mock_standings
+        mock_instance.get_team_leagues.return_value = mock_leagues
+        mock_instance.get_team_picks.return_value = mock_picks
+
+        imported = manager.import_league_teams(league_id=999)
+        assert len(imported) == 2
+        ids = [p.fpl_entry_id for p in imported]
+        assert 111 in ids
+        assert 222 in ids

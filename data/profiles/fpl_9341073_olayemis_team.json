@@ -1,0 +1,38 @@
+{
+  "profile_id": "fpl_9341073_olayemis_team",
+  "display_name": "Olayemi's Team (Olayemi Oduneye)",
+  "profile_type": "LIVE_FPL",
+  "fpl_entry_id": 9341073,
+  "bank_balance": 0.0,
+  "active_squad": [
+    "Pickford",
+    "Virgil",
+    "Calafiori",
+    "Kerkez",
+    "Rúben",
+    "Lewis-Skelly",
+    "Xhaka",
+    "B.Fernandes",
+    "Mainoo",
+    "Haaland",
+    "Zirkzee",
+    "Kinsky",
+    "Frimpong",
+    "Ndiaye",
+    "Brobbey"
+  ],
+  "mini_league_ids": [
+    1,
+    124,
+    277,
+    314,
+    5790,
+    325320
+  ],
+  "calibration_profile": "tuned",
+  "notes": "Imported from FPL Entry 9341073 (Overall Rank: #9,021,740).",
+  "is_read_only": true,
+  "is_default": false,
+  "created_at": "2026-09-13T09:00:56.206979+00:00",
+  "updated_at": "2026-09-13T09:09:48.367439+00:00"
+}

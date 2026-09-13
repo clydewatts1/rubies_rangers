@@ -14,10 +14,27 @@ from trackers.league import DEFAULT_ENTRY_ID
 from clients.fpl_client import FPLClient
 
 
-def render_tab_matchday(df: pd.DataFrame, current_squad: Optional[List[str]] = None):
+def render_tab_matchday(
+    df: pd.DataFrame,
+    current_squad: Optional[List[str]] = None,
+    profile_name: Optional[str] = None
+):
+    if not profile_name:
+        profile_name = st.session_state.get("active_profile_name", "Rubies Rangers")
+
+    # Clean display name: "Rubies Rangers (Clyde Watts)" -> "Rubies Rangers", "IraolaCoaster (Shane McLaughlin)" -> "IraolaCoaster"
+    if " (" in profile_name:
+        team_name = profile_name.split(" (")[0].strip()
+    elif ":" in profile_name:
+        team_name = profile_name.split(":")[0].strip()
+    else:
+        team_name = profile_name.strip()
+
+    badge_name = team_name.upper()
+
     st.title("🏟️ Matchday Center & Live Gameweek Scoreboard")
     st.markdown(
-        "Track live Premier League fixture scores in real-time, audit **Rubies Rangers** active squad performances, "
+        f"Track live Premier League fixture scores in real-time, audit **{team_name}** active squad performances, "
         "and monitor in-play captaincy, bonus points, and bench auto-substitutions."
     )
 
@@ -36,7 +53,7 @@ def render_tab_matchday(df: pd.DataFrame, current_squad: Optional[List[str]] = N
     with ctrl_col2:
         default_entry = st.session_state.get("active_entry_id") or int(DEFAULT_ENTRY_ID)
         entry_input = st.number_input(
-            "Manager Entry ID",
+            f"Manager Entry ID ({team_name})",
             value=int(default_entry),
             step=1,
             help="FPL team ID for active manager (defaults to currently selected profile)."
@@ -59,7 +76,7 @@ def render_tab_matchday(df: pd.DataFrame, current_squad: Optional[List[str]] = N
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     with kpi1:
         st.metric(
-            "Active Squad Live Total",
+            f"{team_name} Live Total",
             f"{summary.total_live_points} pts",
             delta=f"GW{summary.gameweek} Active Score",
             help="Sum of effective points across all 11 starters (including Captain 2x)."
@@ -99,7 +116,7 @@ def render_tab_matchday(df: pd.DataFrame, current_squad: Optional[List[str]] = N
 
     # 2. Matchday Fixtures Scoreboard Grid
     st.subheader(f"⚡ Gameweek {summary.gameweek} Fixtures & Squad Match Center")
-    st.caption("Matches featuring active Rubies Rangers players are highlighted with ⭐ badges and player contribution pills.")
+    st.caption(f"Matches featuring active {team_name} players are highlighted with ⭐ badges and player contribution pills.")
 
     # Render fixtures in a 2-column grid
     col_left, col_right = st.columns(2)
@@ -110,7 +127,7 @@ def render_tab_matchday(df: pd.DataFrame, current_squad: Optional[List[str]] = N
             if fix.has_squad_player:
                 card_border = "1.5px solid #facc15"
                 card_bg = "linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))"
-                star_badge = '<span style="background: #eab308; color: #000; padding: 2px 8px; border-radius: 12px; font-weight: 800; font-size: 11px;">⭐ RUBIES RANGERS MATCH</span>'
+                star_badge = f'<span style="background: #eab308; color: #000; padding: 2px 8px; border-radius: 12px; font-weight: 800; font-size: 11px;">⭐ {badge_name} MATCH</span>'
             else:
                 card_border = "1px solid rgba(255, 255, 255, 0.10)"
                 card_bg = "rgba(15, 23, 42, 0.75)"
@@ -210,7 +227,7 @@ def render_tab_matchday(df: pd.DataFrame, current_squad: Optional[List[str]] = N
     st.markdown("---")
 
     # 3. Active Squad Live Performance Tables
-    st.subheader("👥 Rubies Rangers Live Performance Roster")
+    st.subheader(f"👥 {team_name} Live Performance Roster")
     tab_starters, tab_bench = st.tabs(["⚔️ Starting XI (Active Lineup)", "🛡️ Substitutes Bench"])
 
     with tab_starters:

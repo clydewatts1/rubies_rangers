@@ -1,0 +1,36 @@
+{
+  "profile_id": "fpl_10227617_daniels_team",
+  "display_name": "Daniel's Team (Daniel Doran)",
+  "profile_type": "LIVE_FPL",
+  "fpl_entry_id": 10227617,
+  "bank_balance": 0.0,
+  "active_squad": [
+    "Raya",
+    "Calafiori",
+    "Tarkowski",
+    "De Cuyper",
+    "Kayode",
+    "Cherki",
+    "Gakpo",
+    "Elanga",
+    "Stach",
+    "Haaland",
+    "João Pedro",
+    "Tzolakis",
+    "Ajayi",
+    "M.Sangaré",
+    "Wissa"
+  ],
+  "mini_league_ids": [
+    124,
+    278,
+    314,
+    325320
+  ],
+  "calibration_profile": "tuned",
+  "notes": "Imported from FPL Entry 10227617 (Overall Rank: #10,047,691).",
+  "is_read_only": true,
+  "is_default": false,
+  "created_at": "2026-09-13T09:00:56.397770+00:00",
+  "updated_at": "2026-09-13T09:09:48.363754+00:00"
+}

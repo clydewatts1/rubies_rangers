@@ -31,8 +31,23 @@ class ManagerProfile:
     mini_league_ids: list[int] = field(default_factory=list)
     calibration_profile: str = "tuned"
     notes: str = ""
+    is_read_only: bool = True
+    is_default: bool = False
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    def __post_init__(self) -> None:
+        is_clyde = (
+            self.profile_id == "rubies_rangers"
+            or "clyde" in self.display_name.lower()
+            or self.fpl_entry_id == 6173410
+        )
+        if not is_clyde:
+            object.__setattr__(self, "is_read_only", True)
+            object.__setattr__(self, "is_default", False)
+        elif self.profile_id == "rubies_rangers" or self.fpl_entry_id == 6173410:
+            object.__setattr__(self, "is_read_only", False)
+            object.__setattr__(self, "is_default", True)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert profile contract to a JSON-serializable dictionary."""
@@ -46,6 +61,8 @@ class ManagerProfile:
             "mini_league_ids": list(self.mini_league_ids),
             "calibration_profile": self.calibration_profile,
             "notes": self.notes,
+            "is_read_only": self.is_read_only,
+            "is_default": self.is_default,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -59,8 +76,20 @@ class ManagerProfile:
         except ValueError:
             p_type = ProfileType.SANDBOX
 
+        p_id = str(data["profile_id"])
+        display = str(data.get("display_name", p_id)).lower()
+        is_clyde = (p_id == "rubies_rangers" or "clyde" in display or data.get("fpl_entry_id") == 6173410)
+        
+        if not is_clyde:
+            is_ro = True
+            is_def = False
+        else:
+            raw_ro = data.get("is_read_only")
+            is_ro = bool(raw_ro) if raw_ro is not None else False
+            is_def = True
+
         return cls(
-            profile_id=str(data["profile_id"]),
+            profile_id=p_id,
             display_name=str(data.get("display_name", data["profile_id"])),
             profile_type=p_type,
             fpl_entry_id=int(data["fpl_entry_id"]) if data.get("fpl_entry_id") is not None else None,
@@ -69,6 +98,8 @@ class ManagerProfile:
             mini_league_ids=[int(lid) for lid in data.get("mini_league_ids", [])],
             calibration_profile=str(data.get("calibration_profile", "tuned")),
             notes=str(data.get("notes", "")),
+            is_read_only=is_ro,
+            is_default=is_def,
             created_at=str(data.get("created_at", datetime.now(timezone.utc).isoformat())),
             updated_at=str(data.get("updated_at", datetime.now(timezone.utc).isoformat())),
         )

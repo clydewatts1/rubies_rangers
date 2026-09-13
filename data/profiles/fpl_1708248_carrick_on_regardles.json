@@ -1,0 +1,39 @@
+{
+  "profile_id": "fpl_1708248_carrick_on_regardles",
+  "display_name": "Carrick On Regardles (Stuart Carrick)",
+  "profile_type": "LIVE_FPL",
+  "fpl_entry_id": 1708248,
+  "bank_balance": 0.0,
+  "active_squad": [
+    "Verbruggen",
+    "Guéhi",
+    "Mitchell",
+    "Robertson",
+    "B.Fernandes",
+    "Mbeumo",
+    "Groß",
+    "Anderson",
+    "Haaland",
+    "João Pedro",
+    "Calvert-Lewin",
+    "Kinsky",
+    "Wilson",
+    "Shaw",
+    "Diop"
+  ],
+  "mini_league_ids": [
+    16,
+    124,
+    276,
+    314,
+    325320,
+    334930,
+    586393
+  ],
+  "calibration_profile": "tuned",
+  "notes": "Imported from FPL Entry 1708248 (Overall Rank: #4,133,518).",
+  "is_read_only": true,
+  "is_default": false,
+  "created_at": "2026-09-13T09:00:55.325313+00:00",
+  "updated_at": "2026-09-13T09:09:48.362695+00:00"
+}

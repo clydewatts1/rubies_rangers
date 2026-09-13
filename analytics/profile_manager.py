@@ -59,7 +59,9 @@ class ProfileManager:
                 active_squad=list(default_squad),
                 mini_league_ids=[default_league] if default_league else [],
                 calibration_profile="tuned",
-                notes="Primary active competitive manager profile."
+                notes="Primary active competitive manager profile.",
+                is_read_only=False,  # Clyde Watts is fully writable
+                is_default=True      # Clyde Watts is the platform default
             )
             self.save_profile(primary_profile)
             logger.info("Seeded primary profile: %s", primary_file)
@@ -80,7 +82,9 @@ class ProfileManager:
                 ],
                 mini_league_ids=[],
                 calibration_profile="tuned",
-                notes="Heavy-premium structure prioritizing the two highest-ceiling captain assets."
+                notes="Heavy-premium structure prioritizing the two highest-ceiling captain assets.",
+                is_read_only=True,
+                is_default=False
             )
             self.save_profile(haaland_draft)
 
@@ -100,12 +104,14 @@ class ProfileManager:
                 ],
                 mini_league_ids=[],
                 calibration_profile="tuned",
-                notes="No-Haaland balanced portfolio maximizing 5-midfield aggregate expected points."
+                notes="No-Haaland balanced portfolio maximizing 5-midfield aggregate expected points.",
+                is_read_only=True,
+                is_default=False
             )
             self.save_profile(balanced_draft)
 
     def list_profiles(self) -> list[ManagerProfile]:
-        """Returns all manager profiles discovered on disk, sorted by type and display name."""
+        """Returns all manager profiles discovered on disk, with default profile first."""
         self.ensure_seeded()
         profiles: list[ManagerProfile] = []
 
@@ -117,9 +123,25 @@ class ProfileManager:
             except Exception as e:
                 logger.error("Failed to load profile from %s: %s", p_file, e)
 
-        # Sort: LIVE_FPL profiles first, then SANDBOX drafts alphabetically
-        profiles.sort(key=lambda p: (0 if p.profile_type == ProfileType.LIVE_FPL else 1, p.display_name.lower()))
+        # Sort: Default profile first (Clyde Watts), then LIVE_FPL profiles, then SANDBOX drafts
+        profiles.sort(key=lambda p: (
+            0 if p.is_default else 1,
+            0 if p.profile_type == ProfileType.LIVE_FPL else 1,
+            p.display_name.lower()
+        ))
         return profiles
+
+    def get_default_profile(self) -> ManagerProfile:
+        """Retrieve the primary default manager profile (Clyde Watts / Rubies Rangers)."""
+        self.ensure_seeded()
+        clyde = self.get_profile("rubies_rangers")
+        if clyde is not None:
+            return clyde
+        for p in self.list_profiles():
+            if p.is_default:
+                return p
+        profiles = self.list_profiles()
+        return profiles[0]
 
     def get_profile(self, profile_id: str) -> Optional[ManagerProfile]:
         """Retrieve a specific profile by identifier."""
@@ -186,11 +208,19 @@ class ProfileManager:
             mini_league_ids=list(source.mini_league_ids),
             calibration_profile=source.calibration_profile,
             notes=f"Cloned from '{source.display_name}'.",
+            is_read_only=True,  # All profiles except Clyde Watts are read-only
             created_at=now_iso,
             updated_at=now_iso,
         )
         self.save_profile(cloned)
         return cloned
+
+    def find_by_entry_id(self, entry_id: int) -> Optional[ManagerProfile]:
+        """Find an existing profile by its FPL entry ID."""
+        for p in self.list_profiles():
+            if p.fpl_entry_id == int(entry_id):
+                return p
+        return None
 
     def import_fpl_team(
         self,
@@ -233,13 +263,21 @@ class ProfileManager:
         # Extract classic mini-leagues
         classic_leagues = [int(l["id"]) for l in manager_info.get("leagues", []) if "id" in l]
 
-        # Generate unique profile ID
-        base_slug = f"fpl_{entry_id}_{slugify_name(team_name)}"
-        profile_id = base_slug
-        counter = 1
-        while (self.profiles_dir / f"{profile_id}.json").exists():
-            profile_id = f"{base_slug}_{counter}"
-            counter += 1
+        # Reuse existing profile ID if already present
+        existing = self.find_by_entry_id(int(entry_id))
+        if existing:
+            profile_id = existing.profile_id
+        else:
+            base_slug = f"fpl_{entry_id}_{slugify_name(team_name)}"
+            profile_id = base_slug
+            counter = 1
+            while (self.profiles_dir / f"{profile_id}.json").exists():
+                profile_id = f"{base_slug}_{counter}"
+                counter += 1
+
+        # Only Clyde Watts is writable; all competitor teams are strictly read-only
+        is_clyde = (int(entry_id) == 6173410 or "clyde" in manager_name.lower() or "clyde" in display_name.lower())
+        is_read_only = not is_clyde
 
         imported_profile = ManagerProfile(
             profile_id=profile_id,
@@ -250,8 +288,38 @@ class ProfileManager:
             active_squad=active_squad,
             mini_league_ids=classic_leagues,
             calibration_profile="tuned",
-            notes=f"Imported from FPL Entry {entry_id} (Overall Rank: #{manager_info.get('overall_rank', 0):,})."
+            notes=f"Imported from FPL Entry {entry_id} (Overall Rank: #{manager_info.get('overall_rank', 0):,}).",
+            is_read_only=is_read_only
         )
         self.save_profile(imported_profile)
-        logger.info("Successfully imported FPL team %d as profile '%s'", entry_id, profile_id)
+        logger.info("Successfully imported FPL team %d as profile '%s' (read_only=%s)", entry_id, profile_id, is_read_only)
         return imported_profile
+
+    def import_league_teams(self, league_id: int, gameweek: Optional[int] = None) -> list[ManagerProfile]:
+        """
+        Fetches all manager teams from a classic mini-league and imports each team
+        with their published 15-player squad and metadata into data/profiles/.
+        """
+        from trackers.league import LeagueTracker
+
+        lt = LeagueTracker()
+        league_data = lt.get_league_standings(league_id)
+        teams = league_data.get("teams", [])
+        logger.info("Importing %d teams from league %d (%s)...", len(teams), league_id, league_data.get("league_name"))
+
+        imported_profiles: list[ManagerProfile] = []
+        for t in teams:
+            entry_id = t.get("entry_id")
+            if not entry_id:
+                continue
+            try:
+                prof = self.import_fpl_team(
+                    entry_id=int(entry_id),
+                    gameweek=gameweek,
+                    custom_display_name=f"{t.get('team_name')} ({t.get('manager_name')})"
+                )
+                imported_profiles.append(prof)
+            except Exception as e:
+                logger.error("Failed to import team %s (%s): %s", entry_id, t.get("team_name"), e)
+
+        return imported_profiles

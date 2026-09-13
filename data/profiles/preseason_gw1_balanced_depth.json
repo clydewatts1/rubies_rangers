@@ -24,6 +24,8 @@
   "mini_league_ids": [],
   "calibration_profile": "tuned",
   "notes": "No-Haaland balanced portfolio maximizing 5-midfield aggregate expected points.",
+  "is_read_only": true,
+  "is_default": false,
   "created_at": "2026-09-13T08:45:17.784562+00:00",
-  "updated_at": "2026-09-13T08:45:17.784736+00:00"
+  "updated_at": "2026-09-13T09:09:48.371457+00:00"
 }

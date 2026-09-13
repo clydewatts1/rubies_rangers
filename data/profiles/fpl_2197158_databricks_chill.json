@@ -1,0 +1,40 @@
+{
+  "profile_id": "fpl_2197158_databricks_chill",
+  "display_name": "Databricks & Chill (Ed Donlon)",
+  "profile_type": "LIVE_FPL",
+  "fpl_entry_id": 2197158,
+  "bank_balance": 0.0,
+  "active_squad": [
+    "Raya",
+    "Gabriel",
+    "Muharemović",
+    "Thomas",
+    "Groß",
+    "Semenyo",
+    "Gibbs-White",
+    "Mbeumo",
+    "João Pedro",
+    "Haaland",
+    "Wissa",
+    "Dubravka",
+    "Hughes",
+    "Dedić",
+    "O'Shea"
+  ],
+  "mini_league_ids": [
+    1,
+    124,
+    276,
+    314,
+    16377,
+    325320,
+    431170,
+    586393
+  ],
+  "calibration_profile": "tuned",
+  "notes": "Imported from FPL Entry 2197158 (Overall Rank: #2,473,904).",
+  "is_read_only": true,
+  "is_default": false,
+  "created_at": "2026-09-13T09:00:55.084213+00:00",
+  "updated_at": "2026-09-13T09:09:48.364767+00:00"
+}
