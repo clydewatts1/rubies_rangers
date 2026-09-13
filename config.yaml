@@ -24,6 +24,21 @@ system:
   http_timeout_seconds: 15
   max_retries: 3
   retry_backoff_base: 0.5
+  execution:
+    timing:
+      preflight_lead_minutes: 35.0
+      solver_lead_minutes: 30.0
+      disambiguation_cutoff_minutes: 8.0
+      transfer_dispatch_minutes: 6.5
+      lineup_dispatch_minutes: 4.0
+      verification_gate_minutes: 2.0
+      emergency_halt_buffer_seconds: 60
+    network:
+      http_timeout_seconds: 12
+      max_dispatch_retries: 3
+      retry_backoff_base: 0.8
+      jitter_range_seconds: [0.1, 0.5]
+      state_audit_timeout_seconds: 8
   rules:
     max_banked_ft:
       2021-22: 2
