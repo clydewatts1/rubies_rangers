@@ -5,7 +5,7 @@ Maps active starters, captaincy multiplier (2x), and bench to real-time match ev
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 try:
     from zoneinfo import ZoneInfo
@@ -14,6 +14,7 @@ except ImportError:
 from typing import Dict, List, Any, Optional
 
 from clients.fpl_client import FPLClient
+from clients.weather_client import WeatherClient, WeatherObservation
 from trackers.league import DEFAULT_ENTRY_ID, LeagueTracker
 from analytics.xp_model import DEFAULT_SQUAD
 
@@ -42,6 +43,7 @@ class MatchdayPlayer:
     fixture_id: Optional[int]
     opponent_short: str
     is_home: bool
+    talisman_share: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,8 @@ class MatchdayFixture:
     has_squad_player: bool
     home_squad_players: List[MatchdayPlayer]
     away_squad_players: List[MatchdayPlayer]
+    weather: Optional[WeatherObservation] = None
+    weather_badge_html: str = ""
 
 
 @dataclass(frozen=True)
@@ -82,14 +86,22 @@ class MatchdaySummary:
     fixtures: List[MatchdayFixture]
     starters: List[MatchdayPlayer]
     bench: List[MatchdayPlayer]
+    adverse_weather_count: int = 0
+    squad_weather_alerts: List[str] = field(default_factory=list)
 
 
 class MatchdayHub:
     """Coordinates data extraction and live aggregation for the Matchday Center."""
 
-    def __init__(self, fpl_client: Optional[FPLClient] = None, league_tracker: Optional[LeagueTracker] = None):
+    def __init__(
+        self,
+        fpl_client: Optional[FPLClient] = None,
+        league_tracker: Optional[LeagueTracker] = None,
+        weather_client: Optional[WeatherClient] = None
+    ):
         self.fpl_client = fpl_client or FPLClient()
         self.league_tracker = league_tracker or LeagueTracker()
+        self.weather_client = weather_client or WeatherClient()
 
     def get_matchday_summary(
         self,
@@ -112,6 +124,13 @@ class MatchdayHub:
         # Lookup dictionaries
         teams_map = {t["id"]: t["short_name"] for t in boot.get("teams", [])}
         pos_map = {p["id"]: p["singular_name_short"] for p in boot.get("element_types", [])}
+
+        team_xgi_totals: Dict[int, float] = {}
+        for el in boot.get("elements", []):
+            t_id = el.get("team")
+            xgi_val = float(el.get("expected_goal_involvements") or 0.0)
+            team_xgi_totals[t_id] = team_xgi_totals.get(t_id, 0.0) + xgi_val
+
         elements_map = {
             el["id"]: {
                 "id": el["id"],
@@ -121,6 +140,7 @@ class MatchdayHub:
                 "club_short": teams_map.get(el["team"], "UNK"),
                 "position": pos_map.get(el["element_type"], "UNK"),
                 "now_cost": el.get("now_cost", 50) / 10.0,
+                "talisman_share": round((float(el.get("expected_goal_involvements") or 0.0) / team_xgi_totals[el["team"]] * 100.0), 1) if team_xgi_totals.get(el["team"], 0) > 0 else 0.0
             }
             for el in boot.get("elements", [])
         }
@@ -270,7 +290,8 @@ class MatchdayHub:
                 match_status=p_status,
                 fixture_id=fix_id,
                 opponent_short=opp_short,
-                is_home=is_home
+                is_home=is_home,
+                talisman_share=el_info.get("talisman_share", 0.0)
             )
 
             if is_cap:
@@ -300,7 +321,11 @@ class MatchdayHub:
                     players_by_fixture_away.setdefault(fix_id, []).append(player_obj)
 
         # 7. Construct MatchdayFixture objects
+        # 7. Construct MatchdayFixture objects with Meteorological Intelligence
         matchday_fixtures: List[MatchdayFixture] = []
+        adverse_count = 0
+        squad_weather_alerts = []
+
         for f in fixtures_raw:
             f_id = f["id"]
             h_short = teams_map.get(f["team_h"], f"T{f['team_h']}")
@@ -310,13 +335,13 @@ class MatchdayHub:
             started = f.get("started", False)
             finished = f.get("finished", False)
             m_mins = f.get("minutes", 0)
+            ko = f.get("kickoff_time", "")
 
             if finished:
                 status_lbl = "FT"
             elif started:
                 status_lbl = f"LIVE {m_mins}'"
             else:
-                ko = f.get("kickoff_time", "")
                 if ko:
                     try:
                         clean_ko = ko.replace("Z", "+00:00")
@@ -336,6 +361,24 @@ class MatchdayHub:
             a_squad = players_by_fixture_away.get(f_id, [])
             has_squad = (len(h_squad) + len(a_squad)) > 0
 
+            # Query weather observation from WeatherClient
+            obs = self.weather_client.get_fixture_weather(
+                home_club=h_short,
+                kickoff_iso=ko,
+                fixture_id=f_id,
+                is_finished=finished,
+                force_refresh=force_refresh
+            )
+
+            w_badge = f'<span title="{obs.condition_label} • Wind: {obs.wind_speed_kmh}km/h (Eff: {obs.effective_wind_kmh}km/h) • Rain: {obs.precipitation_mm}mm" style="background: rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 6px; font-size: 11px; margin-left: 6px; font-weight: 500;">{obs.condition_icon} {obs.temperature_c:.0f}°C • {obs.effective_wind_kmh:.0f} km/h</span>'
+            if obs.is_adverse and obs.hazard_alert:
+                w_badge += f' <span title="{obs.hazard_alert}" style="background: #7f1d1d; color: #fca5a5; padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 700;">⚠️ HAZARD</span>'
+
+            if has_squad and obs.is_adverse:
+                adverse_count += 1
+                if obs.hazard_alert:
+                    squad_weather_alerts.append(f"{h_short} vs {a_short}: {obs.hazard_alert}")
+
             matchday_fixtures.append(MatchdayFixture(
                 fixture_id=f_id,
                 home_short=h_short,
@@ -345,11 +388,13 @@ class MatchdayHub:
                 started=started,
                 finished=finished,
                 minutes=m_mins,
-                kickoff_time=f.get("kickoff_time", ""),
+                kickoff_time=ko,
                 status_label=status_lbl,
                 has_squad_player=has_squad,
                 home_squad_players=h_squad,
-                away_squad_players=a_squad
+                away_squad_players=a_squad,
+                weather=obs,
+                weather_badge_html=w_badge
             ))
 
         # Sort fixtures: active squad fixtures first, then by started / kickoff time
@@ -387,5 +432,7 @@ class MatchdayHub:
             auto_subs=auto_subs,
             fixtures=matchday_fixtures,
             starters=starters,
-            bench=bench
+            bench=bench,
+            adverse_weather_count=adverse_count,
+            squad_weather_alerts=squad_weather_alerts
         )

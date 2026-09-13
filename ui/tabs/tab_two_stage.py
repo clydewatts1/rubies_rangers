@@ -23,7 +23,7 @@ def render_tab_two_stage(df: pd.DataFrame, current_squad: List[str], bank: float
     st.title("⚔️ Two-Stage Optimization Tournament (Screen & Simulate)")
     st.markdown(r"""
     **Moneyball Chained Architecture:**
-    - **Stage 1: Multi-Objective MILP Screening (~40ms)** solves the global combinatorial knapsack across all 650+ Premier League players across 4 distinct objective weight vectors (`fdr_moneyball`, `xgi`, `setpiece_moneyball`, `form`) with canonical `frozenset` deduplication.
+    - **Stage 1: Multi-Objective MILP Screening (~40ms)** solves the global combinatorial knapsack across all 650+ Premier League players across 5 distinct objective weight vectors (`fdr_moneyball`, `forward_moneyball`, `xgi`, `setpiece_moneyball`, `form`) with canonical `frozenset` deduplication.
     - **Stage 2: Monte Carlo Stochastic Tournament** stress-tests each unique candidate squad across 1,000–10,000 parallel gameweek draws, modeling Gaussian minutes jitter, bench auto-substitutions, and full risk distributions ($P_{10}, P_{50}, P_{90}$).
     """)
 
@@ -62,7 +62,9 @@ def render_tab_two_stage(df: pd.DataFrame, current_squad: List[str], bank: float
         with sc3:
             st.markdown("**Strategic Objectives Evaluated in Stage 1:**")
             st.markdown("""
-            • 🏆 **Balanced**: Fixture-Adjusted Moneyball (`fdr_moneyball`)  
+            • 🏆 **Balanced**: Fixture & Weather-Adjusted Moneyball (`fdr_moneyball`)  
+            • 👑 **Forward Alpha**: Talisman Share & Disruption (`forward_moneyball`)  
+            • 🌤️ **Weather Resilience**: Wind Shear & Turnaround Rest (`weather_moneyball`)  
             • ⚡ **Attack**: Understat Shot Quality (`xgi`)  
             • 🎯 **Dead-Ball**: Set-Piece & Penalty Duties (`setpiece`)  
             • 🔥 **Momentum**: 30-Day Form Streak (`form`)

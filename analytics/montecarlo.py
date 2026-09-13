@@ -45,12 +45,20 @@ def clean_nans(obj: Any) -> Any:
 class MonteCarloEngine:
     def __init__(self, fpl_client: Optional[FPLClient] = None,
                  tac_client: Optional[TacticalClient] = None,
-                 xp_model: Optional[XPModel] = None):
+                 xp_model: Optional[XPModel] = None,
+                 weather_engine: Optional[Any] = None):
         self.fpl_client = fpl_client or FPLClient()
         self.tac_client = tac_client or TacticalClient()
         self.xp_model = xp_model or XPModel()
         self.team_odds = self.xp_model.team_odds
         self.macro_states: Dict[str, Dict[str, Any]] = {}
+        if weather_engine is not None:
+            self.weather_engine = weather_engine
+        elif hasattr(self.xp_model, "weather_engine") and self.xp_model.weather_engine is not None:
+            self.weather_engine = self.xp_model.weather_engine
+        else:
+            from analytics.weather_engine import WeatherEngine
+            self.weather_engine = WeatherEngine()
 
     def generate_macro_match_states(
         self,
@@ -167,6 +175,26 @@ class MonteCarloEngine:
         else:
             card_mult = 1.0
 
+        # Environmental Weather & Congestion Modulations
+        w_damp = float(player_dict.get("weather_dampener") or 0.0)
+        c_mult = float(player_dict.get("congestion_multiplier") or 0.0)
+        if w_damp <= 0.0 or c_mult <= 0.0:
+            try:
+                fixture_str = m_info.get("fixture_str", "")
+                is_home = "(H)" in fixture_str if fixture_str else True
+                home_club = team_short if is_home else (fixture_str.split()[0] if fixture_str else team_short)
+                obs = self.weather_engine.weather_client.get_fixture_weather(home_club=home_club, kickoff_iso="")
+                if w_damp <= 0.0:
+                    w_damp = self.weather_engine.compute_weather_dampener(obs, position=pos)
+                if c_mult <= 0.0:
+                    c_mult = self.weather_engine.compute_congestion_multiplier(
+                        rest_days=float(trends_dict.get("rest_days", 7.0)),
+                        age=int(player_dict.get("age", 26))
+                    )
+            except Exception:
+                w_damp = 1.00
+                c_mult = 1.00
+
         # 3. Minutes & Start probability
         mins_status = trends_dict.get("minutes_status", "REGULAR_STARTER")
         avg_recent_mins = trends_dict.get("avg_recent_mins", 75.0)
@@ -197,6 +225,11 @@ class MonteCarloEngine:
             p_start = m_data.get("p_start", 0.96)
             exp_starter_mins = min(m_data.get("exp_starter_mins_max", 90.0), max(m_data.get("exp_starter_mins_min", 75.0), avg_recent_mins))
             p_cameo = m_data.get("p_cameo", 0.85)
+
+        # Turnaround rest & congestion modulation on start probability and expected minutes
+        if c_mult < 1.0:
+            p_start = min(1.0, p_start * c_mult)
+            exp_starter_mins = max(45.0, exp_starter_mins * c_mult)
 
         # Vectorized draws for minutes
         fits = np.random.binomial(1, p_fit, n_sims)
@@ -256,19 +289,21 @@ class MonteCarloEngine:
             elif mj_cfg.get("enforce_coupled_defense", True) and "clean_sheet" in macro_state:
                 cs_draw = (mins >= 60.0) * macro_state["clean_sheet"]
                 mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
-                gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction, 0.0, None), nan=0.0)
+                gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction * w_damp, 0.0, None), nan=0.0)
                 gc_draw = np.random.poisson(gc_lam)
                 gc_penalty = np.where(np.isin(pos, ["DEF", "GKP"]), -(gc_draw // 2), 0)
             else:
-                cs_draw = (mins >= 60.0) * np.random.binomial(1, cs_prob, n_sims)
+                eff_cs_prob = min(0.95, cs_prob * (1.0 + max(0.0, 1.0 - w_damp) * 0.20))
+                cs_draw = (mins >= 60.0) * np.random.binomial(1, eff_cs_prob, n_sims)
                 mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
-                gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction, 0.0, None), nan=0.0)
+                gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction * w_damp, 0.0, None), nan=0.0)
                 gc_draw = np.random.poisson(gc_lam)
                 gc_penalty = np.where(np.isin(pos, ["DEF", "GKP"]), -(gc_draw // 2), 0)
         else:
-            cs_draw = (mins >= 60.0) * np.random.binomial(1, cs_prob, n_sims)
+            eff_cs_prob = min(0.95, cs_prob * (1.0 + max(0.0, 1.0 - w_damp) * 0.20))
+            cs_draw = (mins >= 60.0) * np.random.binomial(1, eff_cs_prob, n_sims)
             mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
-            gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction, 0.0, None), nan=0.0)
+            gc_lam = np.nan_to_num(np.clip(team_xgc * mins_fraction * w_damp, 0.0, None), nan=0.0)
             gc_draw = np.random.poisson(gc_lam)
             gc_penalty = np.where(np.isin(pos, ["DEF", "GKP"]), -(gc_draw // 2), 0)
 
@@ -301,7 +336,7 @@ class MonteCarloEngine:
         mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
         pace_scale = pace_mult if (macro_enabled and mj_cfg.get("enforce_pace_scaling", True)) else 1.0
 
-        match_xg = ((npxg_90 * mins_fraction * (team_xg / 1.35) * pace_scale) + (pen_bonus * (mins > 0))) * form_mult
+        match_xg = ((npxg_90 * mins_fraction * (team_xg / 1.35) * pace_scale) + (pen_bonus * (mins > 0))) * form_mult * w_damp
         match_xg = np.nan_to_num(np.clip(match_xg, 0.0, None), nan=0.0)
         goals_draw = np.random.poisson(match_xg)
 
@@ -322,7 +357,7 @@ class MonteCarloEngine:
         fk_duty = (player_dict.get("direct_freekicks_order") in [1, 2])
         deadball_bonus = 0.07 if (crn_duty or fk_duty) else 0.0
 
-        match_xa = ((xa_90 * mins_fraction * (team_xg / 1.35) * pace_scale) + (deadball_bonus * (mins > 0))) * form_mult
+        match_xa = ((xa_90 * mins_fraction * (team_xg / 1.35) * pace_scale) + (deadball_bonus * (mins > 0))) * form_mult * w_damp
         match_xa = np.nan_to_num(np.clip(match_xa, 0.0, None), nan=0.0)
         assists_draw = np.random.poisson(match_xa)
         assist_pts = assists_draw * 3
@@ -565,10 +600,11 @@ class MonteCarloEngine:
         return squad_totals, meta
 
     def optimize_lineup_and_substitutions(self,
-                                          squad_names: Optional[List[str]] = None,
-                                          n_sims: int = 5000,
+                                          squad_names: List[str] = None,
+                                          n_sims: int = 2500,
                                           form_weight: float = 1.0,
-                                          include_disciplinary: bool = True) -> Dict[str, Any]:
+                                          include_disciplinary: bool = True,
+                                          df: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
         """
         Comprehensive Monte Carlo Lineup, Captaincy & Bench Substitution Strategy Optimizer.
         Evaluates all 8 legal formations, computes bench activation probabilities,
@@ -577,7 +613,7 @@ class MonteCarloEngine:
         if squad_names is None:
             squad_names = DEFAULT_SQUAD
 
-        fpl_all = self.fpl_client.get_players_df()
+        fpl_all = df if df is not None and not df.empty else self.fpl_client.get_players_df()
 
         # Match squad player rows
         squad_player_dicts = []
@@ -587,6 +623,8 @@ class MonteCarloEngine:
                 m = fpl_all[fpl_all["full_name"].str.lower() == name.lower()]
             if m.empty:
                 m = fpl_all[fpl_all["web_name"].str.contains(name, case=False, na=False)]
+            if m.empty:
+                m = fpl_all[fpl_all["full_name"].str.contains(name, case=False, na=False)]
             if not m.empty:
                 squad_player_dicts.append(m.iloc[0].to_dict())
 
@@ -700,6 +738,20 @@ class MonteCarloEngine:
                 best_squad_totals = totals
 
         formation_evals.sort(key=lambda x: x["mean_score"], reverse=True)
+
+        # Fallback if no legal formation could be fully staffed (e.g. non-standard roster)
+        if best_starters is None:
+            best_starters = (gkps[:1] + defs + mids + fwds)[:11]
+            best_starter_names = set(s["web_name"] for s in best_starters)
+            best_bench_outfield = [p for p in squad_player_dicts if p["web_name"] not in best_starter_names and p["position_name"] != "GKP"]
+            best_bench_gkp = [p for p in gkps if p["web_name"] not in best_starter_names]
+            best_formation = (
+                max(1, len([p for p in best_starters if p["position_name"] == "DEF"])),
+                max(1, len([p for p in best_starters if p["position_name"] == "MID"])),
+                max(1, len([p for p in best_starters if p["position_name"] == "FWD"]))
+            )
+            s_pts_list = [sim_cache[s["web_name"]]["pts"] for s in best_starters if s["web_name"] in sim_cache]
+            best_squad_totals = np.sum(s_pts_list, axis=0) if s_pts_list else np.zeros(n_sims)
 
         # -------------------------------------------------------------
         # Detailed Bench & Substitution Analysis for the Optimal Lineup

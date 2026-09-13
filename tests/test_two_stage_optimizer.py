@@ -108,3 +108,53 @@ def test_two_stage_optimizer_pipeline(fpl_opt, mc_engine):
     assert winner.archetype != ""
     assert report.winner_safe_floor.archetype != ""
     assert report.winner_explosive_ceiling.archetype != ""
+
+
+def test_forward_alpha_objective_in_two_stage(fpl_opt):
+    """Verify forward_alpha is evaluated as an objective and produces candidates."""
+    gen = MILPCandidateGenerator(fpl_opt)
+    assert any(obj[0] == "forward_alpha" for obj in gen.DEFAULT_OBJECTIVES)
+    candidates = gen.generate_candidates(
+        current_squad=DEFAULT_SQUAD,
+        bank=3.7,
+        num_transfers=1,
+        objectives=[("forward_alpha", "forward_moneyball")]
+    )
+    assert len(candidates) == 1
+    assert candidates[0].objective_name == "forward_alpha"
+    assert len(candidates[0].squad_names) == 15
+
+
+def test_weather_resilience_objective_in_two_stage(fpl_opt):
+    """Verify weather_resilience is evaluated as an objective and produces candidates."""
+    gen = MILPCandidateGenerator(fpl_opt)
+    assert any(obj[0] == "weather_resilience" for obj in gen.DEFAULT_OBJECTIVES)
+    candidates = gen.generate_candidates(
+        current_squad=DEFAULT_SQUAD,
+        bank=3.7,
+        num_transfers=1,
+        objectives=[("weather_resilience", "weather_moneyball")]
+    )
+    assert len(candidates) == 1
+    assert candidates[0].objective_name == "weather_resilience"
+    assert len(candidates[0].squad_names) == 15
+
+
+def test_weather_and_congestion_in_monte_carlo(mc_engine):
+    """Verify Monte Carlo simulation correctly modulates under weather dampener."""
+    player_dict = {
+        "web_name": "TestAttacker",
+        "club_short": "BOU",
+        "position_name": "FWD",
+        "status": "a",
+        "chance_of_playing": 100,
+        "form": 5.0,
+        "expected_goals_per_90": 0.60,
+        "expected_assists_per_90": 0.20,
+        "weather_dampener": 0.75,
+        "congestion_multiplier": 0.85
+    }
+    pts, mins = mc_engine.simulate_player(player_dict, n_sims=500)
+    assert len(pts) == 500
+    assert len(mins) == 500
+    assert pts.mean() > 0.0

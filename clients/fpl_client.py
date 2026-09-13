@@ -321,6 +321,41 @@ class FPLClient:
         sp_cfg = mb_params.get("set_piece_bonuses", {})
         price_cfg = mb_params.get("price_prediction", {})
         venue_cfg = get_params("venue") or {}
+        fwd_cfg = get_params("forward_metrics") or {}
+        fwd_enabled = fwd_cfg.get("enabled", True)
+        fwd_weights = fwd_cfg.get("weights", {})
+        w_tal = float(fwd_weights.get("talisman_share", 0.05))
+        w_fin = float(fwd_weights.get("finishing_delta", 0.04))
+        w_dis = float(fwd_weights.get("defensive_disruption", 0.02))
+
+        # Pre-compute team total xGI for FPL Talisman Share
+        team_fpl_xgi_totals: Dict[int, float] = {}
+        for p in data["elements"]:
+            t_id = p.get("team")
+            xgi_val = float(p.get("expected_goal_involvements") or 0.0)
+            team_fpl_xgi_totals[t_id] = team_fpl_xgi_totals.get(t_id, 0.0) + xgi_val
+
+        # Pre-compute team weather & environmental dampener lookup for Stage 1 optimization
+        team_weather_map: Dict[int, Dict[str, Tuple[float, float, str]]] = {}
+        try:
+            from analytics.weather_engine import WeatherEngine
+            weather_engine = WeatherEngine()
+            for t_id, fdr_info in fdr_map.items():
+                t_short = team_short.get(t_id, "UNK")
+                next_fix_str = fdr_info.get("next_fixture", "")
+                is_home = "(H)" in next_fix_str if next_fix_str else True
+                home_club = t_short if is_home else (next_fix_str.split()[0] if next_fix_str else t_short)
+                
+                obs = weather_engine.weather_client.get_fixture_weather(home_club=home_club, kickoff_iso="")
+                summary_str = f"{obs.condition_icon} {obs.temperature_c:.0f}°C, {obs.effective_wind_kmh:.0f}km/h"
+                c_mult = weather_engine.compute_congestion_multiplier(rest_days=7.0)
+                
+                team_weather_map[t_id] = {
+                    pos: (weather_engine.compute_weather_dampener(obs, position=pos), c_mult, summary_str)
+                    for pos in ("GKP", "DEF", "MID", "FWD")
+                }
+        except Exception:
+            team_weather_map = {}
 
         rows = []
         for p in data["elements"]:
@@ -337,11 +372,24 @@ class FPLClient:
             xA_90 = float(p.get("expected_assists_per_90") or 0.0)
             xGI_90 = float(p.get("expected_goal_involvements_per_90") or 0.0)
 
-            # Defensive contribution calculation
+            # Defensive contribution & high-pressing disruption metrics
             def_contrib = float(p.get("defensive_contribution") or 0.0)
             def_contrib_90 = float(p.get("defensive_contribution_per_90") or 0.0)
             if def_contrib_90 == 0.0 and ninetys > 0 and def_contrib > 0:
                 def_contrib_90 = def_contrib / ninetys
+
+            tackles = int(p.get("tackles") or 0)
+            recoveries = int(p.get("recoveries") or 0)
+            bps = int(p.get("bps") or 0)
+            cbi = int(p.get("clearances_blocks_interceptions") or 0)
+            tackles_90 = round(tackles / ninetys, 2) if ninetys > 0 else 0.0
+            recoveries_90 = round(recoveries / ninetys, 2) if ninetys > 0 else 0.0
+            def_disruption_90 = round((tackles + recoveries) / ninetys, 2) if ninetys > 0 else 0.0
+            bps_90 = round(bps / ninetys, 2) if ninetys > 0 else 0.0
+
+            team_id = p["team"]
+            team_tot_xgi = team_fpl_xgi_totals.get(team_id, 0.0)
+            talisman_share_fpl = round((xGI / team_tot_xgi * 100.0), 1) if team_tot_xgi > 0 else 0.0
 
             ict = float(p.get("ict_index") or 0.0)
             form = float(p.get("form") or 0.0)
@@ -386,8 +434,14 @@ class FPLClient:
                 fixture_str=next_fix
             )
             
-            fdr_adjusted_mb = base_exp * fdr_multiplier * venue_multiplier
+            w_damp, c_mult, w_summary = team_weather_map.get(team_id, {}).get(pos_code, (1.00, 1.00, "⛅ Normal"))
+            env_multiplier = round(w_damp * c_mult, 3)
+
+            fdr_adjusted_mb = base_exp * fdr_multiplier * venue_multiplier * env_multiplier
             fdr_adjusted_eff = (fdr_adjusted_mb / cost) if cost > 0 else 0.0
+
+            weather_moneyball_score = round(base_exp * env_multiplier, 2)
+            weather_moneyball_efficiency = round((weather_moneyball_score / cost), 2) if cost > 0 else 0.0
 
             # Market Velocity & Price Change Prediction from config
             tin = p.get("transfers_in_event", 0)
@@ -476,7 +530,20 @@ class FPLClient:
                 sp_bonus += sp_cfg.get("crn_order_2", 0.15)
 
             base_with_sp = base_exp + sp_bonus
-            setpiece_fdr_mb = base_with_sp * fdr_multiplier * venue_multiplier
+            setpiece_fdr_mb = base_with_sp * fdr_multiplier * venue_multiplier * env_multiplier
+
+            # Forward metrics alpha modulation for Stage 1 optimization
+            if fwd_enabled:
+                z_tal = max(-1.0, min(1.0, (talisman_share_fpl - 20.0) / 15.0))
+                finishing_delta_fpl = float(p.get("goals_scored", 0)) - xG
+                z_fin = max(-1.0, min(1.0, finishing_delta_fpl / 1.5))
+                z_dis = max(-1.0, min(1.0, (def_disruption_90 - 4.0) / 3.0))
+                fwd_stage1_mod = max(0.80, min(1.30, 1.0 + w_tal * z_tal + w_fin * z_fin + w_dis * z_dis))
+            else:
+                fwd_stage1_mod = 1.0
+            forward_moneyball_score = round(fdr_adjusted_mb * fwd_stage1_mod, 2)
+            forward_moneyball_efficiency = round((forward_moneyball_score / cost), 2) if cost > 0 else 0.0
+
 
 
             rows.append({
@@ -533,6 +600,15 @@ class FPLClient:
                 "expected_goal_involvements_per_90": xGI_90,
                 "defensive_contribution": def_contrib,
                 "defensive_contribution_per_90": def_contrib_90,
+                "tackles": tackles,
+                "recoveries": recoveries,
+                "bps": bps,
+                "clearances_blocks_interceptions": cbi,
+                "tackles_per_90": tackles_90,
+                "recoveries_per_90": recoveries_90,
+                "defensive_disruption_per_90": def_disruption_90,
+                "bps_per_90": bps_90,
+                "talisman_share_fpl": talisman_share_fpl,
                 "fdr_next_5": fdr_next_5,
                 "next_fixture": next_fix,
                 "next_fdr": next_fdr_val,
@@ -543,11 +619,19 @@ class FPLClient:
                 "swing_status": swing_status,
                 "fdr_multiplier": fdr_multiplier,
                 "venue_multiplier": round(venue_multiplier, 3),
+                "weather_dampener": w_damp,
+                "congestion_multiplier": c_mult,
+                "environmental_multiplier": env_multiplier,
+                "weather_summary": w_summary,
                 "ppm": round(ppm, 2),
                 "moneyball_score": round(base_exp, 2),
                 "moneyball_efficiency": round(moneyball_efficiency, 2),
                 "fdr_moneyball_score": round(fdr_adjusted_mb, 2),
-                "fdr_moneyball_efficiency": round(fdr_adjusted_eff, 2)
+                "fdr_moneyball_efficiency": round(fdr_adjusted_eff, 2),
+                "forward_moneyball_score": forward_moneyball_score,
+                "forward_moneyball_efficiency": forward_moneyball_efficiency,
+                "weather_moneyball_score": weather_moneyball_score,
+                "weather_moneyball_efficiency": weather_moneyball_efficiency
             })
 
         return pd.DataFrame(rows)

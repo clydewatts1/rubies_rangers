@@ -18,6 +18,7 @@ from ui.tabs.tab_venue import render_tab_venue
 from ui.tabs.tab_matchday import render_tab_matchday
 from ui.tabs.tab_chip_strategy import render_tab_chip_strategy
 from ui.tabs.tab_autonomous_cpn import render_tab_autonomous_cpn
+from ui.tabs.tab_weather import render_tab_weather
 
 __all__ = [
     "render_tab_two_stage",
@@ -38,5 +39,7 @@ __all__ = [
     "render_tab_matchday",
     "render_tab_chip_strategy",
     "render_tab_autonomous_cpn",
+    "render_tab_weather",
 ]
+
 

@@ -86,6 +86,33 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
             "variance_buffer": 0.15,
             "discount_factor_gamma": 0.92,
             "macro_state_abstraction": True
+        },
+        "weather": {
+            "enabled": True,
+            "beta_wind": 0.008,
+            "beta_rain": 0.025,
+            "max_dampener": 0.25
+        },
+        "seasonality": {
+            "enabled": True,
+            "alpha_congestion": 0.08,
+            "veteran_multiplier": 1.5
+        },
+        "forward_metrics": {
+            "enabled": True,
+            "weights": {
+                "talisman_share": 0.05,
+                "box_touch_ratio": 0.03,
+                "finishing_delta": 0.04,
+                "defensive_disruption": 0.02
+            },
+            "thresholds": {
+                "talisman_alpha_pct": 32.0,
+                "talisman_contributor_pct": 22.0,
+                "big_chance_xg": 0.35,
+                "box_x_threshold": 0.82,
+                "so_t_conversion_benchmark": 0.38
+            }
         }
     }
 }

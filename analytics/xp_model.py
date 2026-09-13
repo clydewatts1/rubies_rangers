@@ -19,6 +19,8 @@ from clients.fpl_client import FPLClient
 from clients.tactical_client import TacticalClient, normalize_name
 from config_manager import get_system_config, get_params
 from analytics.venue_model import compute_effective_venue_multiplier
+from analytics.weather_engine import WeatherEngine
+
 
 DEFAULT_SQUAD = get_system_config("default_squad") or [
     "Roefs", "Verbruggen",
@@ -47,6 +49,7 @@ class XPModel:
     def __init__(self, gameweek: Optional[int] = None):
         self.fpl_client = FPLClient()
         self.tac_client = TacticalClient()
+        self.weather_engine = WeatherEngine(fpl_client=self.fpl_client)
         self.gameweek = gameweek or self.fpl_client.get_current_gameweek() or 4
         self._build_team_odds_map(gameweek=self.gameweek)
 
@@ -329,6 +332,81 @@ class XPModel:
         )
         xp *= v_mult
 
+        # Environmental & Seasonality Modulations
+        unadjusted_xp = xp
+        w_damp = 1.00
+        c_mult = 1.00
+        w_cond = "⛅ Moderate"
+
+        try:
+            home_club = team_short if m_info.get("is_home", True) else m_info.get("opponent", team_short)
+            obs = self.weather_engine.weather_client.get_fixture_weather(
+                home_club=home_club,
+                kickoff_iso=""
+            )
+            w_damp = self.weather_engine.compute_weather_dampener(obs, position=pos)
+            w_cond = f"{obs.condition_icon} {obs.temperature_c:.0f}°C, {obs.effective_wind_kmh:.0f}km/h"
+        except Exception:
+            pass
+
+        xp *= (w_damp * c_mult)
+
+        # 7 High-Alpha Forward Predictive Metrics Modulation
+        fwd_cfg = get_params("forward_metrics") or {}
+        fwd_enabled = fwd_cfg.get("enabled", True)
+        fwd_weights = fwd_cfg.get("weights", {})
+        w_talisman = fwd_weights.get("talisman_share", 0.05)
+        w_box = fwd_weights.get("box_touch_ratio", 0.03)
+        w_finish = fwd_weights.get("finishing_delta", 0.04)
+        w_disrupt = fwd_weights.get("defensive_disruption", 0.02)
+
+        # 1. Talisman Share (% xGI_Team)
+        talisman_share = float(tac_dict.get("talisman_share") or player_dict.get("talisman_share_fpl") or 0.0)
+        talisman_tier = tac_dict.get("talisman_tier", "🌱 SQUAD ROTATION")
+        if talisman_share >= 32.0:
+            talisman_tier = "👑 ALPHA TALISMAN"
+        elif talisman_share >= 22.0:
+            talisman_tier = "⚔️ MAJOR CONTRIBUTOR"
+        elif talisman_share >= 12.0:
+            talisman_tier = "⚖️ SYSTEM COG"
+
+        # 2. Box Touch Density & Ratio
+        box_shot_pct = float(tac_dict.get("box_shot_pct") or 0.0)
+        six_yard_shots = int(tac_dict.get("six_yard_shots") or 0)
+
+        # 3. Finishing Skill Delta (Goals - xG)
+        finishing_delta = float(tac_dict.get("finishing_skill_delta") or 0.0)
+
+        # 4. Big Chances & Mean-Reversion Pressure Score (BCM)
+        big_chances = int(tac_dict.get("big_chances") or 0)
+        big_chances_missed = int(tac_dict.get("big_chances_missed") or 0)
+        mean_rev_score = float(tac_dict.get("mean_reversion_score") or 0.0)
+
+        # 5. Outside the Box Threat
+        outside_box_shots = int(tac_dict.get("outside_box_shots") or 0)
+        outside_box_xg = float(tac_dict.get("outside_box_xg") or 0.0)
+
+        # 6. Defensive Disruption & BPS Floor
+        def_disruption_90 = float(player_dict.get("defensive_disruption_per_90") or trends_dict.get("avg_recent_def_contrib") or 0.0)
+        bps_90 = float(player_dict.get("bps_per_90") or 0.0)
+
+        # Calculate forward metrics modulation multiplier
+        fwd_multiplier = 1.0
+        if fwd_enabled:
+            # Normalized z-score approximations
+            z_talisman = max(-1.0, min(1.0, (talisman_share - 20.0) / 15.0))
+            z_box = max(-1.0, min(1.0, (box_shot_pct - 60.0) / 25.0))
+            z_finish = max(-1.0, min(1.0, finishing_delta / 1.5))
+            z_disrupt = max(-1.0, min(1.0, (def_disruption_90 - 4.0) / 3.0))
+
+            if pos in ["FWD", "MID"]:
+                delta_m = (w_talisman * z_talisman) + (w_box * z_box) + (w_finish * z_finish) + (w_disrupt * z_disrupt)
+            else:
+                delta_m = (w_disrupt * z_disrupt)
+
+            fwd_multiplier = max(0.85, min(1.20, 1.0 + delta_m))
+
+        xp *= fwd_multiplier
 
         # Decimal betting odds
         goal_odds = round(1.0 / p_goal, 2) if p_goal > 0.01 else 99.0
@@ -355,6 +433,26 @@ class XPModel:
             "team_xg": round(team_xg, 2),
             "team_xgc": round(team_xgc, 2),
             "x_bonus": round(x_bonus, 2),
+            "unadjusted_xP": round(unadjusted_xp, 2),
+            "weather_dampener": round(w_damp, 3),
+            "congestion_multiplier": round(c_mult, 3),
+            "weather_condition": w_cond,
+            "talisman_share": round(talisman_share, 1),
+            "talisman_tier": talisman_tier,
+            "box_touch_ratio": round(box_shot_pct, 1),
+            "six_yard_shots": six_yard_shots,
+            "finishing_skill_delta": round(finishing_delta, 2),
+            "big_chances": big_chances,
+            "big_chances_missed": big_chances_missed,
+            "mean_reversion_score": round(mean_rev_score, 2),
+            "outside_box_shots": outside_box_shots,
+            "outside_box_xg": round(outside_box_xg, 2),
+            "defensive_disruption_90": round(def_disruption_90, 2),
+            "bps_90": round(bps_90, 1),
+            "forward_multiplier": round(fwd_multiplier, 3),
+            "market_p_goal": round(p_goal * 100, 1),
+            "market_goal_odds": goal_odds,
+            "market_cs_prob": round(cs_prob * 100, 1),
             "xP": round(xp, 2)
         }
 

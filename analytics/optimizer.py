@@ -20,7 +20,8 @@ class FPLOptimizer:
         self.df = players_df.copy().reset_index(drop=True)
         # Ensure numeric columns
         for col in ["now_cost", "total_points", "form", "points_per_game", 
-                    "moneyball_score", "fdr_moneyball_score", "setpiece_moneyball_score", "expected_goal_involvements_per_90"]:
+                    "moneyball_score", "fdr_moneyball_score", "setpiece_moneyball_score", 
+                    "forward_moneyball_score", "weather_moneyball_score", "expected_goal_involvements_per_90"]:
             if col in self.df.columns:
                 self.df[col] = pd.to_numeric(self.df[col], errors="coerce").fillna(0.0)
 
@@ -29,6 +30,18 @@ class FPLOptimizer:
         if objective in ["setpiece", "setpiece_moneyball"]:
             if "setpiece_moneyball_score" in self.df.columns:
                 return -self.df["setpiece_moneyball_score"].values
+            elif "fdr_moneyball_score" in self.df.columns:
+                return -self.df["fdr_moneyball_score"].values
+            return -self.df["moneyball_score"].values
+        elif objective in ["forward", "forward_moneyball", "forward_alpha"]:
+            if "forward_moneyball_score" in self.df.columns:
+                return -self.df["forward_moneyball_score"].values
+            elif "fdr_moneyball_score" in self.df.columns:
+                return -self.df["fdr_moneyball_score"].values
+            return -self.df["moneyball_score"].values
+        elif objective in ["weather", "weather_moneyball", "weather_alpha", "weather_resilience"]:
+            if "weather_moneyball_score" in self.df.columns:
+                return -self.df["weather_moneyball_score"].values
             elif "fdr_moneyball_score" in self.df.columns:
                 return -self.df["fdr_moneyball_score"].values
             return -self.df["moneyball_score"].values

@@ -2,21 +2,34 @@
 
 An enterprise-grade quantitative analytics, predictive modeling, and optimization platform for Fantasy Premier League (FPL) team **Rubies Rangers**, engineered around strict **Moneyball Principles**.
 
-This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Market Implied Probabilities**, **Understat Shot Quality Process Metrics**, and **Stochastic Monte Carlo Simulations** (up to 10,000 parallel gameweek scenarios) to evaluate transfers, lineups, captaincy choices, and mini-league rival strategies.
+This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Market Implied Probabilities**, **Understat Shot Quality Process Metrics**, **Open-Meteo High-Resolution Stadium Weather Telemetry**, and **Stochastic Monte Carlo Simulations** (up to 10,000 parallel gameweek scenarios) to evaluate transfers, lineups, captaincy choices, and mini-league rival strategies.
 
 ---
 
 ## Table of Contents
 
 1. [Core Moneyball Philosophy](#core-moneyball-philosophy)
-2. [The Monte Carlo Method (Deep Dive)](#the-monte-carlo-method-deep-dive)
+2. [Two-Stage 'Screen & Simulate' Optimization Engine](#two-stage-screen--simulate-optimization-engine)
+   - [Chaining Stage 1 MILP into Stage 2 Monte Carlo](#chaining-stage-1-milp-into-stage-2-monte-carlo)
+   - [The 6 Strategic Pareto Objectives](#the-6-strategic-pareto-objectives)
+   - [The 3 Strategic Transfer Archetypes](#the-3-strategic-transfer-archetypes)
+   - [Dynamic Programming (DP) Backward Induction Chip Strategy](#dynamic-programming-dp-backward-induction-chip-strategy)
+3. [Weather Radar & Environmental Intelligence Subsystem](#weather-radar--environmental-intelligence-subsystem)
+   - [Zero-Dependency Open-Meteo Ingestion & Stadium Microclimates](#zero-dependency-open-meteo-ingestion--stadium-microclimates)
+   - [The Φ(weather) Environmental Dampener](#the-phiweather-environmental-dampener)
+   - [The Ω(season) Calendar Turnaround Congestion Multiplier](#the-omegaseason-calendar-turnaround-congestion-multiplier)
+   - [End-to-End Platform Integration](#end-to-end-platform-integration)
+4. [7 High-Alpha Forward Predictive Tactical Metrics](#7-high-alpha-forward-predictive-tactical-metrics)
+   - [Mathematical Formulation & Tactical Edge](#mathematical-formulation--tactical-edge)
+   - [Modulating Stage 1 Knapsack & Stage 2 Simulation](#modulating-stage-1-knapsack--stage-2-simulation)
+5. [Live Matchday Center & Gameweek Scoreboard](#live-matchday-center--gameweek-scoreboard)
+6. [The Monte Carlo Method (Deep Dive)](#the-monte-carlo-method-deep-dive)
    - [Why Stochastic Simulation Beats Single-Point xP](#why-stochastic-simulation-beats-single-point-xp)
    - [The 7-Stage Simulation Architecture](#the-7-stage-simulation-architecture)
    - [Mathematical & Probabilistic Formulations](#mathematical--probabilistic-formulations)
    - [Transfer Cost Modeling & Point Hit Penalties](#transfer-cost-modeling--point-hit-penalties)
-   - [The 3 Strategic Transfer Archetypes](#the-3-strategic-transfer-archetypes)
    - [How Monte Carlo Connects to the Historical Training Process](#how-monte-carlo-connects-to-the-historical-training-process)
-3. [All 8 Quantitative Prediction Techniques](#all-8-quantitative-prediction-techniques)
+7. [All 8 Quantitative Prediction Techniques](#all-8-quantitative-prediction-techniques)
    - [1. Monte Carlo Stochastic Simulation](#1-monte-carlo-stochastic-simulation)
    - [2. Bookmaker Implied Probabilities & Linear xP Modeling](#2-bookmaker-implied-probabilities--linear-xp-modeling)
    - [3. Advanced Tactical Process & Understat Shot Quality](#3-advanced-tactical-process--understat-shot-quality)
@@ -25,13 +38,13 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
    - [6. Market Velocity & Nightly Price Predictor](#6-market-velocity--nightly-price-predictor)
    - [7. Rolling Fixture Difficulty Rating (FDR) & Schedule Swings](#7-rolling-fixture-difficulty-rating-fdr--schedule-swings)
    - [8. Mini-League Scout, Rival Spy & Effective Ownership (EO%)](#8-mini-league-scout-rival-spy--effective-ownership-eo)
-4. [Guide to the Platform Programs](#guide-to-the-platform-programs)
+8. [Guide to the Platform Programs](#guide-to-the-platform-programs)
    - [Program 1: Interactive Streamlit Web Dashboard (`app.py`)](#program-1-interactive-streamlit-web-dashboard-apppy)
    - [Program 2: FastAPI REST Microservice (`api.py`)](#program-2-fastapi-rest-microservice-apipy)
    - [Program 3: Master CLI Dispatcher (`team_manager.py`)](#program-3-master-cli-dispatcher-team_managerpy)
    - [Program 4: Backtesting & Auto-Tuning CLI (`tuner/cli.py`)](#program-4-backtesting--auto-tuning-cli-tunerclipy)
    - [Program 5: Specialized Modular CLI Trackers](#program-5-specialized-modular-cli-trackers)
-5. [Walk-Forward Backtesting & Optuna Auto-Tuning Subsystem](#walk-forward-backtesting--optuna-auto-tuning-subsystem)
+9. [Walk-Forward Backtesting & Optuna Auto-Tuning Subsystem](#walk-forward-backtesting--optuna-auto-tuning-subsystem)
    - [Subsystem Architecture & Flow](#subsystem-architecture--flow)
    - [The Two-Tier Architecture: Historical Training vs. Stochastic Simulation](#the-two-tier-architecture-historical-training-vs-stochastic-simulation)
    - [Historical Data Pipeline & Anti-Leakage Guarantee](#historical-data-pipeline--anti-leakage-guarantee)
@@ -40,17 +53,17 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
    - [Optuna TPESampler Hyperparameter Optimization Engine](#optuna-tpesampler-hyperparameter-optimization-engine)
    - [Interactive Optuna Web Dashboard (Port 8502)](#interactive-optuna-web-dashboard-port-8502)
    - [CLI Commands & Workflow Execution](#cli-commands--workflow-execution)
-6. [Centralized Configuration Engine (`config.yaml`)](#centralized-configuration-engine-configyaml)
+10. [Centralized Configuration Engine (`config.yaml`)](#centralized-configuration-engine-configyaml)
    - [Architecture & Profile Structure](#architecture--profile-structure)
    - [Heuristic vs. Tuned Parameter Profiles](#heuristic-vs-tuned-parameter-profiles)
    - [Historical Season Rules & FT Rollover Limits](#historical-season-rules--ft-rollover-limits)
    - [Python API Access (`config_manager.py`)](#python-api-access-config_managerpy)
-7. [Automated Test Suite & Quality Assurance (53/53 Tests Passing)](#automated-test-suite--quality-assurance-5353-tests-passing)
-8. [REST API Documentation & cURL Examples](#rest-api-documentation--curl-examples)
-9. [CLI Command Cheat Sheet](#cli-command-cheat-sheet)
-10. [Repository Architecture](#repository-architecture)
-11. [Brainstorm & Design Documents](#brainstorm--design-documents)
-12. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop)
+11. [Automated Test Suite & Quality Assurance (198/198 Tests Passing)](#automated-test-suite--quality-assurance-198198-tests-passing)
+12. [REST API Documentation & cURL Examples](#rest-api-documentation--curl-examples)
+13. [CLI Command Cheat Sheet](#cli-command-cheat-sheet)
+14. [Repository Architecture](#repository-architecture)
+15. [Brainstorm & Design Documents](#brainstorm--design-documents)
+16. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop)
 
 ---
 
@@ -66,6 +79,117 @@ The strategic governance of Rubies Rangers is strictly codified in [`AGENTS.md`]
    Evaluate defenders and defensive midfielders through `defensive_contribution_per_90` (tackles, interceptions, clearances, blocks, and clean sheets per 90). Favor guaranteed 90-minute starters over volatile rotation risks.
 4. **Stochastic Risk Management & Balanced Squad Optimization:**
    Football is a low-scoring, high-variance game. Maximize total expected output across the full 11 starters plus active playing bench cover rather than starving the squad to finance non-performing premium names. All transfer recommendations must be justified with mathematical data comparisons (net expected return delta vs. transfer cost).
+
+---
+
+## Two-Stage 'Screen & Simulate' Optimization Engine
+
+The crown jewel of Rubies Rangers' decision architecture is the **Two-Stage "Screen & Simulate" Optimization Pipeline** ([`analytics/two_stage_optimizer.py`](analytics/two_stage_optimizer.py)), which combines Mixed-Integer Linear Programming (MILP) with Stochastic Monte Carlo simulations:
+
+```mermaid
+flowchart LR
+    A[Current Squad & Bank] --> B[Stage 1: Multi-Objective MILP Screening]
+    B -->|6 Pareto Sweeps| C[Pareto Candidate Set]
+    C -->|Deduplication| D[Unique Viable Permutations]
+    D --> E[Stage 2: Monte Carlo Stochastic Tournament]
+    E -->|N=2,500 to 10,000 Draws| F[Full Probability Distributions]
+    F --> G[Strategic Archetype Ranks: EV, Floor, Ceiling]
+    F --> H[Dynamic Programming Chip Policy]
+```
+
+### Chaining Stage 1 MILP into Stage 2 Monte Carlo
+Single-stage MILP optimizers are fast but blind to higher-order distribution moments (variance, downside tail risk, captaincy volatility, and auto-substitutions). Conversely, pure Monte Carlo searching across all $\approx 10^{14}$ legal 15-player combinations is computationally intractable.
+
+Rubies Rangers solves this via a **two-tier hierarchy**:
+1. **Stage 1 (Screening)**: Scipy/PuLP Mixed-Integer Linear Programming rapidly scans the full 650+ player pool under budget, club quotas, and physical formation constraints, generating candidate squads across distinct strategic weight vectors.
+2. **Stage 2 (Simulation)**: Every unique candidate squad is stress-tested in parallel across thousands of stochastic match simulations under joint teammate covariance and macro match-state conditioning.
+
+### The 6 Strategic Pareto Objectives
+Stage 1 generates a Pareto-efficient candidate frontier by solving 6 distinct mathematical objectives:
+1. 🏆 **Balanced (`fdr_moneyball`)**: Fixture Difficulty Rating (FDR) and home/away venue-adjusted base moneyball efficiency.
+2. 👑 **Forward Alpha (`forward_moneyball`)**: High-conviction tactical metrics (Talisman Share $\% xGI_{\text{Team}}$, Finishing Skill Delta $G - xG$, and Defensive Disruption).
+3. 🌤️ **Weather Resilience (`weather_moneyball`)**: Maximizes resilience against high pitch wind shear, heavy precipitation, and turnaround fatigue.
+4. ⚡ **High Attack (`xgi`)**: Pure underlying shot creation and expected goal involvement per 90.
+5. 🎯 **Dead-Ball Focus (`setpiece_moneyball`)**: High floor assets with direct free-kick, corner, and penalty responsibilities.
+6. 🔥 **Momentum (`form`)**: Short-term 30-day streak tracking.
+
+### The 3 Strategic Transfer Archetypes
+Stage 2 evaluates candidate distributions to isolate 3 specialized manager archetypes:
+* **🏆 Maximum Expected Value (`winner_balanced`)**: Maximizes the sample mean $\mathbb{E}[S]$ across all simulations.
+* **🛡️ Maximum Safety Floor (`winner_safe_floor`)**: Maximizes the 10th percentile outcome ($P_{10}$), providing downside insurance against blanks.
+* **🚀 High-Variance Explosive Ceiling (`winner_explosive_ceiling`)**: Maximizes the 90th percentile outcome ($P_{90}$), identifying high-differential gambles for mini-league rank chasing.
+
+### Dynamic Programming (DP) Backward Induction Chip Strategy
+Integrated into the Two-Stage framework is the **Backward Induction Solver** ([`analytics/chip_strategy.py`](analytics/chip_strategy.py)). It solves the Bellman equation across a 38-gameweek rolling horizon to determine the exact optimal gameweek to deploy each chip (**Wildcard, Free Hit, Bench Boost, Triple Captain**), preventing premature chip consumption:
+$$V_t(s) = \max_{a \in A_t} \left\{ \mathbb{E}[R_t(s, a)] + \gamma \, \mathbb{E}[V_{t+1}(s')] \right\}$$
+
+---
+
+## Weather Radar & Environmental Intelligence Subsystem
+
+Rubies Rangers integrates high-resolution meteorological telemetry and seasonal turnaround modeling directly into player evaluation through [`clients/weather_client.py`](clients/weather_client.py) and [`analytics/weather_engine.py`](analytics/weather_engine.py).
+
+### Zero-Dependency Open-Meteo Ingestion & Stadium Microclimates
+* **100% Free & Open-Source**: Uses open-access hourly Open-Meteo endpoints with **zero paid API keys**.
+* **PL Stadium Catalog**: Detailed GPS coordinates and pitch exposure factors across all Premier League venues:
+  * **Coastal / Elevated Exposed Grounds** ($1.20\text{x}\text{--}1.25\text{x}$ exposure): Vitality Stadium (Bournemouth), Amex Stadium (Brighton), St. James' Park (Newcastle), Stadium of Light (Sunderland).
+  * **Riverside / Estuary Grounds** ($1.05\text{x}\text{--}1.15\text{x}$ exposure): Craven Cottage (Fulham), MKM Stadium (Hull).
+  * **Sheltered Covered Bowls** ($0.70\text{x}\text{--}0.85\text{x}$ exposure): Emirates Stadium (Arsenal), Tottenham Hotspur Stadium, Etihad Stadium (Man City).
+* **True Pitch-Level Wind Shear**:
+  $$\text{effective\_wind} = \text{wind\_speed} \times \text{exposure\_factor}$$
+* **Persistent Disk Caching**: Local JSON store in [`data/weather_store.json`](data/weather_store.json) tracking historical records and **1–2 week forward hourly forecasts**.
+
+### The Φ(weather) Environmental Dampener
+Adverse weather directly alters football match dynamics:
+$$\Phi_{\text{weather}} = 1.0 - \min\left(\text{max\_damp}, \beta_{\text{wind}}(\text{wind}_{\text{eff}} - 20)_+ + \beta_{\text{rain}}(\text{precip} - 0.5)_+ + \text{cold\_penalty}\right)$$
+* **Wind Shear ($>20\text{ km/h}$)**: Disrupts long passes, crossing flight paths, and outside-box shooting. Goalkeepers and defenders receive a 60% attenuation factor, as suppressed shot conversion elevates clean sheet probability.
+* **Precipitation ($>0.5\text{ mm/h}$)**: Heavy rain slicks the turf, increasing turnover rates and reducing shot volume.
+* **Sub-Zero Temperatures ($\le 0^\circ\text{C}$)**: Introduces soft-tissue tightness and early substitution risks.
+
+### The Ω(season) Calendar Turnaround Congestion Multiplier
+Evaluates turnaround fatigue based on official competitive match rest days:
+* **Severe Turnaround Fatigue ($\le 48\text{h}$ rest)**: High rotation and early benching risk ($12\text{--}16\%$ expected minutes reduction).
+* **Moderate Fatigue ($\le 72\text{h}$ rest)**: Moderate rotation risk ($8\%$ penalty).
+* **Veteran Age Scaling**: Multiplies congestion fatigue by $1.5\text{x}$ for players aged $\ge 31$.
+
+### End-to-End Platform Integration
+Weather and congestion metrics are active across the entire system:
+1. **Deterministic $xP$ Model**: $xP \leftarrow xP \times (\Phi_{\text{weather}} \times \Omega_{\text{season}})$.
+2. **Stage 1 MILP Knapsack**: Applies `env_multiplier` to standard scores and evaluates a dedicated `weather_resilience` objective.
+3. **Stage 2 Monte Carlo Engine**: Dampens attacking Poisson rates ($\lambda_{\text{xg}} \cdot \Phi, \lambda_{\text{xa}} \cdot \Phi$), attenuates goals conceded ($\lambda_{\text{gc}} \cdot \Phi$), and scales starter minutes volatility.
+4. **Matchday Center**: Displays live fixture weather badges and hazard alerts.
+5. **Weather Radar Tab (`tab_weather.py`)**: Interactive UI with 1–2 week forecast horizons, adverse filters, and squad exposure risk cards.
+
+---
+
+## 7 High-Alpha Forward Predictive Tactical Metrics
+
+Codified in [`docs/brainstorm/additional_metrics.md`](docs/brainstorm/additional_metrics.md) and implemented in [`clients/tactical_client.py`](clients/tactical_client.py) and [`clients/fpl_client.py`](clients/fpl_client.py), these 7 metrics provide actionable predictive alpha:
+
+| # | Forward Metric | Analytical Formulation | Practical Tactical & Strategy Alpha |
+|:---:|---|---|---|
+| **1** | **$xGOT - xG$ (Finishing Skill Delta)** | Actual Goals minus $xG$ ($\Delta_{\text{finishing}}$) from Understat shot coordinates | Distinguishes repeatable ball-striking skill from lucky poachers and unsustainable short-term heaters. |
+| **2** | **Box Touch Density & Ratio** | $\text{BoxRatio} = \frac{\text{Box Shots}}{\text{Total Shots}} \times 100\%$ | Academic research proves box presence ($R^2 \approx 0.68$ with future goals) beats past goals scored ($R^2 \approx 0.35$). |
+| **3** | **% $xGI_{\text{Team}}$ (Talisman Share)** | $\% xGI_{\text{Team}} = \frac{xG_{\text{player}} + xA_{\text{player}}}{\sum_{\text{Club}} (xG + xA)} \times 100\%$ | Quantifies game-state immunity; protects against team slumps by finding players involved in $>70\%$ of team scoring. |
+| **4** | **$\text{BC}_{90}$ & $\text{BCM}$ (Mean-Reversion)** | Big Chances ($xG \ge 0.35$), $\text{BCM}$, $\text{Score} = 1.25 \cdot \text{BCM} + 2.0 \cdot (xG - G)_+$ | Identifies elite movement suffering negative variance; strongest bullish buy signal in football analytics. |
+| **5** | **$xG_{\text{obox}}$ (Outside-Box Threat)** | Shots from $X < 0.82$, $xG_{\text{obox}}$, and long-range shot volume | Breaks down compact low blocks and directly exploits **FPL Challenge outside-the-box goal bonuses** (+2 pts). |
+| **6** | **Forward Defensive Disruption** | $\text{DefDisruption}_{90} = (\text{Tackles} + \text{Recoveries}) / 90$, baseline BPS floor | Pinpoints high-pressing attackers who establish high baseline BPS to guarantee 3 bonus points when they score. |
+| **7** | **Market Implied Goal Odds ($P_{\text{implied}}$)** | Decimal odds consensus converted to vig-free Poisson rate $\lambda_{\text{goal}} = -\ln(1 - P_{\text{implied}})$ | Most liquid, crowdsourced forecast in sports analytics; dynamically incorporated into weekly $xP$. |
+
+### Modulating Stage 1 Knapsack & Stage 2 Simulation
+The forward metrics dynamically modulate player expected return through normalized Z-scores bounded in $[0.80, 1.30]$:
+$$\tilde{\mu}_i = \mu_{\text{base}, i} \cdot \left[ 1.0 + w_1 \cdot \text{Z}(\% xGI_i) + w_2 \cdot \text{Z}(\text{BoxRatio}_i) + w_3 \cdot \text{Z}(\Delta_{\text{finishing}, i}) + w_4 \cdot \text{Z}(\text{DefDisrupt}_i) \right] \cdot \Phi_{\text{weather}} \cdot \Omega_{\text{season}}$$
+
+---
+
+## Live Matchday Center & Gameweek Scoreboard
+
+Implemented in [`analytics/matchday_hub.py`](analytics/matchday_hub.py) and [`ui/tabs/tab_matchday.py`](ui/tabs/tab_matchday.py), the **Matchday Center** transforms the platform into a live command hub during Premier League gameweeks:
+* **Real-Time Point Calculations**: Live points, appearances, goals, assists, clean sheets, saves, and disciplinary cards.
+* **Provisional Bonus Points System (BPS)**: Projects 3, 2, and 1 bonus points dynamically before official FPL reconciliation.
+* **Live Weather Badges**: Every fixture displays real-time temperature, pitch wind speed, precipitation, and conditions.
+* **Adverse Hazard Alerts**: Automatically flags fixtures facing severe coastal wind, heavy rain, or sub-zero conditions.
+* **Squad Tracking**: Roster breakdown tracking active starters, bench order, and captaincy multipliers ($2\text{x}$).
 
 ---
 
@@ -238,57 +362,81 @@ Open your browser to: **`http://localhost:8501`**
 
 #### Walkthrough of Available Workflows
 
-1. **🎲 Monte Carlo Transfer Simulator:**
-   - **Sidebar Controls:**
-     - *Transfers to Evaluate:* Choose `1 Transfer` or `2 Transfers (Double Move)`.
-     - *Free Transfers Available:* Select `1 Free Transfer` (standard) or `2 Free Transfers` (banked). If moves exceed free transfers, the engine deducts $-4$ points per hit automatically.
-     - *In-the-Bank (£m):* Adjust available funds slider (£0.0m to £5.0m).
-     - *Simulations (N):* Slider from `1,000` to `10,000` trials (default: 2,500).
-     - *Position Filter:* Filter by `ALL`, `GKP`, `DEF`, `MID`, `FWD`.
-     - *Sell Target:* Optionally lock in a specific squad member to sell (e.g. benched `Senesi` or `Roefs`).
-     - *Strict Injury/Departure Hygiene:* Toggle to eliminate 161+ non-viable players.
-   - **Visual Outputs:**
-     - **3 Hero Archetype Cards:** Glassmorphic cards for 🏆 Max Expected Value, 🛡️ Max Floor/Safety, and 🚀 Max Ceiling/Differential showing net gain, win rate, P10 floor, and P90 ceiling.
-     - **Score Distribution (KDE Curves):** Probability density curves comparing current squad baseline against all 3 options.
-     - **Percentile Range (P10 / P50 / P90):** Horizontal range bars illustrating downside risk vs median vs explosive ceiling.
-     - **Risk vs. Reward Scatter Matrix:** Mean net gain vs Standard Deviation with bubble sizes reflecting win rate.
-     - **All Evaluated Transfers Table:** Searchable table with CSV export button.
+1. **🏟️ Matchday Center & Live Gameweek Scores:**
+   - Real-time matchday scoreboard with live points, appearances, goals, assists, and clean sheets.
+   - Provisional Bonus Points System (BPS) projections (3, 2, 1 bonus points).
+   - Live fixture weather telemetry badges and adverse conditions hazard banners.
+   - Active 15-player squad roster breakdown with captaincy doubling ($2\text{x}$) and bench activation tracking.
 
-2. **🏆 Mini-League Scout & Rival Spy:**
-   - **Standings Overview:** Live table for Bronze, Silver & Gold League with rank badges and point gaps.
-   - **Live Standings Comparison Bar Chart:** Dual-axis horizontal bar chart displaying Total Points and Gameweek Scores side-by-side.
-   - **Historical Performance Over Time:** Cumulative progression curves and Gameweek rank swings from Gameweek 1 to present.
-   - **Rival Spy Squad Inspector:** Detailed card inspector of any rival manager's 15-player squad, active chips, and transfer hits.
-   - **Mini-League Effective Ownership (EO%):** Table highlighting rank threats and Rubies Rangers differentials.
+2. **🌤️ Weather Radar & Environmental Intelligence:**
+   - 1–2 week forward microclimate telemetry across all 20 Premier League stadiums.
+   - Effective pitch wind shear, precipitation, and sub-zero temperature dampeners ($\Phi_{\text{weather}}$).
+   - Turnaround rest and calendar congestion modeling ($\Omega_{\text{season}}$).
+   - Squad exposure risk profiling, adverse weather filters, and moneyball aerodynamics physics guide.
 
-3. **🎰 Bookmaker Odds & Expected Points (xP):**
-   - **Green Pitch Lineup Display:** Visual football formation pitch with player cards, captaincy badges, and bench priority order.
-   - **Captaincy Duel:** Comparative bar chart between Captain and Vice-Captain.
-   - **Bookmaker Implied Odds Table:** Clean sheet percentages and fair goalscorer odds.
+3. **⚔️ Two-Stage Tournament (Screen & Simulate):**
+   - Stage 1 MILP Pareto screening across 6 strategic objectives (`balanced`, `forward_alpha`, `weather_resilience`, `high_attack`, `setpiece_focus`, `momentum`).
+   - Stage 2 Monte Carlo stochastic tournament stress-testing candidates across 1,000–10,000 draws under joint covariance.
+   - 3 Strategic Archetype Cards: 🏆 Max Expected Value, 🛡️ Maximum Safety Floor, and 🚀 High-Variance Explosive Ceiling.
+   - Interactive probability density KDE curves, percentile ranges (P10 vs P50 vs P90), and risk-vs-reward scatter matrices.
 
-4. **Modify Current Team (Transfers):**
-   - Mixed-Integer Linear Programming (MILP) transfer solver with budget constraints.
+4. **🎴 Long-Term Chip Strategy & Season Roadmap:**
+   - Backward induction Dynamic Programming (DP) solver computing optimal gameweek deployment for Wildcard, Free Hit, Bench Boost, and Triple Captain.
+   - Opportunity cost curves, fixture congestion spikes, and double/blank gameweek capitalizers.
 
-5. **Tactical Process & Shot Quality:**
-   - Understat box coordinates, shooting distance, $xG/\text{shot}$ quality leaders.
+5. **🤖 Autonomous CPN Execution & Robotic Manager:**
+   - Formal Colored Petri Net (CPN) workflow engine modeling state transitions, preflight checks, transfer dispatching, and deadline reconciliation.
+   - Real-time Graphviz visual graph, place markings multiset, and transition inspector.
 
-6. **Match-by-Match Trend Engine:**
-   - Rotation risk analyzer, cameo auditor, and rolling 3-GW momentum charts.
+6. **🧠 Shane's Domain Intel Desk:**
+   - Ephemeral tactical overrides, manager gut checks, and Gameweek-specific TTL decay.
+   - Custom multipliers for fitness doubts, manager quotes, and expected rotation risks without mutating core models.
 
-7. **Market Velocity & Price Predictor:**
-   - Nightly price change forecaster with net transfer momentum meters.
+7. **Modify Current Team (Transfers):**
+   - Single and multi-transfer MILP knapsack solver optimizing budget, club quotas, and formation rules under configurable objective weights (`fdr_moneyball`, `forward_moneyball`, `weather_moneyball`, etc.).
 
-8. **Fixture Difficulty (FDR) Ticker:**
-   - 5-week rolling FDR heatmap showing green runs and red fixture walls.
+8. **🏆 Mini-League Scout & Rival Spy:**
+   - Standings table with rank badges and point differentials for Bronze, Silver & Gold leagues.
+   - Cumulative historical progression curves and rank swing analyzers.
+   - Rival Spy inspector dissecting opponent squads, active chips, and point hits.
+   - Mini-league Effective Ownership (EO%) to identify rank threats and Rubies Rangers differentials.
 
-9. **Set-Piece & Penalty Hierarchy:**
-   - Dead-ball responsibilities across all 20 Premier League squads.
+9. **🛡️ Monte Carlo Lineup & Substitution Strategist:**
+   - Optimal starting XI formation selection across all 8 legal formations.
+   - Head-to-head captaincy duel with vice-captain fallback protection.
+   - Vectorized bench auto-substitution activation probabilities and points-saved analytics.
 
-10. **Draft New Optimal Squad:**
-    - Full 15-player MILP team builder from scratch within a £100m budget.
+10. **🎰 Bookmaker Odds & Expected Points (xP):**
+    - Green pitch formation visualizer with player cards, captaincy badges, and bench priority order.
+    - Vig-free betting market odds, implied clean sheet probabilities, and fair goalscorer odds.
 
-11. **Player Explorer:**
-    - Searchable, filterable database across all 650+ Premier League players.
+11. **🎲 Monte Carlo Transfer Simulator:**
+    - Full distribution stress-testing for 1 or 2 transfers with automatic $-4$ hit deductions.
+    - Glassmorphic archetype cards, KDE curves, and searchable evaluation tables with CSV export.
+
+12. **Tactical Process & Shot Quality (Forward Predictive Metrics):**
+    - 7 dedicated sub-tabs: Squad Matrix, Talisman Share ($\% xGI_{\text{Team}}$), Finishing True Skill ($G - xG$), Mean Reversion ($\text{BCM}$), Outside-Box Snipers ($xG_{\text{obox}}$), Defensive Disruption (Tackles + Recoveries / 90), and Interactive Shot Map & Log.
+
+13. **Match-by-Match Trend Engine:**
+    - Rotation risk detector, cameo auditor, and rolling 3-GW momentum trends.
+
+14. **Market Velocity & Price Predictor:**
+    - Nightly £0.1m price rise and fall forecasts based on transfer volume thresholds.
+
+15. **Fixture Difficulty (FDR) Ticker:**
+    - Rolling 5-week fixture difficulty heatmap highlighting fixture swings and double gameweeks.
+
+16. **Set-Piece & Penalty Hierarchy:**
+    - Direct free-kick, corner, and penalty taker rankings across all 20 clubs.
+
+17. **🏟️ Venue Impact & Home/Away Analysis:**
+    - Team-specific home/away scoring and concession multipliers.
+
+18. **Draft New Optimal Squad:**
+    - Full 15-player MILP team builder from scratch within the £100m budget limit.
+
+19. **Player Explorer:**
+    - Comprehensive searchable and filterable database across all 650+ Premier League players.
 
 ---
 
@@ -628,9 +776,9 @@ ft_cap = sys_rules["max_banked_ft"].get("2024-25", 5)
 
 ---
 
-## Automated Test Suite & Quality Assurance (53/53 Tests Passing)
+## Automated Test Suite & Quality Assurance (198/198 Tests Passing)
 
-The platform is fortified with **53 automated unit and regression tests** across all architectural layers in the [`tests/`](tests/) directory, executed via `pytest`:
+The platform is fortified with **198 automated unit and regression tests** across all architectural layers in the [`tests/`](tests/) directory, executed via `pytest`:
 
 ```powershell
 python -m pytest tests/ -v
@@ -640,21 +788,34 @@ python -m pytest tests/ -v
 
 | Test File | Tests | Functional Scope Covered |
 | :--- | :---: | :--- |
-| **`tests/test_clients.py`** | 4 | Package exports, player name normalization, FPL client bootstrap data ingestion, Understat client initialization. |
-| **`tests/test_trackers.py`** | 3 | Package exports, price velocity tracker initialization, mini-league scout initialization. |
-| **`tests/test_analytics.py`** | 3 | Core analytics package exports, PuLP / MILP optimizer initialization, NaN cleaning and numpy serialization. |
-| **`tests/test_two_stage_optimizer.py`** | 3 | Frozen dataclass contracts, multi-objective Pareto knapsack sweeps & deduplication, two-stage MILP-to-Monte-Carlo simulation pipeline. |
+| **`tests/test_forward_metrics.py`** | 7 | Tactical forward schema, talisman share bounds/tiers, Big Chance identification, outside-box xG, defensive disruption rates, xP forward modulation bounds ($[0.80, 1.30]$). |
+| **`tests/test_weather_engine.py`** | 11 | Immutable observation dataclasses, Open-Meteo fallback resilience, stadium catalog resolution, wind shear/precipitation dampener, turnaround congestion decay, xP model modulation, squad weather forecasts. |
+| **`tests/test_two_stage_optimizer.py`** | 6 | Frozen dataclass contracts, multi-objective Pareto knapsack sweeps & deduplication, two-stage MILP-to-Monte-Carlo simulation pipeline, forward alpha objective, weather resilience objective, weather in Monte Carlo. |
+| **`tests/test_matchday_hub.py`** | 6 | Live matchday summary, provisional BPS projections, captain doubling ($2\text{x}$), live fixture weather telemetry badges, adverse conditions hazard alerts. |
+| **`tests/test_chip_strategy.py`** | 4 | Bellman backward induction solver, Wildcard/Free Hit/Bench Boost/Triple Captain dynamic programming opportunity cost curves. |
+| **`tests/test_profile_manager.py`** | 10 | Profile CRUD operations, slugification, read-only defaults, FPL team and mini-league imports, active manager profile switching. |
+| **`tests/test_macro_covariance.py`** | 7 | Macro match-state statistical properties, discrete Poisson goal concession arrival processes, teammate clean sheet synchronization, opposing attacker-vs-GKP negative covariance. |
+| **`tests/test_venue.py`** | 7 | Home/away fixture venue multipliers, elite-tier and mid-table venue dampening, away goalkeeper save boosts, blank/double gameweek handling. |
+| **`tests/test_cpn_engine.py`** | 12 | Colored Petri Net (CPN) execution pipeline, token flows, places multiset, transition firing semantics, error deadlettering. |
+| **`tests/test_cpn_guards.py`** | 31 | Kleene 3-valued ($K_3$) logic guard conditions, deadline safety checks, budget/quota rules, chip validity, red flag availability guards. |
+| **`tests/test_cpn_transitions.py`** | 16 | CPN transition handlers: preflight ingest, simulate/solve, evaluate guards, scatter-gather, dispatch transfers, reconcile lineup, session keepalive. |
+| **`tests/test_cpn_tokens.py`** | 9 | Immutable token dataclasses: color tokens, deadline tokens, session tokens, market data tokens, guard tokens, execution receipts. |
+| **`tests/test_cpn_places.py`** | 3 | CPN FIFO places, state place concurrent read arcs, marking registry serialization. |
+| **`tests/test_cpn_chaos.py`** | 7 | Chaos engineering stress tests: API network timeouts, session drops, deadline race conditions, degraded fallback plans. |
 | **`tests/test_domain_intel.py`** | 4 | Shane Domain Intel Desk mathematical identity invariant (Stage 1 & Stage 2), Gameweek TTL decay and expiration, multiplier/status overrides. |
-| **`tests/test_ui.py`** | 3 | Custom CSS tokens & dark theme palette, FDR badge styling helper, modular tab function signatures and callables. |
+| **`tests/test_fpl_client.py`** | 4 | Bootstrap data structures, fixtures structures, players DataFrame column schemas (including forward and weather columns), team FDR maps. |
+| **`tests/test_montecarlo.py`** | 4 | NaN hygiene cleaning, healthy player simulation, unavailable player simulation, lineup & substitution optimization. |
+| **`tests/test_optimizer.py`** | 3 | Player index mapping, MILP squad budget & quota constraints, transfer feasibility solver. |
 | **`tests/test_backtest.py`** | 8 | Dataset normalization, point-in-time anti-leakage isolation, lineup & bench selection, auto-subs & captain doubling, position-differentiated scoring (BUG-1), form window sensitivity (BUG-3), hit penalty accounting (BUG-2), season-dependent FT caps (BUG-4). |
 | **`tests/test_tuner.py`** | 4 | Search space parameter boundaries, 14-parameter Optuna sampling, safe parameter reconstruction from frozen trials (`reconstruct_params_from_dict`), atomic config updating. |
 | **`tests/test_config.py`** | 5 | Config YAML parsing, system keys, profile schema equality between `heuristic` and `tuned`, runtime profile switching, section retrieval. |
-| **`tests/test_montecarlo.py`** | 4 | NaN hygiene cleaning, healthy player simulation, unavailable player simulation, lineup & substitution optimization. |
-| **`tests/test_optimizer.py`** | 3 | Player index mapping, MILP squad budget & quota constraints, transfer feasibility solver. |
-| **`tests/test_fpl_client.py`** | 4 | Bootstrap data structures, fixtures structures, players DataFrame column schemas, team FDR maps. |
+| **`tests/test_clients.py`** | 4 | Package exports, player name normalization, FPL client bootstrap data ingestion, Understat client initialization. |
+| **`tests/test_trackers.py`** | 3 | Package exports, price velocity tracker initialization, mini-league scout initialization. |
+| **`tests/test_analytics.py`** | 3 | Core analytics package exports, PuLP / MILP optimizer initialization, NaN cleaning and numpy serialization. |
+| **`tests/test_ui.py`** | 4 | Custom CSS tokens & dark theme palette, FDR badge styling helper, modular tab function signatures and callables, relative trajectory metrics. |
 | **`tests/test_api.py`** | 5 | Root endpoint, odds endpoint, clean players endpoint, lineup simulation endpoint, config endpoint. |
 
-*Result: **53 passed** with 0 warnings or failures.*
+*Result: **198 passed** in ~16s with 0 warnings or failures (100% green).*
 
 ---
 
@@ -960,7 +1121,7 @@ python -m tuner.cli evaluate --profile tuned --season 2023-24 --start-gw 1 --end
 # =============================================================
 # AUTOMATED QUALITY ASSURANCE & UNIT TESTS
 # =============================================================
-# Run all 53 unit and regression tests with verbose output
+# Run all 198 unit and regression tests with verbose output
 python -m pytest tests/ -v
 
 # Run only backtester regression tests
@@ -968,6 +1129,12 @@ python -m pytest tests/test_backtest.py -v
 
 # Run only tuner and search space tests
 python -m pytest tests/test_tuner.py -v
+
+# Run forward metrics and weather engine tests
+python -m pytest tests/test_forward_metrics.py tests/test_weather_engine.py -v
+
+# Run Two-Stage Optimizer tests
+python -m pytest tests/test_two_stage_optimizer.py -v
 ```
 
 ---
@@ -979,17 +1146,18 @@ rubies_rangers/
 ├── AGENTS.md                  # Strict Moneyball governance rules & prompt directives
 ├── README.md                  # Comprehensive platform documentation & guides
 ├── api.py                     # FastAPI REST microservice
-├── app.py                     # Modularized Streamlit entry router & navigation
+├── app.py                     # Modularized Streamlit entry router & navigation (19 workflows)
 ├── config.yaml                # Centralized configuration with heuristic & tuned profiles
 ├── config_manager.py          # Centralized configuration manager & dynamic profile switcher
 ├── launch_api.bat             # Batch launcher for FastAPI microservice (port 8000)
-├── launch_dashboard.bat       # Batch launcher for Streamlit Web App (port 8001/8501)
+├── launch_dashboard.bat       # Batch launcher for Streamlit Web App (port 8501)
 ├── pytest.ini                 # Pytest configuration (testpaths = tests)
 │
 ├── clients/                   # Specialized external API & scraping clients
 │   ├── __init__.py
-│   ├── fpl_client.py          # Official FPL API wrapper with disk caching
-│   └── tactical_client.py     # Understat shot coordinate client & scraper
+│   ├── fpl_client.py          # Official FPL API wrapper with forward metrics & disk caching
+│   ├── tactical_client.py     # Understat shot coordinates, xG/xA & forward metrics client
+│   └── weather_client.py      # Open-Meteo API wrapper with PL stadium microclimate catalog
 │
 ├── trackers/                  # Modular CLI tracking utilities & report generators
 │   ├── __init__.py
@@ -998,37 +1166,55 @@ rubies_rangers/
 │   ├── montecarlo.py          # Dedicated CLI runner for Monte Carlo simulations
 │   ├── price.py               # Market velocity & nightly price change predictor
 │   ├── setpiece.py            # Dead-ball & penalty taker hierarchy tracker
-│   ├── tactical.py            # CLI tracker for shot quality & tactical process
+│   ├── tactical.py            # CLI tracker for shot quality & forward tactical metrics
 │   ├── trend.py               # Match-by-match element summary & rotation risk detector
 │   └── xp.py                  # CLI tracker for Starting XI, Captaincy & Odds
 │
 ├── analytics/                 # Core quantitative engines & mathematical models
 │   ├── __init__.py
+│   ├── chip_strategy.py       # Backward induction Dynamic Programming (DP) chip solver
+│   ├── cpn_engine.py          # Colored Petri Net (CPN) autonomous execution engine
+│   ├── cpn_guards.py          # Kleene 3-valued (K3) transition guards & safety checks
+│   ├── cpn_places.py          # CPN FIFO places & concurrent state place registry
+│   ├── cpn_tokens.py          # Immutable colored token dataclasses
+│   ├── cpn_transitions.py     # CPN transition handlers (preflight, solve, dispatch, reconcile)
 │   ├── domain_intel.py        # Shane's Domain Intel Desk (ephemeral overrides, TTL decay)
-│   ├── montecarlo.py          # Vectorized 7-stage Monte Carlo simulation engine
-│   ├── optimizer.py           # PuLP / MILP linear programming squad builder
+│   ├── macro_engine.py        # Macro match-state simulator & teammate covariance lookup
+│   ├── matchday_hub.py        # Real-time Matchday Center, provisional BPS & live scoreboards
+│   ├── montecarlo.py          # Vectorized 7-stage Monte Carlo simulation engine with weather
+│   ├── optimizer.py           # Scipy / PuLP MILP linear programming squad builder
+│   ├── profile_contracts.py   # Manager profile dataclasses & serialization
+│   ├── profile_manager.py     # Multi-manager profile manager & FPL import engine
 │   ├── team_manager.py        # Master CLI command dispatcher & squad manager
-│   ├── two_stage_optimizer.py # Two-Stage Optimizer (MILP Pareto -> Monte Carlo tournament)
-│   └── xp_model.py            # Bookmaker odds & linear expected points solver
+│   ├── two_stage_optimizer.py # Two-Stage Optimizer (MILP Pareto sweeps -> Monte Carlo tournament)
+│   ├── venue_model.py         # Team-specific home/away scoring & concession multipliers
+│   ├── weather_engine.py      # Meteorological dampeners (Phi) & calendar congestion (Omega)
+│   └── xp_model.py            # Bookmaker odds, forward metrics & linear expected points solver
 │
 ├── ui/                        # Modular Streamlit UI subsystem
 │   ├── __init__.py
 │   ├── cache.py               # Cached data loaders (@st.cache_data)
 │   ├── components.py          # Reusable UI component renderers & badge helpers
 │   ├── styles.py              # Dark theme design system tokens & CSS injection
-│   └── tabs/                  # Independent tab renderers
+│   └── tabs/                  # Independent tab renderers (19 workflow tabs)
+│       ├── tab_matchday.py    # Matchday Center & live scoreboard with weather badges
+│       ├── tab_weather.py     # Weather Radar & environmental intelligence workflow
 │       ├── tab_two_stage.py   # Two-Stage Optimizer tab (MILP Pareto -> MC tournament)
+│       ├── tab_chip_strategy.py# Long-term chip strategy & backward induction roadmap
+│       ├── tab_cpn.py         # Autonomous CPN workflow workbench & Graphviz visualizer
 │       ├── tab_domain_intel.py# Shane's Domain Intel Desk (ephemeral sliders & selectors)
-│       ├── tab_transfers.py   # Monte Carlo transfer simulation tab
+│       ├── tab_transfers.py   # Modify current team (MILP knapsack solver)
 │       ├── tab_leagues.py     # Mini-league scout & rival spy tab
-│       ├── tab_odds_xp.py     # Odds-implied xP & lineup solver tab
-│       ├── tab_montecarlo.py  # Monte Carlo simulation deep dive tab
-│       ├── tab_tactical.py    # Tactical process & shot quality tab
+│       ├── tab_montecarlo.py  # Monte Carlo lineup & substitution strategist
+│       ├── tab_odds_xp.py     # Odds-implied xP & pitch formation visualizer
+│       ├── tab_tactical.py    # 7-subtab forward tactical metrics & Understat shot maps
 │       ├── tab_trends.py      # Form, trends & rotation risk tab
-│       ├── tab_market.py      # Market velocity & price change tab
-│       ├── tab_fixtures.py    # Fixture difficulty & schedule swing tab
-│       ├── tab_setpieces.py   # Set-piece hierarchy matrix tab
-│       └── tab_draft.py       # Live Draft & Wildcard builder tab
+│       ├── tab_market.py      # Market velocity & nightly price change tab
+│       ├── tab_fixtures.py    # Fixture difficulty & schedule swing ticker
+│       ├── tab_setpieces.py   # Set-piece & penalty hierarchy matrix tab
+│       ├── tab_venue.py       # Venue impact & home/away analysis
+│       ├── tab_draft.py       # Live Draft & Wildcard builder tab
+│       └── tab_player_explorer.py # Filterable player explorer database
 │
 ├── backtest/                  # Multi-season walk-forward backtesting subsystem
 │   ├── __init__.py
@@ -1042,20 +1228,33 @@ rubies_rangers/
 │   ├── search_space.py        # 14-parameter Moneyball search space & frozen reconstruction
 │   └── updater.py             # Hot-updater for config.yaml tuned: profile with audit logs
 │
-├── tests/                     # 53 comprehensive automated unit & regression tests
+├── tests/                     # 198 comprehensive automated unit & regression tests
 │   ├── test_analytics.py      # Analytics exports, MILP optimizer init, clean_nans
 │   ├── test_api.py            # FastAPI endpoints & schemas
 │   ├── test_backtest.py       # Walk-forward simulation, anti-leakage, rules
+│   ├── test_chip_strategy.py  # Backward induction chip solver & lift calculations
 │   ├── test_clients.py        # Package exports, name normalization, FPL/Understat clients
 │   ├── test_config.py         # YAML schema equality, runtime profile switching
+│   ├── test_cpn_chaos.py      # CPN chaos tests (timeouts, drops, degraded plans)
+│   ├── test_cpn_engine.py     # CPN execution pipeline & token flows
+│   ├── test_cpn_guards.py     # Kleene K3 guard condition evaluation
+│   ├── test_cpn_places.py     # CPN FIFO and state places
+│   ├── test_cpn_tokens.py     # Immutable token dataclasses
+│   ├── test_cpn_transitions.py# CPN transition handlers & reconciliation
 │   ├── test_domain_intel.py   # Shane's Domain Intel math identity, TTL decay, overrides
-│   ├── test_fpl_client.py     # FPL bootstrap data, fixtures, FDR mapping
+│   ├── test_forward_metrics.py# 7 forward metrics, talisman share, Z-score bounds
+│   ├── test_fpl_client.py     # FPL bootstrap data, fixtures, FDR & weather columns
+│   ├── test_macro_covariance.py# Teammate clean sheet synchronization & Poisson arrivals
+│   ├── test_matchday_hub.py   # Live matchday center, BPS projections & weather telemetry
 │   ├── test_montecarlo.py     # Monte Carlo NaN hygiene, substitution simulation
-│   ├── test_optimizer.py      # PuLP / MILP constraints & transfer solver
+│   ├── test_optimizer.py      # Scipy / PuLP MILP constraints & transfer solver
+│   ├── test_profile_manager.py# Multi-manager profiles, cloning & FPL import
 │   ├── test_trackers.py       # Tracker exports, price velocity & league init
 │   ├── test_tuner.py          # Optuna search space, sampling, config update
 │   ├── test_two_stage_optimizer.py # Two-Stage Pareto sweeps & MC evaluation
-│   └── test_ui.py             # CSS tokens, FDR badges, tab callables
+│   ├── test_ui.py             # CSS tokens, FDR badges, tab callables, relative charts
+│   ├── test_venue.py          # Home/away venue multipliers & tier adjustments
+│   └── test_weather_engine.py # Open-Meteo caching, Phi/Omega formulas & xP modulation
 │
 ├── [Root Shims]               # Backward-compatible shims for legacy scripts & CLI commands
 │   ├── fpl_client.py          # -> clients.fpl_client
@@ -1075,7 +1274,9 @@ rubies_rangers/
 │
 └── data/                      # Local storage for historical season CSVs & Optuna SQLite DB
     ├── historical/
-    └── tuning_history.db
+    ├── weather_store.json     # Local cache for 20 PL stadium weather telemetry
+    ├── profiles.json          # Multi-manager profiles store
+    └── tuning_history.db      # Optuna study database
 ```
 
 ---
@@ -1086,7 +1287,8 @@ The following design specifications document future architectural directions. Th
 
 | Document | Status | Description |
 | :--- | :--- | :--- |
-| [`autonomous_execution_pipeline.md`](docs/brainstorm/autonomous_execution_pipeline.md) | PROPOSED | Formal Coloured Petri Net (CPN) architecture for autonomous FPL API execution with Kleene 3-valued ($K_3$) transition guards, deadline-safe disambiguation, and session keepalive. |
+| [`additional_metrics.md`](docs/brainstorm/additional_metrics.md) | IMPLEMENTED | 7 high-alpha forward predictive metrics ($G - xG$, Box Touch Ratio, Talisman Share, $\text{BCM}$, $xG_{\text{obox}}$, Defensive Disruption, Implied Market Odds). |
+| [`autonomous_execution_pipeline.md`](docs/brainstorm/autonomous_execution_pipeline.md) | IMPLEMENTED | Formal Coloured Petri Net (CPN) architecture for autonomous FPL API execution with Kleene 3-valued ($K_3$) transition guards, deadline-safe disambiguation, and session keepalive. |
 | [`macro_match_jitter_covariance.md`](docs/brainstorm/macro_match_jitter_covariance.md) | IMPLEMENTED | Macro match-state jitter and teammate covariance modeling via discrete Poisson arrival processes. |
 
 ---

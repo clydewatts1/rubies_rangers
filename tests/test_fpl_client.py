@@ -36,7 +36,8 @@ def test_get_players_df_columns(client):
     required_cols = [
         "web_name", "position_name", "now_cost", "total_points",
         "expected_goals_per_90", "expected_assists_per_90", "expected_goal_involvements_per_90",
-        "moneyball_score", "fdr_moneyball_score", "fdr_next_5", "next_fixture",
+        "moneyball_score", "fdr_moneyball_score", "forward_moneyball_score", "weather_moneyball_score",
+        "weather_dampener", "congestion_multiplier", "fdr_next_5", "next_fixture",
         "yellow_cards", "red_cards", "status"
     ]
     for col in required_cols:

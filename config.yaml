@@ -24,6 +24,26 @@ system:
   http_timeout_seconds: 15
   max_retries: 3
   retry_backoff_base: 0.5
+  weather:
+    enabled: true
+    cache_file: "data/weather_store.json"
+    cache_ttl_hours: 6
+    forecast_days_ahead: 14
+    wind_threshold_moderate: 20.0
+    wind_threshold_high: 28.0
+    rain_threshold_heavy: 3.0
+    temp_freezing_threshold: 0.0
+    temp_cold_threshold: 3.0
+    beta_wind: 0.008
+    beta_rain: 0.025
+    max_weather_dampener: 0.25
+  seasonality:
+    enabled: true
+    rest_days_severe: 2
+    rest_days_moderate: 3
+    veteran_age_threshold: 31
+    alpha_congestion: 0.08
+    veteran_multiplier: 1.5
   execution:
     timing:
       preflight_lead_minutes: 35.0
@@ -306,6 +326,28 @@ heuristic:
     variance_buffer: 0.15
     discount_factor_gamma: 0.92
     macro_state_abstraction: true
+  weather:
+    enabled: true
+    beta_wind: 0.008
+    beta_rain: 0.025
+    max_dampener: 0.25
+  seasonality:
+    enabled: true
+    alpha_congestion: 0.08
+    veteran_multiplier: 1.5
+  forward_metrics:
+    enabled: true
+    weights:
+      talisman_share: 0.05
+      box_touch_ratio: 0.03
+      finishing_delta: 0.04
+      defensive_disruption: 0.02
+    thresholds:
+      talisman_alpha_pct: 32.0
+      talisman_contributor_pct: 22.0
+      big_chance_xg: 0.35
+      box_x_threshold: 0.82
+      so_t_conversion_benchmark: 0.38
 tuned:
   moneyball:
     fwd_mid:
@@ -504,6 +546,28 @@ tuned:
     variance_buffer: 0.15
     discount_factor_gamma: 0.92
     macro_state_abstraction: true
+  weather:
+    enabled: true
+    beta_wind: 0.008
+    beta_rain: 0.025
+    max_dampener: 0.25
+  seasonality:
+    enabled: true
+    alpha_congestion: 0.08
+    veteran_multiplier: 1.5
+  forward_metrics:
+    enabled: true
+    weights:
+      talisman_share: 0.05
+      box_touch_ratio: 0.03
+      finishing_delta: 0.04
+      defensive_disruption: 0.02
+    thresholds:
+      talisman_alpha_pct: 32.0
+      talisman_contributor_pct: 22.0
+      big_chance_xg: 0.35
+      box_x_threshold: 0.82
+      so_t_conversion_benchmark: 0.38
 tuning_metadata:
   best_trial_id: 1685
   train_seasons:

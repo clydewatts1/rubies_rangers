@@ -112,11 +112,18 @@ def render_tab_matchday(
                 f"Reason: {sub['reason']}."
             )
 
+    # Adverse Weather Warning Banner
+    if summary.squad_weather_alerts:
+        with st.expander(f"⚠️ **Meteorological Intelligence & Adverse Weather ({len(summary.squad_weather_alerts)} Squad Alerts)**", expanded=False):
+            st.caption("Active Rubies Rangers players featuring in high wind, slick rain, or extreme cold conditions:")
+            for alert in summary.squad_weather_alerts:
+                st.markdown(f"• **{alert}**")
+
     st.markdown("---")
 
     # 2. Matchday Fixtures Scoreboard Grid
     st.subheader(f"⚡ Gameweek {summary.gameweek} Fixtures & Squad Match Center")
-    st.caption(f"Matches featuring active {team_name} players are highlighted with ⭐ badges and player contribution pills.")
+    st.caption(f"Matches featuring active {team_name} players are highlighted with ⭐ badges, live weather readings, and player contribution pills.")
 
     # Render fixtures in a 2-column grid
     col_left, col_right = st.columns(2)
@@ -206,7 +213,10 @@ def render_tab_matchday(
             render_html(f"""
             <div style="background: {card_bg}; border: {card_border}; border-radius: 10px; padding: 14px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    {star_badge}
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        {star_badge}
+                        {fix.weather_badge_html}
+                    </div>
                     {status_html}
                 </div>
                 <div style="display: flex; justify-content: space-around; align-items: center; font-size: 18px; font-weight: 800;">

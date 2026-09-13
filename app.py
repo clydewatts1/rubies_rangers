@@ -34,6 +34,7 @@ from ui.tabs import (
     render_tab_matchday,
     render_tab_chip_strategy,
     render_tab_autonomous_cpn,
+    render_tab_weather,
 )
 
 # 1. Page Configuration
@@ -262,6 +263,7 @@ with st.sidebar:
 # 5. Workflow Dispatcher
 mode = st.sidebar.selectbox("Workflow", [
     "🏟️ Matchday Center & Live Gameweek Scores",
+    "🌤️ Weather Radar & Environmental Intelligence",
     "⚔️ Two-Stage Tournament (Screen & Simulate)",
     "🎴 Long-Term Chip Strategy & Season Roadmap",
     "🤖 Autonomous CPN Execution & Robotic Manager",
@@ -287,6 +289,8 @@ bank_balance = float(get_system_config("default_bank") or 3.7)
 # Dispatch to modular tab renderers
 if mode == "🏟️ Matchday Center & Live Gameweek Scores":
     render_tab_matchday(df, current_squad, active_profile.display_name)
+elif mode == "🌤️ Weather Radar & Environmental Intelligence":
+    render_tab_weather(df, current_squad)
 elif mode == "⚔️ Two-Stage Tournament (Screen & Simulate)":
     render_tab_two_stage(df, current_squad, bank=bank_balance)
 elif mode == "🎴 Long-Term Chip Strategy & Season Roadmap":
@@ -297,8 +301,9 @@ elif mode == "🧠 Shane's Domain Intel Desk":
     render_tab_domain_intel(df, current_squad)
 elif mode == "Modify Current Team (Transfers)":
     num_transfers = st.sidebar.slider("Number of Transfers", 1, 4, 1, key="mod_transfers_count")
-    objective = st.sidebar.selectbox("Optimization Metric", ["fdr_moneyball", "setpiece_moneyball", "moneyball", "points", "form"], format_func=lambda x: {
+    objective = st.sidebar.selectbox("Optimization Metric", ["fdr_moneyball", "forward_moneyball", "setpiece_moneyball", "moneyball", "points", "form"], format_func=lambda x: {
         "fdr_moneyball": "Fixture-Adjusted Moneyball (xGI & FDR)",
+        "forward_moneyball": "Forward Alpha (Talisman Share & Disruption)",
         "setpiece_moneyball": "Set-Piece & Dead-Ball Moneyball (xG/xA Boost)",
         "moneyball": "Base Moneyball Score (xGI / Expected Return)",
         "points": "Total Points",
@@ -315,7 +320,7 @@ elif mode == "🎰 Bookmaker Odds & Expected Points (xP)":
 elif mode == "🎲 Monte Carlo Transfer Simulator":
     render_tab_montecarlo_transfers(df, current_squad, bank_balance=bank_balance)
 elif mode == "Tactical Process & Shot Quality":
-    render_tab_tactical()
+    render_tab_tactical(df)
 elif mode == "Match-by-Match Trend Engine":
     render_tab_trends(df, current_squad)
 elif mode == "Market Velocity & Price Predictor":

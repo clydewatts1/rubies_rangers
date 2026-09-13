@@ -106,9 +106,18 @@ class TacticalClient:
     def get_league_tactical_df(self, season: str = "2026", force_refresh: bool = False) -> pd.DataFrame:
         """
         Return comprehensive DataFrame of all Premier League players with advanced tactical metrics:
-        NPxG, NPxG/90, Shot Quality (xG/Shot), and Open-Play Threat (NPxGI/90).
+        NPxG, NPxG/90, Shot Quality (xG/Shot), Open-Play Threat (NPxGI/90),
+        Post-Shot Finishing True Skill (Goals - xG), and Talisman Share (% xGI_Team).
         """
         raw_players = self.get_league_players_raw(season=season, force_refresh=force_refresh)
+
+        # Pre-compute team aggregate xG and xA for Talisman Share calculation
+        team_totals: Dict[str, float] = {}
+        for p in raw_players:
+            t = p.get("team_title", "Unknown")
+            xg_val = float(p.get("xG") or 0.0)
+            xa_val = float(p.get("xA") or 0.0)
+            team_totals[t] = team_totals.get(t, 0.0) + xg_val + xa_val
 
         records = []
         for p in raw_players:
@@ -131,6 +140,24 @@ class TacticalClient:
             xa_90 = (xa / ninetys) if ninetys > 0 else 0.0
             npxgi_90 = npxg_90 + xa_90
             xg_per_shot = (xg / shots) if shots > 0 else 0.0
+
+            # Finishing True Skill Delta (Actual Goals - xG)
+            finishing_delta = round(goals - xg, 2)
+            finishing_npxg_delta = round(npg - npxg, 2)
+
+            # Team xGI Share (Talisman Share)
+            team_xgi = team_totals.get(team, 0.0)
+            player_xgi = xg + xa
+            talisman_share = round((player_xgi / team_xgi * 100.0), 1) if team_xgi > 0 else 0.0
+
+            if talisman_share >= 32.0 and mins >= 90:
+                talisman_tier = "👑 ALPHA TALISMAN"
+            elif talisman_share >= 22.0:
+                talisman_tier = "⚔️ MAJOR CONTRIBUTOR"
+            elif talisman_share >= 12.0:
+                talisman_tier = "⚖️ SYSTEM COG"
+            else:
+                talisman_tier = "🌱 SQUAD ROTATION"
 
             # Determine tactical archetype
             if npxgi_90 >= 0.80 and mins >= 90:
@@ -165,6 +192,10 @@ class TacticalClient:
                 "xA_90": round(xa_90, 2),
                 "NPxGI_90": round(npxgi_90, 2),
                 "xG_per_shot": round(xg_per_shot, 3),
+                "finishing_skill_delta": finishing_delta,
+                "finishing_skill_npxg": finishing_npxg_delta,
+                "talisman_share": talisman_share,
+                "talisman_tier": talisman_tier,
                 "key_passes": key_passes,
                 "tactical_archetype": archetype
             })
@@ -176,8 +207,10 @@ class TacticalClient:
         Analyze pitch coordinates (X, Y) from Understat shot maps:
         - 6-Yard Box shots (poacher zone: X >= 0.94, 0.37 <= Y <= 0.63)
         - 18-Yard Penalty Box shots (X >= 0.82, 0.21 <= Y <= 0.79)
-        - Outside Box shots
-        - Non-penalty vs Penalty shots
+        - Outside Box shots & xG_obox
+        - Big Chance extraction (xG >= 0.35) and BCM (Big Chances Missed)
+        - Shot on target accuracy (SoT %)
+        - Mean-reversion pressure breakout score
         """
         all_shots = self.get_player_shots_raw(understat_id)
         # Filter for current season dates
@@ -194,6 +227,12 @@ class TacticalClient:
         set_piece_shots = 0
         penalty_shots = 0
         total_xg = 0.0
+        outside_box_xg = 0.0
+        big_chances = 0
+        big_chances_missed = 0
+        big_chances_scored = 0
+        shots_on_target = 0
+        goals_in_shots = 0
 
         shot_log = []
         for s in shots_season:
@@ -220,6 +259,7 @@ class TacticalClient:
             else:
                 zone = "Outside Box"
                 outside_box += 1
+                outside_box_xg += shot_xg
 
             if sit == "Penalty":
                 penalty_shots += 1
@@ -228,6 +268,24 @@ class TacticalClient:
             else:
                 open_play_shots += 1
 
+            is_goal = (res == "Goal")
+            if is_goal:
+                goals_in_shots += 1
+
+            # Big Chance definition (xG >= 0.35 Opta standard)
+            is_big_chance = (shot_xg >= 0.35)
+            if is_big_chance:
+                big_chances += 1
+                if is_goal:
+                    big_chances_scored += 1
+                else:
+                    big_chances_missed += 1
+
+            # On-target shot (Goal or SavedShot)
+            is_on_target = (res in ["Goal", "SavedShot"])
+            if is_on_target:
+                shots_on_target += 1
+
             shot_log.append({
                 "minute": minute,
                 "result": res,
@@ -235,12 +293,20 @@ class TacticalClient:
                 "shot_type": shot_type,
                 "location": zone,
                 "xG": round(shot_xg, 3),
+                "is_big_chance": is_big_chance,
+                "is_on_target": is_on_target,
+                "is_outside_box": not is_pen_box,
                 "X": round(x, 3),
                 "Y": round(y, 3)
             })
 
         box_shot_pct = (pen_box / total_shots * 100.0) if total_shots > 0 else 0.0
         avg_shot_xg = (total_xg / total_shots) if total_shots > 0 else 0.0
+        big_chance_conv = round(big_chances_scored / big_chances * 100.0, 1) if big_chances > 0 else 0.0
+        sot_pct = round(shots_on_target / total_shots * 100.0, 1) if total_shots > 0 else 0.0
+
+        # Mean-reversion breakout score: High BCM combined with underperformed xG predicts multi-goal haul
+        mean_rev_score = round(big_chances_missed * 1.25 + max(0.0, total_xg - goals_in_shots) * 2.0, 2)
 
         return {
             "understat_id": understat_id,
@@ -250,7 +316,14 @@ class TacticalClient:
             "six_yard_shots": six_yard,
             "penalty_box_shots": pen_box,
             "outside_box_shots": outside_box,
+            "outside_box_xg": round(outside_box_xg, 2),
             "box_shot_pct": round(box_shot_pct, 1),
+            "big_chances": big_chances,
+            "big_chances_missed": big_chances_missed,
+            "big_chance_conversion": big_chance_conv,
+            "shots_on_target": shots_on_target,
+            "sot_pct": sot_pct,
+            "mean_reversion_score": mean_rev_score,
             "open_play_shots": open_play_shots,
             "set_piece_shots": set_piece_shots,
             "penalty_shots": penalty_shots,
@@ -283,6 +356,13 @@ class TacticalClient:
                 row["box_shot_pct"] = sb["box_shot_pct"]
                 row["six_yard_shots"] = sb["six_yard_shots"]
                 row["outside_box_shots"] = sb["outside_box_shots"]
+                row["outside_box_xg"] = sb["outside_box_xg"]
+                row["big_chances"] = sb["big_chances"]
+                row["big_chances_missed"] = sb["big_chances_missed"]
+                row["big_chance_conversion"] = sb["big_chance_conversion"]
+                row["shots_on_target"] = sb["shots_on_target"]
+                row["sot_pct"] = sb["sot_pct"]
+                row["mean_reversion_score"] = sb["mean_reversion_score"]
                 row["shot_log"] = sb["shot_log"]
                 row["fpl_target_name"] = name
                 records.append(row)
@@ -308,9 +388,20 @@ class TacticalClient:
                     "xG_per_shot": 0.0,
                     "key_passes": 0,
                     "tactical_archetype": "⚪ UNMATCHED",
+                    "finishing_skill_delta": 0.0,
+                    "finishing_skill_npxg": 0.0,
+                    "talisman_share": 0.0,
+                    "talisman_tier": "🌱 SQUAD ROTATION",
                     "box_shot_pct": 0.0,
                     "six_yard_shots": 0,
                     "outside_box_shots": 0,
+                    "outside_box_xg": 0.0,
+                    "big_chances": 0,
+                    "big_chances_missed": 0,
+                    "big_chance_conversion": 0.0,
+                    "shots_on_target": 0,
+                    "sot_pct": 0.0,
+                    "mean_reversion_score": 0.0,
                     "shot_log": [],
                     "fpl_target_name": name
                 })

@@ -79,6 +79,8 @@ class MILPCandidateGenerator:
     """
     DEFAULT_OBJECTIVES: List[Tuple[str, str]] = [
         ("balanced", "fdr_moneyball"),
+        ("forward_alpha", "forward_moneyball"),
+        ("weather_resilience", "weather_moneyball"),
         ("high_attack", "xgi"),
         ("setpiece_focus", "setpiece_moneyball"),
         ("momentum", "form")
@@ -194,10 +196,13 @@ class TwoStageOptimizer:
         shared_macro = self.mc_engine.generate_macro_match_states(n_sims=n_sims)
         self.mc_engine.macro_states = shared_macro
 
+        df_players = getattr(self.optimizer, "df", None)
+
         # 2. Baseline squad Monte Carlo simulation
         base_eval = self.mc_engine.optimize_lineup_and_substitutions(
             squad_names=current_squad,
-            n_sims=n_sims
+            n_sims=n_sims,
+            df=df_players
         )
         base_summary = base_eval["squad_summary"]
         base_mean = float(base_summary["mean_total"])
@@ -218,13 +223,13 @@ class TwoStageOptimizer:
         )
 
         # 3. Stage 2: Monte Carlo evaluation of candidates
-        df_players = getattr(self.optimizer, "df", None)
         evaluated: List[StochasticSquadEvaluation] = []
         rows = []
         for cand in candidates:
             cand_eval = self.mc_engine.optimize_lineup_and_substitutions(
                 squad_names=cand.squad_names,
-                n_sims=n_sims
+                n_sims=n_sims,
+                df=df_players
             )
             cand_summary = cand_eval["squad_summary"]
             c_mean = float(cand_summary["mean_total"])
@@ -264,11 +269,13 @@ class TwoStageOptimizer:
                 if not out_rows.empty:
                     out_club = ", ".join(out_rows["club_short"].dropna().unique()) if "club_short" in out_rows.columns else ""
                     out_cost = round(float(out_rows["now_cost"].sum()), 1) if "now_cost" in out_rows.columns else 0.0
-                    out_mean = round(float(out_rows["fdr_moneyball_score"].sum()), 2) if "fdr_moneyball_score" in out_rows.columns else 0.0
+                    score_col = "forward_moneyball_score" if cand.objective_name == "forward_alpha" and "forward_moneyball_score" in out_rows.columns else ("weather_moneyball_score" if cand.objective_name == "weather_resilience" and "weather_moneyball_score" in out_rows.columns else ("setpiece_moneyball_score" if cand.objective_name == "setpiece_focus" and "setpiece_moneyball_score" in out_rows.columns else "fdr_moneyball_score"))
+                    out_mean = round(float(out_rows[score_col].sum()), 2) if score_col in out_rows.columns else 0.0
                 if not in_rows.empty:
                     in_club = ", ".join(in_rows["club_short"].dropna().unique()) if "club_short" in in_rows.columns else ""
                     in_cost = round(float(in_rows["now_cost"].sum()), 1) if "now_cost" in in_rows.columns else 0.0
-                    in_mean = round(float(in_rows["fdr_moneyball_score"].sum()), 2) if "fdr_moneyball_score" in in_rows.columns else 0.0
+                    score_col = "forward_moneyball_score" if cand.objective_name == "forward_alpha" and "forward_moneyball_score" in in_rows.columns else ("weather_moneyball_score" if cand.objective_name == "weather_resilience" and "weather_moneyball_score" in in_rows.columns else ("setpiece_moneyball_score" if cand.objective_name == "setpiece_focus" and "setpiece_moneyball_score" in in_rows.columns else "fdr_moneyball_score"))
+                    in_mean = round(float(in_rows[score_col].sum()), 2) if score_col in in_rows.columns else 0.0
                     if "position_name" in in_rows.columns:
                         in_pos = in_rows.iloc[0]["position_name"]
                     if "fdr_next_5" in in_rows.columns:

@@ -17,7 +17,7 @@ from config_manager import get_params
 
 
 @st.cache_data(ttl=1800)
-def load_data(source: str, force_refresh: bool = False) -> pd.DataFrame:
+def load_data(source: str = "Live FPL API", force_refresh: bool = False) -> pd.DataFrame:
     if source == "Historical CSV":
         df = pd.read_csv("fpl_player_statistics.csv")
         if "now_cost" in df.columns:
@@ -37,6 +37,8 @@ def load_data(source: str, force_refresh: bool = False) -> pd.DataFrame:
             df["moneyball_score"] = (xgi * xgi_w) + (ict / ict_div) + (ppg * ppg_w)
         if "fdr_moneyball_score" not in df.columns:
             df["fdr_moneyball_score"] = df["moneyball_score"]
+        if "forward_moneyball_score" not in df.columns:
+            df["forward_moneyball_score"] = df["fdr_moneyball_score"]
         if "fdr_next_5" not in df.columns:
             df["fdr_next_5"] = 3.0
             df["next_fixture"] = "N/A"
