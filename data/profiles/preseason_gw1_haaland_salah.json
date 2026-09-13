@@ -1,0 +1,29 @@
+{
+  "profile_id": "preseason_gw1_haaland_salah",
+  "display_name": "GW1 Draft: Haaland + Salah Premiums",
+  "profile_type": "SANDBOX",
+  "fpl_entry_id": null,
+  "bank_balance": 0.0,
+  "active_squad": [
+    "Pickford",
+    "Turner",
+    "Alexander-Arnold",
+    "Gabriel",
+    "Robinson",
+    "Faes",
+    "Harwood-Bellis",
+    "Salah",
+    "Palmer",
+    "Eze",
+    "Rogers",
+    "Winks",
+    "Haaland",
+    "João Pedro",
+    "Armstrong"
+  ],
+  "mini_league_ids": [],
+  "calibration_profile": "tuned",
+  "notes": "Heavy-premium structure prioritizing the two highest-ceiling captain assets.",
+  "created_at": "2026-09-13T08:45:17.783686+00:00",
+  "updated_at": "2026-09-13T08:45:17.783866+00:00"
+}

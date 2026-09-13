@@ -11,6 +11,8 @@ from ui.styles import inject_custom_css
 from ui.cache import load_data
 from analytics.optimizer import FPLOptimizer
 from analytics.xp_model import DEFAULT_SQUAD
+from analytics.profile_manager import ProfileManager
+from analytics.profile_contracts import ProfileType, ManagerProfile
 from trackers.league import LeagueTracker
 from config_manager import get_system_config, get_active_profile, set_active_profile, get_config
 from ui.tabs import (
@@ -31,6 +33,7 @@ from ui.tabs import (
     render_tab_venue,
     render_tab_matchday,
     render_tab_chip_strategy,
+    render_tab_autonomous_cpn,
 )
 
 # 1. Page Configuration
@@ -74,55 +77,172 @@ if st.sidebar.button("🔄 Force Refresh Live Data"):
 df = load_data(data_source)
 opt = FPLOptimizer(df)
 
-# 4. Active Squad Management
-if "active_squad" not in st.session_state:
-    st.session_state["active_squad"] = list(DEFAULT_SQUAD)
+# 4. Profile & Active Squad Management
+profile_mgr = ProfileManager()
+profile_mgr.ensure_seeded()
+all_profiles = profile_mgr.list_profiles()
 
+if "active_profile_id" not in st.session_state or not profile_mgr.get_profile(st.session_state["active_profile_id"]):
+    st.session_state["active_profile_id"] = all_profiles[0].profile_id if all_profiles else "rubies_rangers"
+
+active_profile = profile_mgr.get_profile(st.session_state["active_profile_id"])
+if not active_profile:
+    profile_mgr.ensure_seeded()
+    all_profiles = profile_mgr.list_profiles()
+    active_profile = all_profiles[0]
+
+st.session_state["active_squad"] = list(active_profile.active_squad)
+st.session_state["active_entry_id"] = active_profile.fpl_entry_id
+st.session_state["active_profile_name"] = active_profile.display_name
+st.session_state["active_profile_league_ids"] = list(active_profile.mini_league_ids)
+st.session_state["active_profile_is_sandbox"] = (active_profile.profile_type == ProfileType.SANDBOX)
+st.session_state["active_bank"] = active_profile.bank_balance
 current_squad = st.session_state["active_squad"]
 
-with st.sidebar.expander("👥 Active Squad & Live FPL Sync", expanded=False):
-    st.markdown(f"**Current Squad ({len(current_squad)}/15 Players):**")
-    st.caption(", ".join(current_squad))
-    
-    if st.button("📥 Sync from Published FPL Picks (Entry 6173410)"):
-        try:
-            lt = LeagueTracker()
-            picks_data = lt.get_team_picks(6173410)
-            s_names = [p["web_name"] for p in picks_data.get("starters", [])]
-            b_names = [p["web_name"] for p in picks_data.get("bench", [])]
-            if len(s_names) + len(b_names) == 15:
-                st.session_state["active_squad"] = s_names + b_names
+with st.sidebar:
+    st.markdown("---")
+    st.markdown("### 👤 Manager Profile & Squad")
+
+    profile_map = {p.profile_id: p for p in all_profiles}
+    def _format_profile_item(pid: str) -> str:
+        p = profile_map.get(pid)
+        if not p:
+            return pid
+        tag = "🟢 [LIVE]" if p.profile_type == ProfileType.LIVE_FPL else "🧪 [DRAFT]"
+        return f"{tag} {p.display_name}"
+
+    profile_ids = [p.profile_id for p in all_profiles]
+    sel_idx = profile_ids.index(active_profile.profile_id) if active_profile.profile_id in profile_ids else 0
+    selected_pid = st.selectbox(
+        "Active Profile / Draft:",
+        profile_ids,
+        index=sel_idx,
+        format_func=_format_profile_item,
+        key="sidebar_profile_selector"
+    )
+    if selected_pid != active_profile.profile_id:
+        st.session_state["active_profile_id"] = selected_pid
+        st.rerun()
+
+    # Profile Status Summary
+    is_live = (active_profile.profile_type == ProfileType.LIVE_FPL)
+    entry_str = f"FPL Entry #{active_profile.fpl_entry_id}" if active_profile.fpl_entry_id else "Hypothetical Draft"
+    bank_str = f"Bank: £{active_profile.bank_balance:.1f}M"
+    st.caption(f"**{entry_str}** • {bank_str} • {len(current_squad)}/15 Players")
+
+    # 15-Player Roster & Swaps Expander
+    with st.expander("📋 Roster & Player Swaps", expanded=False):
+        st.caption(", ".join(current_squad))
+        st.markdown("---")
+        st.markdown("**🔄 Swap a Player:**")
+        swap_out = st.selectbox("Sell Player", current_squad, key="sidebar_swap_out")
+        all_player_names = sorted(df["web_name"].dropna().unique().tolist())
+        swap_in = st.selectbox(
+            "Buy Player",
+            all_player_names,
+            index=all_player_names.index("João Pedro") if "João Pedro" in all_player_names else 0,
+            key="sidebar_swap_in"
+        )
+        if st.button("Apply Swap & Save to Profile", key="btn_apply_swap"):
+            if swap_out in current_squad:
+                idx = current_squad.index(swap_out)
+                new_squad = list(current_squad)
+                new_squad[idx] = swap_in
+                updated_profile = ManagerProfile(
+                    profile_id=active_profile.profile_id,
+                    display_name=active_profile.display_name,
+                    profile_type=active_profile.profile_type,
+                    fpl_entry_id=active_profile.fpl_entry_id,
+                    bank_balance=active_profile.bank_balance,
+                    active_squad=new_squad,
+                    mini_league_ids=active_profile.mini_league_ids,
+                    calibration_profile=active_profile.calibration_profile,
+                    notes=active_profile.notes
+                )
+                profile_mgr.save_profile(updated_profile)
+                st.session_state["active_squad"] = new_squad
                 st.cache_data.clear()
-                st.success("Synced 15 players from FPL Entry 6173410!")
+                st.success(f"Swapped {swap_out} ➔ {swap_in}!")
                 st.rerun()
-            else:
-                st.warning("Could not retrieve all 15 picks from FPL API.")
-        except Exception as e:
-            st.error(f"Sync failed: {e}")
+
+    # Sync Live Picks Button (if LIVE_FPL)
+    if is_live and active_profile.fpl_entry_id:
+        if st.button(f"📥 Sync Live Picks (Entry {active_profile.fpl_entry_id})", key="btn_sync_live"):
+            try:
+                with st.spinner(f"Syncing picks from FPL Entry {active_profile.fpl_entry_id}..."):
+                    lt = LeagueTracker()
+                    picks_data = lt.get_team_picks(active_profile.fpl_entry_id)
+                    s_names = [p["web_name"] for p in picks_data.get("starters", [])]
+                    b_names = [p["web_name"] for p in picks_data.get("bench", [])]
+                    if len(s_names) + len(b_names) == 15:
+                        synced_squad = s_names + b_names
+                        bank_val = round(picks_data.get("entry_history", {}).get("bank", 0) / 10.0, 2)
+                        updated_p = ManagerProfile(
+                            profile_id=active_profile.profile_id,
+                            display_name=active_profile.display_name,
+                            profile_type=active_profile.profile_type,
+                            fpl_entry_id=active_profile.fpl_entry_id,
+                            bank_balance=bank_val,
+                            active_squad=synced_squad,
+                            mini_league_ids=active_profile.mini_league_ids,
+                            calibration_profile=active_profile.calibration_profile,
+                            notes=active_profile.notes
+                        )
+                        profile_mgr.save_profile(updated_p)
+                        st.session_state["active_squad"] = synced_squad
+                        st.session_state["active_bank"] = bank_val
+                        st.cache_data.clear()
+                        st.success(f"Synced 15 players & £{bank_val:.1f}M bank from FPL Entry {active_profile.fpl_entry_id}!")
+                        st.rerun()
+                    else:
+                        st.warning("Could not retrieve all 15 picks from FPL API.")
+            except Exception as e:
+                st.error(f"Sync failed: {e}")
+
+    # Profile Management Expander (Import Any Team ID, Clone, Delete)
+    with st.expander("⚙️ Manage Profiles & Import Teams", expanded=False):
+        st.markdown("**➕ Import Any FPL Team ID:**")
+        import_id_input = st.number_input("FPL Team / Entry ID", min_value=1, value=6173410, step=1, key="import_entry_id")
+        custom_import_name = st.text_input("Custom Display Name (optional)", key="import_custom_name")
+        if st.button("📥 Import & Switch to Team", key="btn_import_team"):
+            try:
+                with st.spinner(f"Fetching published roster for Entry {import_id_input}..."):
+                    new_p = profile_mgr.import_fpl_team(int(import_id_input), custom_display_name=custom_import_name)
+                    st.session_state["active_profile_id"] = new_p.profile_id
+                    st.cache_data.clear()
+                    st.success(f"Imported '{new_p.display_name}'!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Failed to import team {import_id_input}: {e}")
+
+        st.markdown("---")
+        st.markdown("**🧪 Clone to New Sandbox Draft:**")
+        clone_name = st.text_input("Draft Name", value=f"{active_profile.display_name} (Draft)", key="clone_draft_name")
+        if st.button("📋 Clone to Sandbox Draft", key="btn_clone_draft"):
+            if clone_name.strip():
+                cloned = profile_mgr.clone_profile(active_profile.profile_id, clone_name.strip())
+                st.session_state["active_profile_id"] = cloned.profile_id
+                st.cache_data.clear()
+                st.success(f"Created sandbox draft '{cloned.display_name}'!")
+                st.rerun()
+
+        if len(all_profiles) > 1 and active_profile.profile_type == ProfileType.SANDBOX:
+            st.markdown("---")
+            if st.button(f"🗑️ Delete Draft '{active_profile.display_name}'", key="btn_delete_draft"):
+                profile_mgr.delete_profile(active_profile.profile_id)
+                st.session_state["active_profile_id"] = "rubies_rangers"
+                st.cache_data.clear()
+                st.success("Draft deleted.")
+                st.rerun()
 
     st.markdown("---")
-    st.markdown("**🔄 Swap a Player:**")
-    swap_out = st.selectbox("Sell Player", current_squad, key="sidebar_swap_out")
-    all_player_names = sorted(df["web_name"].dropna().unique().tolist())
-    swap_in = st.selectbox("Buy Player", all_player_names, index=all_player_names.index("João Pedro") if "João Pedro" in all_player_names else 0, key="sidebar_swap_in")
-    if st.button("Apply Swap to Active Squad"):
-        if swap_out in st.session_state["active_squad"]:
-            s_idx = st.session_state["active_squad"].index(swap_out)
-            st.session_state["active_squad"][s_idx] = swap_in
-            st.cache_data.clear()
-            st.success(f"Swapped {swap_out} ➔ {swap_in}!")
-            st.rerun()
-
-    if st.button("Reset to Default Rubies Rangers"):
-        st.session_state["active_squad"] = list(DEFAULT_SQUAD)
-        st.cache_data.clear()
-        st.rerun()
 
 # 5. Workflow Dispatcher
 mode = st.sidebar.selectbox("Workflow", [
     "🏟️ Matchday Center & Live Gameweek Scores",
     "⚔️ Two-Stage Tournament (Screen & Simulate)",
     "🎴 Long-Term Chip Strategy & Season Roadmap",
+    "🤖 Autonomous CPN Execution & Robotic Manager",
     "🧠 Shane's Domain Intel Desk",
     "Modify Current Team (Transfers)",
     "🏆 Mini-League Scout & Rival Spy",
@@ -149,6 +269,8 @@ elif mode == "⚔️ Two-Stage Tournament (Screen & Simulate)":
     render_tab_two_stage(df, current_squad, bank=bank_balance)
 elif mode == "🎴 Long-Term Chip Strategy & Season Roadmap":
     render_tab_chip_strategy()
+elif mode == "🤖 Autonomous CPN Execution & Robotic Manager":
+    render_tab_autonomous_cpn(df, current_squad)
 elif mode == "🧠 Shane's Domain Intel Desk":
     render_tab_domain_intel(df, current_squad)
 elif mode == "Modify Current Team (Transfers)":

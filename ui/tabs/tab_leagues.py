@@ -58,7 +58,13 @@ def render_tab_leagues(df: pd.DataFrame):
     tab_mode = st.radio("Search Method", ["Enter Mini-League ID", "Auto-Discover Leagues from FPL Team ID"], horizontal=True)
     
     active_league_id = None
-    default_league_id = 325320  # Bronze, Silver & Gold League
+    profile_leagues = st.session_state.get("active_profile_league_ids", [])
+    default_league_id = profile_leagues[0] if profile_leagues else 325320  # Bronze, Silver & Gold League
+    profile_name = st.session_state.get("active_profile_name")
+    is_sandbox = st.session_state.get("active_profile_is_sandbox", False)
+
+    if is_sandbox or (profile_name and not profile_leagues):
+        st.info(f"💡 Active profile **{profile_name or 'Current Draft'}** has no private mini-leagues attached. You can enter any public Mini-League ID directly below to scout rival teams.")
     
     if tab_mode == "Enter Mini-League ID":
         c_in, _ = st.columns([1, 1])
@@ -69,7 +75,8 @@ def render_tab_leagues(df: pd.DataFrame):
     else:
         c_tin, _ = st.columns([1, 1])
         with c_tin:
-            t_input = st.text_input("Enter your FPL Team / Entry ID:", value="6173410")
+            default_entry = str(st.session_state.get("active_entry_id") or "6173410")
+            t_input = st.text_input("Enter your FPL Team / Entry ID:", value=default_entry)
         
         if t_input.strip().isdigit():
             team_id = int(t_input.strip())

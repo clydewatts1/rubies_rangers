@@ -1,0 +1,31 @@
+{
+  "profile_id": "rubies_rangers",
+  "display_name": "Rubies Rangers (Clyde Watts)",
+  "profile_type": "LIVE_FPL",
+  "fpl_entry_id": 6173410,
+  "bank_balance": 3.7,
+  "active_squad": [
+    "Roefs",
+    "Verbruggen",
+    "Pedro Porro",
+    "Senesi",
+    "Guéhi",
+    "Robinson",
+    "Thiaw",
+    "Foden",
+    "Ødegaard",
+    "Mbeumo",
+    "Cherki",
+    "Rogers",
+    "João Pedro",
+    "Isak",
+    "Solanke"
+  ],
+  "mini_league_ids": [
+    325320
+  ],
+  "calibration_profile": "tuned",
+  "notes": "Primary active competitive manager profile.",
+  "created_at": "2026-09-13T08:45:17.782283+00:00",
+  "updated_at": "2026-09-13T08:45:17.782692+00:00"
+}

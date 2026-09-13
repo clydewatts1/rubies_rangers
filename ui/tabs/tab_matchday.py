@@ -34,11 +34,12 @@ def render_tab_matchday(df: pd.DataFrame, current_squad: Optional[List[str]] = N
             help="Select gameweek to view live matchday scores and player outcomes."
         )
     with ctrl_col2:
+        default_entry = st.session_state.get("active_entry_id") or int(DEFAULT_ENTRY_ID)
         entry_input = st.number_input(
             "Manager Entry ID",
-            value=int(DEFAULT_ENTRY_ID),
+            value=int(default_entry),
             step=1,
-            help="FPL team ID for Rubies Rangers (6173410)."
+            help="FPL team ID for active manager (defaults to currently selected profile)."
         )
     with ctrl_col3:
         st.write("")  # vertical spacer

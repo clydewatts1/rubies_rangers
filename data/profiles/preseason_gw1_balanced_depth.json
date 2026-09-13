@@ -1,0 +1,29 @@
+{
+  "profile_id": "preseason_gw1_balanced_depth",
+  "display_name": "GW1 Draft: Balanced Midfield & Bench",
+  "profile_type": "SANDBOX",
+  "fpl_entry_id": null,
+  "bank_balance": 0.5,
+  "active_squad": [
+    "Raya",
+    "Valdimarsson",
+    "Gvardiol",
+    "Saliba",
+    "Pedro Porro",
+    "Konsa",
+    "Barco",
+    "Saka",
+    "Foden",
+    "Palmer",
+    "Gordon",
+    "Nkunku",
+    "Watkins",
+    "Isak",
+    "João Pedro"
+  ],
+  "mini_league_ids": [],
+  "calibration_profile": "tuned",
+  "notes": "No-Haaland balanced portfolio maximizing 5-midfield aggregate expected points.",
+  "created_at": "2026-09-13T08:45:17.784562+00:00",
+  "updated_at": "2026-09-13T08:45:17.784736+00:00"
+}
