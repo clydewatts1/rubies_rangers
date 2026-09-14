@@ -14,6 +14,8 @@ from analytics.matchday_hub import (
     MatchdaySummary,
     MemberDayScore,
     MiniLeagueScoreboard,
+    FixturePrediction,
+    calculate_fixture_prediction,
 )
 from clients.fpl_client import FPLClient
 from trackers.league import DEFAULT_ENTRY_ID, DEFAULT_LEAGUE_ID
@@ -215,4 +217,41 @@ def test_minileague_cumulative_progression_monotonic(matchday_hub):
             cum = m.cumulative_day_points.get(d, 0)
             assert cum >= running, f"Cumulative points decreased for {m.team_name} on {d}: {cum} < {running}"
             running = cum
+
+
+def test_calculate_fixture_prediction():
+    """Verify bivariate Poisson match prediction calculations."""
+    pred = calculate_fixture_prediction("LIV", "FUL", gameweek=4)
+
+    assert isinstance(pred, FixturePrediction)
+    assert pred.home_xg > 0
+    assert pred.away_xg > 0
+    assert pred.predicted_home_score >= 0
+    assert pred.predicted_away_score >= 0
+
+    # Probabilities sum to approximately 100%
+    prob_sum = pred.home_win_prob + pred.draw_prob + pred.away_win_prob
+    assert 99.0 <= prob_sum <= 101.0
+
+    # Clean sheet and goal metrics
+    assert 0.0 < pred.home_cs_prob < 100.0
+    assert 0.0 < pred.away_cs_prob < 100.0
+    assert pred.home_cs_odds > 1.0
+    assert 0.0 < pred.over_25_prob < 100.0
+    assert 0.0 < pred.btts_prob < 100.0
+    assert pred.outcome_label != ""
+
+
+def test_matchday_fixture_prediction_and_days(matchday_hub):
+    """Verify MatchdaySummary fixtures contain valid match_day, date, and predictions."""
+    summary = matchday_hub.get_matchday_summary(entry_id=DEFAULT_ENTRY_ID, gameweek=4)
+
+    assert len(summary.fixtures) > 0
+    for f in summary.fixtures:
+        assert f.match_day in ["Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]
+        assert f.prediction is not None
+        assert isinstance(f.prediction, FixturePrediction)
+        assert f.prediction.home_win_prob > 0
+        assert f.prediction.predicted_home_score >= 0
+
 

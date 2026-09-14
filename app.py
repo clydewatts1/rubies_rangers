@@ -262,7 +262,7 @@ with st.sidebar:
 
 # 5. Workflow Dispatcher
 mode = st.sidebar.selectbox("Workflow", [
-    "🏟️ Matchday Center & Live Gameweek Mini-League Scoreboard",
+    "🏟️ Matchday Center & Live Gameweek Team Scoreboard",
     "🌤️ Weather Radar & Environmental Intelligence",
     "⚔️ Two-Stage Tournament (Screen & Simulate)",
     "🎴 Long-Term Chip Strategy & Season Roadmap",
@@ -287,7 +287,11 @@ mode = st.sidebar.selectbox("Workflow", [
 bank_balance = float(get_system_config("default_bank") or 3.7)
 
 # Dispatch to modular tab renderers
-if mode in ("🏟️ Matchday Center & Live Gameweek Mini-League Scoreboard", "🏟️ Matchday Center & Live Gameweek Scores"):
+if mode in (
+    "🏟️ Matchday Center & Live Gameweek Team Scoreboard",
+    "🏟️ Matchday Center & Live Gameweek Mini-League Scoreboard",
+    "🏟️ Matchday Center & Live Gameweek Scores"
+):
     render_tab_matchday(df, current_squad, active_profile.display_name)
 elif mode == "🌤️ Weather Radar & Environmental Intelligence":
     render_tab_weather(df, current_squad)

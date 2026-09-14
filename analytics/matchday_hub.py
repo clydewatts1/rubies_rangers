@@ -88,6 +88,26 @@ class MatchdayPlayer:
 
 
 @dataclass(frozen=True)
+class FixturePrediction:
+    """Quantitative Poisson match outcome prediction."""
+    home_xg: float
+    away_xg: float
+    predicted_home_score: int
+    predicted_away_score: int
+    home_win_prob: float      # percentage e.g. 58.2
+    draw_prob: float          # percentage e.g. 24.1
+    away_win_prob: float      # percentage e.g. 17.7
+    home_cs_prob: float       # percentage e.g. 42.5
+    away_cs_prob: float       # percentage e.g. 18.0
+    home_cs_odds: float       # decimal odds e.g. 2.35
+    away_cs_odds: float       # decimal odds e.g. 5.56
+    btts_prob: float          # both teams to score %
+    over_25_prob: float       # over 2.5 goals %
+    expected_total_goals: float
+    outcome_label: str        # e.g., 'ARS Win 2-0 (64% Win Prob | 58% CS)'
+
+
+@dataclass(frozen=True)
 class MatchdayFixture:
     """Represents a gameweek fixture with live scoreline and squad players involved."""
     fixture_id: int
@@ -105,6 +125,98 @@ class MatchdayFixture:
     away_squad_players: List[MatchdayPlayer]
     weather: Optional[WeatherObservation] = None
     weather_badge_html: str = ""
+    match_day: str = "Saturday"
+    match_date_str: str = ""
+    match_time_str: str = ""
+    prediction: Optional[FixturePrediction] = None
+
+
+def calculate_fixture_prediction(
+    h_short: str,
+    a_short: str,
+    gameweek: int = 4,
+    team_odds_map: Optional[Dict[str, Any]] = None
+) -> FixturePrediction:
+    """
+    Computes bivariate Poisson match probabilities and most likely scoreline
+    from team expected goals (xG).
+    """
+    import math
+
+    if team_odds_map and h_short in team_odds_map and a_short in team_odds_map:
+        h_xg = float(team_odds_map[h_short].get("exp_goals_scored", 1.45))
+        a_xg = float(team_odds_map[a_short].get("exp_goals_scored", 1.15))
+    else:
+        try:
+            from analytics.xp_model import XPModel
+            xm = XPModel(gameweek=gameweek)
+            h_info = xm.team_odds.get(h_short, {})
+            a_info = xm.team_odds.get(a_short, {})
+            h_xg = float(h_info.get("exp_goals_scored", 1.45))
+            a_xg = float(a_info.get("exp_goals_scored", 1.15))
+        except Exception:
+            h_xg = 1.45
+            a_xg = 1.15
+
+    # Poisson distribution over score grid 0..6
+    probs: Dict[Tuple[int, int], float] = {}
+    for h in range(7):
+        p_h = (h_xg ** h) * math.exp(-h_xg) / math.factorial(h)
+        for a in range(7):
+            p_a = (a_xg ** a) * math.exp(-a_xg) / math.factorial(a)
+            probs[(h, a)] = p_h * p_a
+
+    # Mode of distribution (most likely integer scoreline)
+    best_score = max(probs.keys(), key=lambda k: probs[k])
+    pred_h, pred_a = best_score
+
+    p_h_win_raw = sum(p for (h, a), p in probs.items() if h > a)
+    p_draw_raw = sum(p for (h, a), p in probs.items() if h == a)
+    p_a_win_raw = sum(p for (h, a), p in probs.items() if h < a)
+    total_w_d_l = p_h_win_raw + p_draw_raw + p_a_win_raw
+
+    if total_w_d_l > 0:
+        p_h_win = (p_h_win_raw / total_w_d_l) * 100.0
+        p_draw = (p_draw_raw / total_w_d_l) * 100.0
+        p_a_win = (p_a_win_raw / total_w_d_l) * 100.0
+    else:
+        p_h_win = 33.3
+        p_draw = 33.4
+        p_a_win = 33.3
+
+    h_cs_prob = math.exp(-a_xg) * 100.0
+    a_cs_prob = math.exp(-h_xg) * 100.0
+    h_cs_odds = round(100.0 / h_cs_prob, 2) if h_cs_prob > 0 else 99.0
+    a_cs_odds = round(100.0 / a_cs_prob, 2) if a_cs_prob > 0 else 99.0
+
+    over_25 = sum(p for (h, a), p in probs.items() if (h + a) >= 3) * 100.0
+    btts = (1.0 - math.exp(-h_xg)) * (1.0 - math.exp(-a_xg)) * 100.0
+    exp_total = round(h_xg + a_xg, 2)
+
+    if p_h_win >= p_a_win and p_h_win >= p_draw:
+        outcome_lbl = f"{h_short} Win ({p_h_win:.0f}%)"
+    elif p_a_win >= p_h_win and p_a_win >= p_draw:
+        outcome_lbl = f"{a_short} Win ({p_a_win:.0f}%)"
+    else:
+        outcome_lbl = f"Draw ({p_draw:.0f}%)"
+
+    return FixturePrediction(
+        home_xg=round(h_xg, 2),
+        away_xg=round(a_xg, 2),
+        predicted_home_score=pred_h,
+        predicted_away_score=pred_a,
+        home_win_prob=round(p_h_win, 1),
+        draw_prob=round(p_draw, 1),
+        away_win_prob=round(p_a_win, 1),
+        home_cs_prob=round(h_cs_prob, 1),
+        away_cs_prob=round(a_cs_prob, 1),
+        home_cs_odds=h_cs_odds,
+        away_cs_odds=a_cs_odds,
+        btts_prob=round(btts, 1),
+        over_25_prob=round(over_25, 1),
+        expected_total_goals=exp_total,
+        outcome_label=outcome_lbl
+    )
 
 
 @dataclass(frozen=True)
@@ -361,11 +473,18 @@ class MatchdayHub:
                 else:
                     players_by_fixture_away.setdefault(fix_id, []).append(player_obj)
 
-        # 7. Construct MatchdayFixture objects
-        # 7. Construct MatchdayFixture objects with Meteorological Intelligence
+        # 7. Construct MatchdayFixture objects with Meteorological Intelligence & Predicted Outcomes
         matchday_fixtures: List[MatchdayFixture] = []
         adverse_count = 0
         squad_weather_alerts = []
+
+        # Precompute team odds for Poisson outcome predictions
+        try:
+            from analytics.xp_model import XPModel
+            xm = XPModel(gameweek=gameweek)
+            team_odds_map = xm.team_odds
+        except Exception:
+            team_odds_map = {}
 
         for f in fixtures_raw:
             f_id = f["id"]
@@ -378,29 +497,47 @@ class MatchdayHub:
             m_mins = f.get("minutes", 0)
             ko = f.get("kickoff_time", "")
 
+            m_day = "Saturday"
+            m_date_str = ""
+            m_time_str = ""
+
             if finished:
                 status_lbl = "FT"
             elif started:
                 status_lbl = f"LIVE {m_mins}'"
             else:
-                if ko:
-                    try:
-                        clean_ko = ko.replace("Z", "+00:00")
-                        dt = datetime.fromisoformat(clean_ko)
-                        if ZoneInfo is not None:
-                            try:
-                                dt = dt.astimezone(ZoneInfo("Europe/London"))
-                            except Exception:
-                                pass
+                status_lbl = "UPCOMING"
+
+            if ko:
+                try:
+                    clean_ko = ko.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(clean_ko)
+                    if ZoneInfo is not None:
+                        try:
+                            dt = dt.astimezone(ZoneInfo("Europe/London"))
+                        except Exception:
+                            pass
+                    m_day = dt.strftime("%A")
+                    m_date_str = dt.strftime("%d %b %Y")
+                    m_time_str = dt.strftime("%H:%M")
+                    if not finished and not started:
                         status_lbl = dt.strftime("%a %H:%M")
-                    except Exception:
-                        status_lbl = ko[11:16] if len(ko) >= 16 else "UPCOMING"
-                else:
-                    status_lbl = "UPCOMING"
+                except Exception:
+                    m_time_str = ko[11:16] if len(ko) >= 16 else "UPCOMING"
+                    if not finished and not started:
+                        status_lbl = m_time_str
 
             h_squad = players_by_fixture_home.get(f_id, [])
             a_squad = players_by_fixture_away.get(f_id, [])
             has_squad = (len(h_squad) + len(a_squad)) > 0
+
+            # Compute Poisson match outcome prediction
+            pred = calculate_fixture_prediction(
+                h_short=h_short,
+                a_short=a_short,
+                gameweek=gameweek,
+                team_odds_map=team_odds_map
+            )
 
             # Query weather observation from WeatherClient
             obs = self.weather_client.get_fixture_weather(
@@ -435,7 +572,11 @@ class MatchdayHub:
                 home_squad_players=h_squad,
                 away_squad_players=a_squad,
                 weather=obs,
-                weather_badge_html=w_badge
+                weather_badge_html=w_badge,
+                match_day=m_day,
+                match_date_str=m_date_str,
+                match_time_str=m_time_str,
+                prediction=pred
             ))
 
         # Sort fixtures: active squad fixtures first, then by started / kickoff time

@@ -1,29 +1,34 @@
 """
-Streamlit Tab: Matchday Center & Live Gameweek Mini-League Scoreboard
-Displays real-time live fixture scores, day-of-week weekly points progression across mini-league members,
-captaincy outcomes, remaining unplayed firepower, and active squad performance tracking.
+Streamlit Tab: Matchday Center & Live Gameweek Team Scoreboard
+Displays real-time live fixture scores, quantitative bivariate Poisson predicted outcomes,
+day-of-week match schedules, active squad player contributions, auto-substitutions,
+and comprehensive mini-league weekly point progression.
 """
 
-import streamlit as st
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Optional, List, Dict, Any, Tuple
 import pandas as pd
+import streamlit as st
 import plotly.graph_objects as go
-from typing import Optional, List, Dict, Any
 
 from ui.styles import render_html
 from ui.cache import load_matchday_summary, load_mini_league_scoreboard
 from trackers.league import DEFAULT_ENTRY_ID, DEFAULT_LEAGUE_ID
 from clients.fpl_client import FPLClient
+from analytics.matchday_hub import MatchdayFixture, MatchdayPlayer, MatchdaySummary
 
 
 def render_tab_matchday(
     df: pd.DataFrame,
     current_squad: Optional[List[str]] = None,
     profile_name: Optional[str] = None
-):
+) -> None:
     if not profile_name:
         profile_name = st.session_state.get("active_profile_name", "Rubies Rangers")
 
-    # Clean display name: "Rubies Rangers (Clyde Watts)" -> "Rubies Rangers", "IraolaCoaster (Shane McLaughlin)" -> "IraolaCoaster"
+    # Clean display name: "Rubies Rangers (Clyde Watts)" -> "Rubies Rangers"
     if " (" in profile_name:
         team_name = profile_name.split(" (")[0].strip()
     elif ":" in profile_name:
@@ -33,10 +38,11 @@ def render_tab_matchday(
 
     badge_name = team_name.upper()
 
-    st.title("🏟️ Matchday Center & Live Gameweek Mini-League Scoreboard")
+    st.title("🏟️ Matchday Center & Live Gameweek Team Scoreboard")
     st.markdown(
-        f"Track live Premier League fixture scores, audit daily point progression by **Day of Week** across "
-        f"your mini-league, compare captaincy outcomes, monitor unplayed assets, and track **{team_name}** live match performances."
+        f"Real-time matchday command desk for **{team_name}**. Track current and upcoming Premier League games "
+        f"for the active gameweek, evaluate **bivariate Poisson predicted outcomes** per day of the week, "
+        f"monitor squad live points and auto-subs, and benchmark mini-league point progression."
     )
 
     fpl = FPLClient()
@@ -49,7 +55,7 @@ def render_tab_matchday(
             "Gameweek",
             options=list(range(1, 39)),
             index=max(0, current_gw - 1),
-            help="Select gameweek to view live matchday scores and player outcomes."
+            help="Select gameweek to view live matchday scores, predictions, and player outcomes."
         )
     with ctrl_col2:
         league_id_input = st.number_input(
@@ -71,255 +77,35 @@ def render_tab_matchday(
         st.write("")
         force_refresh = st.button("🔄 Refresh Live Data", help="Bypasses cache and fetches latest live scores, standings, and stats.")
 
-    # Two Main Tabs
-    tab_scoreboard, tab_squad_center = st.tabs([
-        "📊 Mini-League Day-of-Week Scoreboard & Progression Race",
-        f"🏟️ {team_name} Live Matchday Radar & Fixtures"
+    # Load Matchday Data
+    with st.spinner(f"Fetching Gameweek {sel_gw} live fixtures, Poisson predicted outcomes, and {team_name} statistics..."):
+        squad_tuple = tuple(current_squad) if current_squad else None
+        summary: MatchdaySummary = load_matchday_summary(
+            entry_id=int(entry_input),
+            gameweek=int(sel_gw),
+            squad_names=squad_tuple,
+            force_refresh=force_refresh
+        )
+
+    # Three Main Tabs
+    tab_team_scoreboard, tab_squad_roster, tab_minileague = st.tabs([
+        f"📅 {team_name} Live Matchday & Day-by-Day Scoreboard",
+        f"👥 {team_name} Live Performance Roster & Auto-Subs",
+        "📊 Mini-League Day-of-Week Scoreboard & Progression Race"
     ])
 
     # =========================================================================
-    # TAB 1: MINI-LEAGUE DAY-OF-WEEK SCOREBOARD & WEEKLY PROGRESSION
+    # TAB 1: INDIVIDUAL TEAM SCOREBOARD & DAY-BY-DAY PREDICTED OUTCOMES
     # =========================================================================
-    with tab_scoreboard:
-        with st.spinner(f"Aggregating Gameweek {sel_gw} live mini-league standings and Day-of-Week progression..."):
-            ml_sb = load_mini_league_scoreboard(
-                league_id=int(league_id_input),
-                gameweek=int(sel_gw),
-                max_teams=25,
-                force_refresh=force_refresh
-            )
-
-        if not ml_sb.members:
-            st.warning(f"No active teams or standings found for Mini-League ID {league_id_input} in Gameweek {sel_gw}.")
-        else:
-            # 1. Top KPI Hero Cards
-            leader = ml_sb.members[0]
-            my_member = next((m for m in ml_sb.members if m.entry_id == int(entry_input) or m.team_name.lower() == team_name.lower()), None)
-
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-            with kpi1:
-                st.metric(
-                    "👑 Live GW Leader",
-                    f"{leader.net_gw_points} pts",
-                    delta=f"{leader.team_name} ({leader.manager_name})",
-                    help="Highest Net GW Score in the mini-league currently."
-                )
-            with kpi2:
-                if my_member:
-                    st.metric(
-                        f"⚔️ {team_name} Live Score",
-                        f"{my_member.net_gw_points} pts",
-                        delta=f"Rank #{my_member.rank} • Total {my_member.total_league_points} pts",
-                        help=f"Net GW points for {team_name} after transfer hits."
-                    )
-                else:
-                    st.metric(
-                        f"⚔️ {team_name} Status",
-                        "Tracking",
-                        delta="Competitor View Active"
-                    )
-            with kpi3:
-                st.metric(
-                    "📈 League Average",
-                    f"{ml_sb.league_avg_net_points:.1f} pts",
-                    delta=f"Live Gross: {ml_sb.league_avg_live_points:.1f} pts",
-                    help="Average net points across all mini-league members this gameweek."
-                )
-            with kpi4:
-                if ml_sb.highest_day_scorers:
-                    best_day, best_info = max(ml_sb.highest_day_scorers.items(), key=lambda item: item[1]["points"])
-                    st.metric(
-                        f"🚀 Top Day Surge ({best_day[:3]})",
-                        f"+{best_info['points']} pts",
-                        delta=f"{best_info['team']}",
-                        help=f"Best single-day scoring performance achieved on {best_day}."
-                    )
-                else:
-                    st.metric("🚀 Top Day Surge", "0 pts", delta="Pre-Matchday")
-
-            st.markdown("---")
-
-            # 2. Interactive Weekly Progression Race Chart (Plotly)
-            st.subheader(f"📈 {ml_sb.league_name} — Weekly Score Progression by Day")
-            st.caption("Track how each manager's score accelerates through the weekend (Friday ➔ Saturday ➔ Sunday ➔ Monday).")
-
-            fig = go.Figure()
-            chart_days = ["Start"] + ml_sb.active_days
-
-            color_palette = [
-                "#38bdf8", "#ec4899", "#a855f7", "#34d399", "#f97316",
-                "#818cf8", "#fb7185", "#2dd4bf", "#c084fc", "#fb923c",
-                "#4ade80", "#60a5fa", "#f43f5e", "#a3e635", "#06b6d4"
-            ]
-
-            for idx, m in enumerate(ml_sb.members):
-                is_user = (my_member is not None and m.entry_id == my_member.entry_id)
-                y_pts = [0] + [m.cumulative_day_points.get(d, 0) for d in ml_sb.active_days]
-                gains = [0] + [m.day_points.get(d, 0) for d in ml_sb.active_days]
-
-                if is_user:
-                    line_color = "#facc15"  # Radiant Gold/Amber
-                    line_width = 4.5
-                    marker_size = 9
-                    marker_symbol = "diamond"
-                    display_name = f"⭐ {m.team_name} ({m.manager_name})"
-                else:
-                    line_color = color_palette[idx % len(color_palette)]
-                    line_width = 2
-                    marker_size = 6
-                    marker_symbol = "circle"
-                    display_name = f"{m.team_name} ({m.manager_name})"
-
-                fig.add_trace(go.Scatter(
-                    x=chart_days,
-                    y=y_pts,
-                    mode="lines+markers",
-                    name=display_name,
-                    line=dict(color=line_color, width=line_width),
-                    marker=dict(size=marker_size, symbol=marker_symbol),
-                    customdata=gains,
-                    hovertemplate=(
-                        f"<b>{m.team_name}</b> ({m.manager_name})<br>" +
-                        "Stage: %{x}<br>" +
-                        "Cumulative Score: <b>%{y} pts</b><br>" +
-                        "Day Surge: <b>+%{customdata} pts</b>" +
-                        "<extra></extra>"
-                    )
-                ))
-
-            fig.update_layout(
-                height=440,
-                margin=dict(l=15, r=15, t=30, b=25),
-                paper_bgcolor="rgba(15, 23, 42, 0.6)",
-                plot_bgcolor="rgba(15, 23, 42, 0.9)",
-                font=dict(color="#e2e8f0", size=12),
-                xaxis=dict(
-                    title="Matchday Timeline",
-                    showgrid=True,
-                    gridcolor="rgba(255, 255, 255, 0.08)",
-                    linecolor="rgba(255, 255, 255, 0.2)"
-                ),
-                yaxis=dict(
-                    title="Cumulative Points",
-                    showgrid=True,
-                    gridcolor="rgba(255, 255, 255, 0.08)",
-                    linecolor="rgba(255, 255, 255, 0.2)"
-                ),
-                legend=dict(
-                    orientation="h",
-                    yanchor="bottom",
-                    y=1.02,
-                    xanchor="right",
-                    x=1,
-                    font=dict(size=10)
-                ),
-                hovermode="x unified"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-            st.markdown("---")
-
-            # 3. Day-of-Week Points Progression Table
-            st.subheader(f"📋 Live Gameweek {sel_gw} Scoreboard & Day-of-Week Matrix")
-            st.caption("Points earned per match day (including Captain 2x/3x on their fixture day), transfer hits, and forward projected finish.")
-
-            table_rows = []
-            for m in ml_sb.members:
-                is_user = (my_member is not None and m.entry_id == my_member.entry_id)
-                prefix = "⭐ " if is_user else ""
-                chip_str = f" [{m.active_chip.upper()}]" if m.active_chip else ""
-
-                row_dict = {
-                    "Rank": m.rank,
-                    "Team": f"{prefix}{m.team_name}{chip_str}",
-                    "Manager": m.manager_name,
-                    "Captain (C)": f"{m.captain_name} ({m.captain_multiplier}x, {m.captain_points}p)",
-                    "Played": f"{m.starters_played}/11" + (f" (+{m.starters_playing} live)" if m.starters_playing > 0 else ""),
-                }
-
-                # Dynamic columns for each active matchday
-                for d in ml_sb.active_days:
-                    row_dict[d] = m.day_points.get(d, 0)
-
-                row_dict["Hits"] = f"-{m.transfer_cost}" if m.transfer_cost > 0 else "0"
-                row_dict["GW Total"] = m.live_gw_points
-                row_dict["Net GW"] = m.net_gw_points
-                row_dict["Proj Finish"] = m.projected_final_points
-                row_dict["Overall Total"] = m.total_league_points
-
-                table_rows.append(row_dict)
-
-            df_scoreboard = pd.DataFrame(table_rows)
-            st.dataframe(df_scoreboard, use_container_width=True, hide_index=True)
-
-            st.markdown("---")
-
-            # 4. Tactical Matchday Differentials (Remaining Firepower & Captain Radar)
-            st.subheader("🎯 Tactical Matchday Intelligence & Differentials")
-            diff_col1, diff_col2 = st.columns(2)
-
-            with diff_col1:
-                st.markdown("#### ⚡ The Sunday/Monday Swing (Remaining Firepower)")
-                st.caption("Players yet to feature for each competitor, their fixture, and algorithmic expected return ($xP$):")
-
-                unplayed_members = [m for m in ml_sb.members if m.starters_to_play > 0]
-                if not unplayed_members:
-                    st.success("✅ All 11 starters have completed their matches for all tracked managers!")
-                else:
-                    for m in unplayed_members:
-                        xp_sum = sum(p['xp'] for p in m.remaining_players)
-                        with st.expander(f"**{m.team_name}** ({m.starters_to_play} to play • ~{xp_sum:.1f} xP left)", expanded=False):
-                            for p in m.remaining_players:
-                                st.markdown(f"• **{p['name']}** ({p['club']}, {p['pos']}) vs **{p['opp']}** ({p['day'][:3]}) — Expected: **{p['xp']} xP**")
-
-            with diff_col2:
-                st.markdown("#### 👑 Captaincy Distribution & Returns")
-                st.caption("How armband choices split across the league and their live point contribution:")
-
-                cap_summary = []
-                for cap_name, count in ml_sb.top_captains.items():
-                    sample_m = next((m for m in ml_sb.members if m.captain_name == cap_name), None)
-                    cap_pts = sample_m.captain_points if sample_m else 0
-                    cap_day = sample_m.captain_day if sample_m else "Upcoming"
-                    cap_summary.append({
-                        "Captain": cap_name,
-                        "Managers": count,
-                        "Day": cap_day,
-                        "Points (2x)": cap_pts
-                    })
-
-                df_cap = pd.DataFrame(cap_summary).sort_values(by="Managers", ascending=False)
-                st.dataframe(df_cap, use_container_width=True, hide_index=True)
-
-            # Auto-Sub Watch Banner across mini-league
-            pending_subs = [m for m in ml_sb.members if m.auto_subs_pending]
-            if pending_subs:
-                with st.expander(f"🔄 **Mini-League Auto-Substitution Watch ({len(pending_subs)} Teams Pending Cascade)**", expanded=False):
-                    for m in pending_subs:
-                        for sub in m.auto_subs_pending:
-                            st.info(f"**{m.team_name}**: Starter **{sub['sub_out']}** did not play (0 mins) ➔ Sub **{sub['sub_in']}** (+{sub['points']} pts) ready to activate.")
-
-    # =========================================================================
-    # TAB 2: ACTIVE SQUAD MATCHDAY RADAR & FIXTURES
-    # =========================================================================
-    with tab_squad_center:
-        with st.spinner(f"Fetching Gameweek {sel_gw} live matchday fixtures and squad statistics..."):
-            squad_tuple = tuple(current_squad) if current_squad else None
-            summary = load_matchday_summary(
-                entry_id=int(entry_input),
-                gameweek=int(sel_gw),
-                squad_names=squad_tuple,
-                force_refresh=force_refresh
-            )
-
-        # Squad KPI Cards
+    with tab_team_scoreboard:
+        # Top KPI Metric Cards
         sq_kpi1, sq_kpi2, sq_kpi3, sq_kpi4 = st.columns(4)
         with sq_kpi1:
             st.metric(
                 f"{team_name} Live Total",
                 f"{summary.total_live_points} pts",
                 delta=f"GW{summary.gameweek} Active Score",
-                help="Sum of effective points across all 11 starters (including Captain 2x)."
+                help="Sum of effective points across all 11 starters (including Captain 2x multiplier)."
             )
         with sq_kpi2:
             st.metric(
@@ -361,118 +147,94 @@ def render_tab_matchday(
 
         st.markdown("---")
 
-        # Matchday Fixtures Scoreboard Grid
-        st.subheader(f"⚡ Gameweek {summary.gameweek} Fixtures & Squad Match Center")
-        st.caption(f"Matches featuring active {team_name} players are highlighted with ⭐ badges, live weather readings, and player contribution pills.")
+        # -------------------------------------------------------------
+        # Day-by-Day Match Organization & Filters
+        # -------------------------------------------------------------
+        st.subheader(f"⚡ Gameweek {summary.gameweek} Matchday Fixtures & Team Scoreboard")
+        st.markdown(
+            "Track live and upcoming games organized **per day of the week**, complete with **Poisson predicted outcomes** "
+            f"(most likely scoreline, win/draw/loss %, clean sheet odds, over/under 2.5), weather intelligence, and **{team_name}** player impact."
+        )
 
-        col_left, col_right = st.columns(2)
-        for idx, fix in enumerate(summary.fixtures):
-            target_col = col_left if (idx % 2 == 0) else col_right
-            with target_col:
-                if fix.has_squad_player:
-                    card_border = "1.5px solid #facc15"
-                    card_bg = "linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))"
-                    star_badge = f'<span style="background: #eab308; color: #000; padding: 2px 8px; border-radius: 12px; font-weight: 800; font-size: 11px;">⭐ {badge_name} MATCH</span>'
-                else:
-                    card_border = "1px solid rgba(255, 255, 255, 0.10)"
-                    card_bg = "rgba(15, 23, 42, 0.75)"
-                    star_badge = ""
+        # Extract active days in chronological order
+        days_order = ["Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]
+        fixtures_by_day: Dict[str, List[MatchdayFixture]] = {}
+        for f in summary.fixtures:
+            d_name = f.match_day or "Saturday"
+            fixtures_by_day.setdefault(d_name, []).append(f)
 
-                if fix.finished:
-                    status_html = '<span style="background: #065f46; color: #34d399; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 11px;">FULL TIME</span>'
-                elif fix.started:
-                    status_html = f'<span style="background: #7f1d1d; color: #f87171; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; animation: blinker 1.5s linear infinite;">🔴 LIVE {fix.minutes}\'</span>'
-                else:
-                    status_html = f'<span style="background: #1e3a8a; color: #93c5fd; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 11px;">⏳ {fix.status_label}</span>'
+        ordered_days = [d for d in days_order if d in fixtures_by_day]
+        for d in fixtures_by_day:
+            if d not in ordered_days:
+                ordered_days.append(d)
 
-                if fix.started or fix.finished:
-                    h_sc = fix.home_score if fix.home_score is not None else 0
-                    a_sc = fix.away_score if fix.away_score is not None else 0
-                    score_display = f"{h_sc} - {a_sc}"
-                else:
-                    score_display = "vs"
+        # Day selection bar
+        day_options = [f"🌟 All Matchdays ({len(summary.fixtures)} Matches)"] + [
+            f"📅 {d} ({len(fixtures_by_day[d])} Matches)" for d in ordered_days
+        ]
 
-                player_pills_html = ""
-                if fix.home_squad_players or fix.away_squad_players:
-                    player_pills_html += '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 12px;">'
-                    for p in fix.home_squad_players:
-                        role_bg = "#ef4444" if p.role == "CAP" else ("#a855f7" if p.role == "VC" else ("#3b82f6" if p.is_starter else "#64748b"))
-                        events_str = ""
-                        if p.goals > 0:
-                            events_str += f" • {p.goals}G"
-                        if p.assists > 0:
-                            events_str += f" • {p.assists}A"
-                        if p.clean_sheets > 0:
-                            events_str += " • CS"
-                        if p.saves > 0:
-                            events_str += f" • {p.saves} Saves"
-                        if p.bonus > 0:
-                            events_str += f" • {p.bonus} Bonus"
+        f_col1, f_col2 = st.columns([3, 2])
+        with f_col1:
+            selected_day_label = st.selectbox(
+                "Filter by Day of Week",
+                options=day_options,
+                index=0,
+                key="matchday_day_filter"
+            )
+        with f_col2:
+            st.write("")
+            filter_squad_only = st.checkbox(
+                f"⭐ Only show matches featuring {team_name} players",
+                value=False,
+                key="chk_filter_squad_only"
+            )
 
-                        player_pills_html += f"""
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                            <span>
-                                <span style="background: {role_bg}; color: white; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px;">{p.role}</span>
-                                <b>{p.web_name}</b> <small style="color: #94a3b8;">({fix.home_short}, {p.position})</small>
-                                <small style="color: #cbd5e1;">{events_str} {f'• {p.minutes}\'' if p.minutes > 0 else ''}</small>
-                            </span>
-                            <span style="font-weight: 700; color: #34d399; font-size: 13px;">+{p.effective_points} pts {f'(x{p.multiplier})' if p.multiplier > 1 else ''}</span>
-                        </div>
-                        """
-                    for p in fix.away_squad_players:
-                        role_bg = "#ef4444" if p.role == "CAP" else ("#a855f7" if p.role == "VC" else ("#3b82f6" if p.is_starter else "#64748b"))
-                        events_str = ""
-                        if p.goals > 0:
-                            events_str += f" • {p.goals}G"
-                        if p.assists > 0:
-                            events_str += f" • {p.assists}A"
-                        if p.clean_sheets > 0:
-                            events_str += " • CS"
-                        if p.saves > 0:
-                            events_str += f" • {p.saves} Saves"
-                        if p.bonus > 0:
-                            events_str += f" • {p.bonus} Bonus"
+        # Determine target fixtures
+        if selected_day_label.startswith("🌟 All Matchdays"):
+            target_fixtures = list(summary.fixtures)
+            is_all_days = True
+            current_day_name = "All Matchdays"
+        else:
+            # Extract day name e.g. "Saturday" from "📅 Saturday (7 Matches)"
+            current_day_name = selected_day_label.split("📅 ")[1].split(" (")[0].strip()
+            target_fixtures = fixtures_by_day.get(current_day_name, [])
+            is_all_days = False
 
-                        player_pills_html += f"""
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                            <span>
-                                <span style="background: {role_bg}; color: white; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px;">{p.role}</span>
-                                <b>{p.web_name}</b> <small style="color: #94a3b8;">({fix.away_short}, {p.position})</small>
-                                <small style="color: #cbd5e1;">{events_str} {f'• {p.minutes}\'' if p.minutes > 0 else ''}</small>
-                            </span>
-                            <span style="font-weight: 700; color: #34d399; font-size: 13px;">+{p.effective_points} pts {f'(x{p.multiplier})' if p.multiplier > 1 else ''}</span>
-                        </div>
-                        """
-                    player_pills_html += '</div>'
+        if filter_squad_only:
+            target_fixtures = [f for f in target_fixtures if f.has_squad_player]
 
-                render_html(f"""
-                <div style="background: {card_bg}; border: {card_border}; border-radius: 10px; padding: 14px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            {star_badge}
-                            {fix.weather_badge_html}
-                        </div>
-                        {status_html}
-                    </div>
-                    <div style="display: flex; justify-content: space-around; align-items: center; font-size: 18px; font-weight: 800;">
-                        <div style="text-align: center; width: 35%;">
-                            <span style="font-size: 20px; color: #ffffff;">{fix.home_short}</span>
-                        </div>
-                        <div style="text-align: center; width: 30%; font-size: 22px; color: #38bdf8; letter-spacing: 2px;">
-                            {score_display}
-                        </div>
-                        <div style="text-align: center; width: 35%;">
-                            <span style="font-size: 20px; color: #ffffff;">{fix.away_short}</span>
-                        </div>
-                    </div>
-                    {player_pills_html}
-                </div>
-                """)
+        # -------------------------------------------------------------
+        # Per-Day KPI Summary Banner
+        # -------------------------------------------------------------
+        _render_day_summary_banner(
+            day_name=current_day_name,
+            fixtures=target_fixtures,
+            df=df,
+            team_name=team_name,
+            captain_name=summary.captain_name
+        )
 
-        st.markdown("---")
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-        # Active Squad Live Performance Tables
-        st.subheader(f"👥 {team_name} Live Performance Roster")
+        # -------------------------------------------------------------
+        # Current & Upcoming Fixture Scoreboard Cards Grid
+        # -------------------------------------------------------------
+        if not target_fixtures:
+            st.info("No fixtures match the selected day and filters.")
+        else:
+            grid_col1, grid_col2 = st.columns(2)
+            for idx, fix in enumerate(target_fixtures):
+                target_col = grid_col1 if (idx % 2 == 0) else grid_col2
+                with target_col:
+                    _render_match_scoreboard_card(fix, team_name, badge_name, df)
+
+    # =========================================================================
+    # TAB 2: ACTIVE SQUAD LIVE PERFORMANCE ROSTER & AUTO-SUB WATCH
+    # =========================================================================
+    with tab_squad_roster:
+        st.subheader(f"👥 {team_name} Live Gameweek {summary.gameweek} Roster")
+        st.markdown("Detailed match performance breakdown across active Starting XI and Substitutes bench.")
+
         tab_starters, tab_bench = st.tabs(["⚔️ Starting XI (Active Lineup)", "🛡️ Substitutes Bench"])
 
         with tab_starters:
@@ -520,3 +282,340 @@ def render_tab_matchday(
                 })
             bench_df = pd.DataFrame(bench_data)
             st.dataframe(bench_df, use_container_width=True, hide_index=True)
+
+        if summary.auto_subs:
+            st.markdown("---")
+            st.markdown("##### 🔄 Projected Automatic Substitutions")
+            for sub in summary.auto_subs:
+                st.info(
+                    f"**Auto-Sub Triggered**: Starter **{sub['sub_out']}** (0 mins) ➔ "
+                    f"Bench Replacement **{sub['sub_in']}** (+{sub['points_added']} pts). "
+                    f"Rule: {sub['reason']}."
+                )
+
+    # =========================================================================
+    # TAB 3: MINI-LEAGUE DAY-OF-WEEK SCOREBOARD & WEEKLY PROGRESSION
+    # =========================================================================
+    with tab_minileague:
+        with st.spinner(f"Aggregating Gameweek {sel_gw} live mini-league standings and Day-of-Week progression..."):
+            ml_sb = load_mini_league_scoreboard(
+                league_id=int(league_id_input),
+                gameweek=int(sel_gw),
+                max_teams=25,
+                force_refresh=force_refresh
+            )
+
+        if not ml_sb.members:
+            st.warning(f"No active teams or standings found for Mini-League ID {league_id_input} in Gameweek {sel_gw}.")
+        else:
+            leader = ml_sb.members[0]
+            my_member = next((m for m in ml_sb.members if m.entry_id == int(entry_input) or m.team_name.lower() == team_name.lower()), None)
+
+            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+            with kpi1:
+                st.metric(
+                    "👑 Live GW Leader",
+                    f"{leader.net_gw_points} pts",
+                    delta=f"{leader.team_name} ({leader.manager_name})",
+                    help="Highest Net GW Score in the mini-league currently."
+                )
+            with kpi2:
+                if my_member:
+                    st.metric(
+                        f"⚔️ {team_name} Live Score",
+                        f"{my_member.net_gw_points} pts",
+                        delta=f"Rank #{my_member.rank} • Total {my_member.total_league_points} pts",
+                        help=f"Net GW points for {team_name} after transfer hits."
+                    )
+                else:
+                    st.metric(
+                        f"⚔️ {team_name} Status",
+                        "Tracking",
+                        delta="Competitor View Active"
+                    )
+            with kpi3:
+                st.metric(
+                    "📊 League Live Average",
+                    f"{ml_sb.league_avg_live_points:.1f} pts",
+                    delta=f"Net Avg: {ml_sb.league_avg_net_points:.1f} pts"
+                )
+            with kpi4:
+                top_cap_name, top_cap_count = next(iter(ml_sb.top_captains.items())) if ml_sb.top_captains else ("None", 0)
+                st.metric(
+                    "🎯 Consensus Captain",
+                    f"{top_cap_name}",
+                    delta=f"{top_cap_count} managers ({top_cap_count / len(ml_sb.members) * 100:.0f}%)"
+                )
+
+            st.markdown("---")
+            st.subheader(f"📈 Mini-League Daily Scoreboard: Gameweek {sel_gw} Day-by-Day Points")
+            st.caption("Points accumulated on each day of the Premier League matchday schedule (with hit deductions and captaincy doubling).")
+
+            rows = []
+            for m in ml_sb.members:
+                row_dict: Dict[str, Any] = {
+                    "Rank": f"#{m.rank}",
+                    "Team": m.team_name,
+                    "Manager": m.manager_name,
+                    "Captain": f"{m.captain_name} (x{m.captain_multiplier})",
+                    "Cap Pts": m.captain_points,
+                    "Chip": m.active_chip.upper() if m.active_chip else "-",
+                    "Played": f"{m.starters_played + m.starters_playing}/11",
+                    "To Play": m.starters_to_play,
+                }
+                for d in ml_sb.active_days:
+                    row_dict[d] = m.day_points.get(d, 0)
+
+                row_dict["Hits"] = f"-{m.transfer_cost}" if m.transfer_cost > 0 else "0"
+                row_dict["Net Live"] = m.net_gw_points
+                row_dict["Total Ovr"] = m.total_league_points
+                rows.append(row_dict)
+
+            df_sb = pd.DataFrame(rows)
+            st.dataframe(df_sb, use_container_width=True, hide_index=True)
+
+            # Cumulative Progression Chart
+            if len(ml_sb.active_days) > 1:
+                st.markdown("---")
+                st.subheader("🏎️ Cumulative Day-of-Week Points Progression Race")
+                fig_prog = go.Figure()
+                top_teams = ml_sb.members[:10]
+                colors = ["#facc15", "#38bdf8", "#34d399", "#f87171", "#a855f7", "#fb923c", "#ec4899", "#94a3b8", "#e2e8f0", "#a3e635"]
+
+                for idx, m in enumerate(top_teams):
+                    days_x = ["Pre-GW"] + ml_sb.active_days
+                    cum_y = [0] + [m.cumulative_day_points.get(d, 0) for d in ml_sb.active_days]
+                    is_my_team = (m.team_name.lower() == team_name.lower() or m.entry_id == int(entry_input))
+                    line_w = 4 if is_my_team else 2
+                    col = "#facc15" if is_my_team else colors[idx % len(colors)]
+
+                    fig_prog.add_trace(go.Scatter(
+                        x=days_x,
+                        y=cum_y,
+                        mode="lines+markers",
+                        name=f"{m.team_name}{' ⭐' if is_my_team else ''}",
+                        line=dict(color=col, width=line_w),
+                        marker=dict(size=7)
+                    ))
+
+                fig_prog.update_layout(
+                    paper_bgcolor="#0b0f19",
+                    plot_bgcolor="#1e293b",
+                    font=dict(color="#f8fafc"),
+                    xaxis=dict(title="Matchday Progression", gridcolor="rgba(255,255,255,0.08)"),
+                    yaxis=dict(title="Cumulative Points", gridcolor="rgba(255,255,255,0.08)"),
+                    height=420,
+                    margin=dict(l=20, r=20, t=30, b=20),
+                    legend=dict(orientation="h", y=1.15, x=0.0)
+                )
+                st.plotly_chart(fig_prog, use_container_width=True)
+
+
+def _render_day_summary_banner(
+    day_name: str,
+    fixtures: List[MatchdayFixture],
+    df: pd.DataFrame,
+    team_name: str,
+    captain_name: str
+) -> None:
+    """Renders a high-level summary card of team involvement and projected points for the selected day."""
+    total_matches = len(fixtures)
+    squad_players_today: List[MatchdayPlayer] = []
+    live_points_today = 0
+    remaining_xp_today = 0.0
+    cap_features_today = False
+
+    for f in fixtures:
+        all_p = f.home_squad_players + f.away_squad_players
+        for p in all_p:
+            squad_players_today.append(p)
+            live_points_today += p.effective_points
+            if p.role == "CAP":
+                cap_features_today = True
+            if p.match_status == "UPCOMING":
+                p_row = df[df["web_name"] == p.web_name] if "web_name" in df.columns else pd.DataFrame()
+                xp_est = float(p_row.iloc[0].get("ep_this") or p_row.iloc[0].get("fdr_moneyball_score") or 4.0) if not p_row.empty else 4.0
+                mult = p.multiplier if p.multiplier > 0 else (2 if p.role == "CAP" else (1 if p.is_starter else 0))
+                remaining_xp_today += xp_est * mult
+
+    starters_today = [p for p in squad_players_today if p.is_starter]
+    bench_today = [p for p in squad_players_today if not p.is_starter]
+
+    cap_badge = (
+        f'<span style="background: #eab308; color: #000; padding: 2px 8px; border-radius: 10px; font-weight: 800; font-size: 11px;">⭐ CAPTAIN {captain_name.upper()} IN ACTION TODAY</span>'
+        if cap_features_today
+        else '<span style="background: #334155; color: #cbd5e1; padding: 2px 8px; border-radius: 10px; font-size: 11px;">Captain Not Playing Today</span>'
+    )
+
+    names_summary = ", ".join([f"<b>{p.web_name}</b> ({p.club_short})" for p in starters_today[:6]])
+    if len(starters_today) > 6:
+        names_summary += f", +{len(starters_today) - 6} more"
+    elif not starters_today:
+        names_summary = "None"
+
+    render_html(f"""
+    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.35);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="background: #38bdf8; color: #0b0f19; font-weight: 800; font-size: 12px; padding: 3px 10px; border-radius: 6px;">MATCHDAY SCHEDULE</span>
+                <b style="color: #ffffff; font-size: 16px;">{day_name} Focus</b>
+            </div>
+            {cap_badge}
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: rgba(15, 23, 42, 0.6); padding: 10px 14px; border-radius: 8px; margin-bottom: 10px;">
+            <div><span style="color: #94a3b8; font-size: 11px;">Matches Scheduled:</span><br/><b style="color: #ffffff; font-size: 16px;">{total_matches} Fixtures</b></div>
+            <div><span style="color: #94a3b8; font-size: 11px;">Starters Featuring:</span><br/><b style="color: #38bdf8; font-size: 16px;">{len(starters_today)} Starters</b> <small style="color: #94a3b8;">({len(bench_today)} Bench)</small></div>
+            <div><span style="color: #94a3b8; font-size: 11px;">Points Scored Today:</span><br/><b style="color: #34d399; font-size: 16px;">+{live_points_today} pts</b></div>
+            <div><span style="color: #94a3b8; font-size: 11px;">Projected Firepower:</span><br/><b style="color: #facc15; font-size: 16px;">~{remaining_xp_today:.1f} xP Remaining</b></div>
+        </div>
+        <div style="font-size: 12px; color: #cbd5e1;">
+            <span style="color: #94a3b8;">{team_name} Starters in Action:</span> {names_summary}
+        </div>
+    </div>
+    """)
+
+
+def _render_match_scoreboard_card(
+    fix: MatchdayFixture,
+    team_name: str,
+    badge_name: str,
+    df: pd.DataFrame
+) -> None:
+    """Renders a single matchday fixture card with score, Poisson prediction, and squad player impact."""
+    pred = fix.prediction
+
+    if fix.has_squad_player:
+        card_border = "1.5px solid #facc15"
+        card_bg = "linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))"
+        star_badge = f'<span style="background: #eab308; color: #000; padding: 2px 8px; border-radius: 12px; font-weight: 800; font-size: 11px;">⭐ {badge_name} MATCH</span>'
+    else:
+        card_border = "1px solid rgba(255, 255, 255, 0.10)"
+        card_bg = "rgba(15, 23, 42, 0.85)"
+        star_badge = ""
+
+    # Status pill
+    if fix.finished:
+        status_html = '<span style="background: #065f46; color: #34d399; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 11px;">FULL TIME</span>'
+    elif fix.started:
+        status_html = f'<span style="background: #7f1d1d; color: #f87171; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 11px;">🔴 LIVE {fix.minutes}\'</span>'
+    else:
+        time_str = fix.match_time_str or fix.status_label
+        status_html = f'<span style="background: #1e3a8a; color: #93c5fd; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 11px;">⏳ {fix.match_day[:3]} {time_str}</span>'
+
+    # Score display
+    if fix.started or fix.finished:
+        h_sc = fix.home_score if fix.home_score is not None else 0
+        a_sc = fix.away_score if fix.away_score is not None else 0
+        score_display = f"{h_sc} - {a_sc}"
+    else:
+        score_display = "vs"
+
+    # Prediction HTML block
+    pred_html = ""
+    if pred is not None:
+        actual_vs_pred_html = ""
+        if fix.started or fix.finished:
+            actual_vs_pred_html = f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 11px; padding: 3px 8px; background: rgba(30, 41, 59, 0.7); border-radius: 4px;">
+                <span style="color: #94a3b8;">Actual Score: <b style="color: #ffffff;">{h_sc} - {a_sc}</b></span>
+                <span style="color: #94a3b8;">Mode Predicted: <b style="color: #38bdf8;">{pred.predicted_home_score} - {pred.predicted_away_score}</b></span>
+            </div>
+            """
+
+        pred_html = f"""
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="color: #38bdf8; font-size: 11px; font-weight: 800; text-transform: uppercase;">🔮 PREDICTED OUTCOME (POISSON xG)</span>
+                <span style="background: #1e293b; color: #facc15; border: 1px solid #facc15; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">
+                    Score: {pred.predicted_home_score} - {pred.predicted_away_score}
+                </span>
+            </div>
+            <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 6px; background: #334155;">
+                <div style="width: {pred.home_win_prob}%; background: #3b82f6;" title="{fix.home_short} Win: {pred.home_win_prob}%"></div>
+                <div style="width: {pred.draw_prob}%; background: #94a3b8;" title="Draw: {pred.draw_prob}%"></div>
+                <div style="width: {pred.away_win_prob}%; background: #ec4899;" title="{fix.away_short} Win: {pred.away_win_prob}%"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-bottom: 6px;">
+                <span><b>{fix.home_short} Win</b>: {pred.home_win_prob:.0f}%</span>
+                <span><b>Draw</b>: {pred.draw_prob:.0f}%</span>
+                <span><b>{fix.away_short} Win</b>: {pred.away_win_prob:.0f}%</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; text-align: center; font-size: 10px; background: rgba(0,0,0,0.3); padding: 5px 6px; border-radius: 6px;">
+                <div><span style="color: #94a3b8;">{fix.home_short} CS:</span><br/><b style="color: #34d399;">{pred.home_cs_prob:.0f}%</b></div>
+                <div><span style="color: #94a3b8;">{fix.away_short} CS:</span><br/><b style="color: #34d399;">{pred.away_cs_prob:.0f}%</b></div>
+                <div><span style="color: #94a3b8;">Total xG:</span><br/><b style="color: #facc15;">{pred.expected_total_goals:.1f}</b></div>
+                <div><span style="color: #94a3b8;">Over 2.5:</span><br/><b style="color: #38bdf8;">{pred.over_25_prob:.0f}%</b></div>
+            </div>
+            {actual_vs_pred_html}
+        </div>
+        """
+
+    # Active squad player impact pills
+    player_pills_html = ""
+    if fix.home_squad_players or fix.away_squad_players:
+        player_pills_html += '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 12px;">'
+        all_squad_p = [(p, fix.home_short) for p in fix.home_squad_players] + [(p, fix.away_short) for p in fix.away_squad_players]
+        for p, c_short in all_squad_p:
+            role_bg = "#ef4444" if p.role == "CAP" else ("#a855f7" if p.role == "VC" else ("#3b82f6" if p.is_starter else "#64748b"))
+
+            if fix.finished or fix.started:
+                events_str = ""
+                if p.goals > 0:
+                    events_str += f" • {p.goals}G"
+                if p.assists > 0:
+                    events_str += f" • {p.assists}A"
+                if p.clean_sheets > 0:
+                    events_str += " • CS"
+                if p.saves > 0:
+                    events_str += f" • {p.saves} Saves"
+                if p.bonus > 0:
+                    events_str += f" • {p.bonus} Bonus"
+                stats_display = f"<small style='color: #cbd5e1;'>{events_str} {f'• {p.minutes}\'' if p.minutes > 0 else ''}</small>"
+                score_pill = f"<span style='font-weight: 700; color: #34d399; font-size: 13px;'>+{p.effective_points} pts {f'(x{p.multiplier})' if p.multiplier > 1 else ''}</span>"
+            else:
+                p_row = df[df["web_name"] == p.web_name] if "web_name" in df.columns else pd.DataFrame()
+                xp_val = float(p_row.iloc[0].get("ep_this") or p_row.iloc[0].get("fdr_moneyball_score") or 4.0) if not p_row.empty else 4.0
+                mult = p.multiplier if p.multiplier > 0 else (2 if p.role == "CAP" else (1 if p.is_starter else 0))
+                eff_xp = xp_val * mult
+                stats_display = "<small style='color: #94a3b8;'>Upcoming Match</small>"
+                score_pill = f"<span style='font-weight: 700; color: #facc15; font-size: 12px;'>~{eff_xp:.1f} xP {f'(x{mult})' if mult > 1 else ''}</span>"
+
+            player_pills_html += f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span>
+                    <span style="background: {role_bg}; color: white; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px;">{p.role}</span>
+                    <b>{p.web_name}</b> <small style="color: #94a3b8;">({c_short}, {p.position})</small>
+                    {stats_display}
+                </span>
+                {score_pill}
+            </div>
+            """
+        player_pills_html += '</div>'
+
+    date_label = f"📅 {fix.match_day} {fix.match_date_str}" if fix.match_date_str else f"📅 {fix.match_day}"
+
+    render_html(f"""
+    <div style="background: {card_bg}; border: {card_border}; border-radius: 12px; padding: 14px; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.35);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                {star_badge}
+                <span style="color: #94a3b8; font-size: 11px; font-weight: 600;">{date_label}</span>
+                {fix.weather_badge_html}
+            </div>
+            {status_html}
+        </div>
+        <div style="display: flex; justify-content: space-around; align-items: center; font-size: 18px; font-weight: 800; padding: 6px 0;">
+            <div style="text-align: center; width: 35%;">
+                <span style="font-size: 20px; color: #ffffff;">{fix.home_short}</span>
+            </div>
+            <div style="text-align: center; width: 30%; font-size: 22px; color: #38bdf8; letter-spacing: 2px;">
+                {score_display}
+            </div>
+            <div style="text-align: center; width: 35%;">
+                <span style="font-size: 20px; color: #ffffff;">{fix.away_short}</span>
+            </div>
+        </div>
+        {pred_html}
+        {player_pills_html}
+    </div>
+    """)
