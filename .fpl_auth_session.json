@@ -1,0 +1,15 @@
+{
+  "auth_token": "mock_jwt_access_token_123",
+  "cookie_header": "pl_profile=mock_jwt_access_token_123",
+  "entry_id": 6173410,
+  "first_name": "Clyde",
+  "last_name": "Watts",
+  "team_name": "Rubies Rangers",
+  "bank": 1.5,
+  "free_transfers": 1,
+  "is_authenticated": true,
+  "expires_at": "2026-09-14T11:13:25.272813+00:00",
+  "auth_source": "API_LOGIN",
+  "last_verified_at": "2026-09-14T07:13:25.272813+00:00",
+  "error_message": null
+}

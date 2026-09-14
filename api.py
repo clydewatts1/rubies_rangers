@@ -88,6 +88,15 @@ class LineupSimRequest(BaseModel):
     include_disciplinary: bool = Field(default=True, description="Include yellow and in-match red card risks")
 
 
+class AuthLoginRequest(BaseModel):
+    email: str = Field(..., description="Official FPL account email")
+    password: str = Field(..., description="Official FPL account password")
+
+
+class BrowserSyncRequest(BaseModel):
+    cookie: str = Field(..., description="Raw cookie string or pl_profile token extracted from Chrome/Edge")
+
+
 _default_dry_run = bool(get_system_config("dry_run") if get_system_config("dry_run") is not None else True)
 
 class CPNExecutionRequest(BaseModel):
@@ -121,6 +130,10 @@ def root():
         "cpn_daemon_active": daemon_status["is_running"],
         "cpn_daemon_indicator": daemon_status["indicator"],
         "endpoints": [
+            "/api/auth/status",
+            "/api/auth/login",
+            "/api/auth/sync_browser",
+            "/api/auth/refresh",
             "/api/simulate/transfers",
             "/api/simulate/lineup",
             "/api/players/clean",
@@ -421,6 +434,58 @@ def get_cpn_daemon_status():
     from automation.cpn.daemon import get_cpn_daemon
     daemon = get_cpn_daemon()
     return daemon.get_status()
+
+
+# -------------------------------------------------------------
+# Authentication & Browser Session Synchronization Endpoints
+# -------------------------------------------------------------
+@app.get("/api/auth/status")
+def get_auth_status():
+    """
+    Returns current FPL authentication status, manager entry ID, name, bank, and Free Transfers.
+    """
+    from clients.auth_manager import AuthManager
+    auth_mgr = AuthManager()
+    return auth_mgr.get_status_summary()
+
+
+@app.post("/api/auth/login")
+def auth_login(req: AuthLoginRequest):
+    """
+    Direct headless authentication against the official Premier League Identity API.
+    Retrieves and caches live pl_profile access token.
+    """
+    from clients.auth_manager import AuthManager
+    auth_mgr = AuthManager()
+    session = auth_mgr.authenticate_with_credentials(req.email, req.password)
+    if not session.is_authenticated:
+        raise HTTPException(status_code=401, detail=session.error_message or "Authentication failed.")
+    return session.to_dict()
+
+
+@app.post("/api/auth/sync_browser")
+def auth_sync_browser(req: BrowserSyncRequest):
+    """
+    Ingests live session cookies pushed from Chrome / Edge 1-click bookmarklet or UI paste.
+    Auto-resolves manager identity and updates active session.
+    """
+    from clients.auth_manager import AuthManager
+    auth_mgr = AuthManager()
+    session = auth_mgr.sync_browser_cookie(req.cookie, source="BROWSER_SYNC")
+    if not session.is_authenticated:
+        raise HTTPException(status_code=400, detail=session.error_message or "Invalid or expired cookie string.")
+    return session.to_dict()
+
+
+@app.post("/api/auth/refresh")
+def auth_refresh():
+    """
+    Forces immediate re-verification and refresh of the active FPL session.
+    """
+    from clients.auth_manager import AuthManager
+    auth_mgr = AuthManager()
+    session = auth_mgr.refresh_session()
+    return session.to_dict()
 
 
 

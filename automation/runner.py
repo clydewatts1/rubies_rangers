@@ -148,31 +148,32 @@ class LiveFPLClient:
         return headers
 
     async def authenticate(self) -> Color_Session:
-        import requests
+        from clients.auth_manager import AuthManager
+        auth_mgr = AuthManager()
         now = datetime.now(timezone.utc)
+
         if self.auth_cookie:
-            try:
-                r = requests.get(
-                    "https://fantasy.premierleague.com/api/me/",
-                    headers=self._auth_headers(),
-                    timeout=10
-                )
-                if r.status_code == 200:
-                    self.is_authenticated = True
-                    logger.info(f"[LiveFPLClient] Verified active session for {r.json().get('player', {}).get('first_name', 'Manager')}")
-                    return Color_Session(
-                        auth_cookie=self.auth_cookie,
-                        csrf_token="live_csrf_token",
-                        expires_at=now + timedelta(hours=4),
-                        is_authenticated=True,
-                        last_keepalive_utc=now,
-                    )
-            except Exception as e:
-                logger.warning(f"[LiveFPLClient] Auth verification ping failed: {e}")
+            session_info = auth_mgr.sync_browser_cookie(self.auth_cookie, source="DIRECT_ARG")
+        else:
+            session_info = auth_mgr.get_active_session()
+
+        if session_info.is_authenticated:
+            self.is_authenticated = True
+            if session_info.entry_id:
+                self.entry_id = session_info.entry_id
+            self.auth_cookie = session_info.auth_token
+            logger.info(f"[LiveFPLClient] Verified active session for {session_info.first_name} (Entry ID: {self.entry_id})")
+            return Color_Session(
+                auth_cookie=session_info.auth_token,
+                csrf_token="live_csrf_token",
+                expires_at=session_info.expires_at,
+                is_authenticated=True,
+                last_keepalive_utc=now,
+            )
 
         # Fallback to unauthenticated / dry-run session
         self.is_authenticated = False
-        logger.info(f"[LiveFPLClient] Operating in {'Dry-Run Simulated' if self.dry_run else 'Unauthenticated Read-Only'} mode")
+        logger.info(f"[LiveFPLClient] Operating in {'Dry-Run Simulated' if self.dry_run else 'Unauthenticated Read-Only'} mode (Auth: {session_info.error_message or 'No active session'})")
         return Color_Session(
             auth_cookie=self.auth_cookie or "unauthenticated_dry_run",
             csrf_token="dry_run_csrf",

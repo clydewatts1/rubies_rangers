@@ -971,6 +971,80 @@ def render_tab_autonomous_cpn(df: pd.DataFrame | None = None, current_squad: lis
                 st.warning(f"Initial CPN telemetry preflight skipped: {e}")
 
     # -------------------------------------------------------------------------
+    # Live FPL Session Authentication & Browser Sync Card
+    # -------------------------------------------------------------------------
+    from clients.auth_manager import AuthManager
+    auth_mgr = AuthManager()
+    session_info = auth_mgr.get_active_session()
+
+    st.subheader("🔑 Live FPL Session & Account Synchronization")
+    auth_col1, auth_col2 = st.columns([3, 1])
+
+    with auth_col1:
+        if session_info.is_authenticated:
+            st.markdown(
+                f"""
+                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; border-radius: 8px; padding: 12px 16px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="color: #4ade80; font-weight: 700; font-size: 15px;">
+                            🟢 LIVE SESSION CONNECTED: {session_info.first_name} {session_info.last_name}
+                        </span>
+                        <span style="background: #064e3b; color: #a7f3d0; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                            Entry ID: {session_info.entry_id} • Source: {session_info.auth_source}
+                        </span>
+                    </div>
+                    <div style="color: #cbd5e1; font-size: 12px; margin-top: 6px; font-family: monospace;">
+                        Bank: <strong style="color: #38bdf8;">£{session_info.bank:.1f}m</strong> • Free Transfers: <strong style="color: #38bdf8;">{session_info.free_transfers}</strong> • Expires: <span style="color: #94a3b8;">{session_info.expires_at.strftime('%Y-%m-%d %H:%M UTC')}</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f"""
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px;">
+                    <div style="color: #f87171; font-weight: 700; font-size: 15px;">
+                        🔴 NO LIVE FPL SESSION (OFFLINE / DRY-RUN)
+                    </div>
+                    <div style="color: #cbd5e1; font-size: 12px; margin-top: 4px;">
+                        Set <code>FPL_EMAIL</code> & <code>FPL_PASSWORD</code> in <code>.env</code> or sync via Chrome bookmarklet below.
+                        <br/><span style="color: #94a3b8; font-size: 11px;">Status: {session_info.error_message or 'Unauthenticated'}</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    with auth_col2:
+        if st.button("🔄 Refresh FPL Session", use_container_width=True, key="fpl_refresh_auth_btn"):
+            with st.spinner("Re-verifying FPL session..."):
+                auth_mgr.refresh_session()
+                st.rerun()
+
+    with st.expander("⚡ 1-Click Chrome Sync Bookmarklet & Manual Cookie Ingestion", expanded=False):
+        st.markdown(
+            """
+            **Drag or save this Javascript snippet as a Chrome Bookmark:**
+            ```javascript
+            javascript:(async()=>{await fetch('http://localhost:8000/api/auth/sync_browser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookie:document.cookie})});alert('Rubies Rangers Authenticated!');})()
+            ```
+            *When on `fantasy.premierleague.com`, click the bookmark to instantly sync your live session to Rubies Rangers with 0 password typing.*
+            """
+        )
+        paste_cookie = st.text_input("Or paste raw cookie string / pl_profile token here:", key="manual_cookie_input")
+        if st.button("📥 Apply Pasted Cookie", key="apply_pasted_cookie_btn"):
+            if paste_cookie:
+                res = auth_mgr.sync_browser_cookie(paste_cookie, source="UI_PASTE")
+                if res.is_authenticated:
+                    st.success(f"Authenticated as {res.first_name} {res.last_name} (Entry ID: {res.entry_id})")
+                    st.rerun()
+                else:
+                    st.error(res.error_message or "Invalid cookie payload.")
+
+    st.divider()
+
+    # -------------------------------------------------------------------------
     # Autonomous 24/7 Background Daemon HUD
     # -------------------------------------------------------------------------
     from automation.cpn.daemon import get_cpn_daemon

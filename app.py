@@ -54,6 +54,74 @@ inject_custom_css()
 st.sidebar.title("⚽ Rubies Rangers")
 st.sidebar.markdown("**Strategy:** Quantitative Moneyball")
 
+# -------------------------------------------------------------
+# Live FPL Session Authentication in Sidebar
+# -------------------------------------------------------------
+from clients.auth_manager import AuthManager
+auth_mgr = AuthManager()
+session_info = auth_mgr.get_active_session()
+
+if session_info.is_authenticated:
+    st.sidebar.markdown(
+        f"""
+        <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px;">
+            <div style="color: #4ade80; font-weight: 700; font-size: 13px;">
+                🟢 {session_info.first_name} {session_info.last_name}
+            </div>
+            <div style="color: #cbd5e1; font-size: 11px; margin-top: 2px;">
+                Entry #{session_info.entry_id} • Bank: £{session_info.bank:.1f}m • FT: {session_info.free_transfers}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.sidebar.markdown(
+        """
+        <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px;">
+            <div style="color: #f87171; font-weight: 700; font-size: 13px;">
+                🔴 Offline Session
+            </div>
+            <div style="color: #94a3b8; font-size: 11px; margin-top: 2px;">
+                Sync Chrome session or set .env
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+col_auth1, col_auth2 = st.sidebar.columns([1, 1])
+with col_auth1:
+    if st.button("🔄 Refresh", key="sidebar_refresh_auth_btn", help="Re-verify FPL Session & Live Team State"):
+        with st.spinner("Re-verifying..."):
+            auth_mgr.refresh_session()
+            st.cache_data.clear()
+            st.rerun()
+
+with col_auth2:
+    with st.popover("⚡ Sync"):
+        st.markdown(
+            """
+            **1-Click Chrome Sync Bookmarklet:**
+            Save as a Chrome bookmark and click while on `fantasy.premierleague.com`:
+            ```javascript
+            javascript:(async()=>{try{const r=await fetch('http://localhost:8000/api/auth/sync_browser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookie:document.cookie})});const d=await r.json();if(d.is_authenticated){alert(`✅ Synced with Rubies Rangers!\nManager: ${d.first_name} ${d.last_name}\nTeam ID: ${d.entry_id}\nBank: £${d.bank}m`);}else{alert('❌ Sync failed: '+d.error_message);}}catch(e){alert('❌ Could not connect to API on localhost:8000. Make sure launch_api.bat is running.');}})()
+            ```
+            """
+        )
+        raw_c = st.text_input("Or paste cookie / pl_profile:", key="sidebar_paste_cookie")
+        if st.button("Apply Token", key="sidebar_apply_cookie"):
+            if raw_c:
+                res = auth_mgr.sync_browser_cookie(raw_c, source="SIDEBAR_PASTE")
+                if res.is_authenticated:
+                    st.success(f"Connected as {res.first_name} {res.last_name}!")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(res.error_message or "Invalid token.")
+
+st.sidebar.markdown("---")
+
 active_prof = get_active_profile()
 prof_choice = st.sidebar.selectbox("Active Calibration Profile", ["tuned", "heuristic"], index=0 if active_prof == "tuned" else 1)
 if prof_choice != active_prof:
