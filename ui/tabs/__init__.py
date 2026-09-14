@@ -19,6 +19,8 @@ from ui.tabs.tab_matchday import render_tab_matchday
 from ui.tabs.tab_chip_strategy import render_tab_chip_strategy
 from ui.tabs.tab_autonomous_cpn import render_tab_autonomous_cpn
 from ui.tabs.tab_weather import render_tab_weather
+from ui.tabs.tab_challenge_optimizer import render_tab_challenge_optimizer
+from ui.tabs.tab_challenge_rolling import render_tab_challenge_rolling
 
 __all__ = [
     "render_tab_two_stage",
@@ -40,6 +42,8 @@ __all__ = [
     "render_tab_chip_strategy",
     "render_tab_autonomous_cpn",
     "render_tab_weather",
+    "render_tab_challenge_optimizer",
+    "render_tab_challenge_rolling",
 ]
 
 

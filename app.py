@@ -35,6 +35,8 @@ from ui.tabs import (
     render_tab_chip_strategy,
     render_tab_autonomous_cpn,
     render_tab_weather,
+    render_tab_challenge_optimizer,
+    render_tab_challenge_rolling,
 )
 
 # 1. Page Configuration
@@ -262,48 +264,55 @@ with st.sidebar:
 
 # 5. Workflow Dispatcher
 mode = st.sidebar.selectbox("Workflow", [
-    "🏟️ Matchday Center & Live Gameweek Team Scoreboard",
+    # --- Fantasy Mode Workflows (Classic FPL) ---
+    "🏟️ Fantasy: Matchday Center & Live Gameweek Scoreboard",
+    "⚔️ Fantasy: Two-Stage Tournament (Screen & Simulate)",
+    "🔄 Fantasy: Modify Current Team (Transfers)",
+    "🎴 Fantasy: Long-Term Chip Strategy & Season Roadmap",
+    "🏆 Fantasy: Mini-League Scout & Rival Spy",
+    "🛡️ Fantasy: Monte Carlo Lineup & Substitution Strategist",
+    "🎲 Fantasy: Monte Carlo Transfer Simulator",
+    "✨ Fantasy: Draft New Optimal 15-Man Squad",
+    "📈 Fantasy: Market Velocity & Price Predictor",
+    "🤖 Fantasy: Autonomous CPN Robotic Manager",
+    "🎰 Fantasy: Bookmaker Odds & Expected Points (xP)",
+    "📅 Fantasy: Fixture Difficulty (FDR) Ticker",
+    "🎯 Fantasy: Set-Piece & Penalty Hierarchy",
+    "🏟️ Fantasy: Venue Impact & Home/Away Analysis",
+    "🔍 Fantasy: Player Explorer",
+
+    # --- Challenge Mode Workflows (FPL Challenge) ---
+    "🎯 Challenge: Two-Stage Tournament (Screen & Simulate)",
+    "🎯 Challenge: Matchday Center & Rolling Lock Tracker",
+
+    # --- Tactical & Environmental Intelligence ---
     "🌤️ Weather Radar & Environmental Intelligence",
-    "⚔️ Two-Stage Tournament (Screen & Simulate)",
-    "🎴 Long-Term Chip Strategy & Season Roadmap",
-    "🤖 Autonomous CPN Execution & Robotic Manager",
     "🧠 Shane's Domain Intel Desk",
-    "Modify Current Team (Transfers)",
-    "🏆 Mini-League Scout & Rival Spy",
-    "🛡️ Monte Carlo Lineup & Substitution Strategist",
-    "🎰 Bookmaker Odds & Expected Points (xP)",
-    "🎲 Monte Carlo Transfer Simulator",
-    "Tactical Process & Shot Quality",
-    "Match-by-Match Trend Engine",
-    "Market Velocity & Price Predictor",
-    "Fixture Difficulty (FDR) Ticker",
-    "Set-Piece & Penalty Hierarchy",
-    "🏟️ Venue Impact & Home/Away Analysis",
-    "Draft New Optimal Squad",
-    "Player Explorer"
+    "⚽ Tactical Process & Shot Quality",
+    "📊 Match-by-Match Trend Engine",
 ])
 
 # Shared knobs
 bank_balance = float(get_system_config("default_bank") or 3.7)
 
 # Dispatch to modular tab renderers
-if mode in (
-    "🏟️ Matchday Center & Live Gameweek Team Scoreboard",
-    "🏟️ Matchday Center & Live Gameweek Mini-League Scoreboard",
-    "🏟️ Matchday Center & Live Gameweek Scores"
-):
+if "Matchday Center" in mode and "Challenge" not in mode:
     render_tab_matchday(df, current_squad, active_profile.display_name)
-elif mode == "🌤️ Weather Radar & Environmental Intelligence":
+elif "Challenge: Two-Stage Tournament" in mode:
+    render_tab_challenge_optimizer(df)
+elif "Challenge: Matchday Center" in mode:
+    render_tab_challenge_rolling(df)
+elif "Weather Radar" in mode:
     render_tab_weather(df, current_squad)
-elif mode == "⚔️ Two-Stage Tournament (Screen & Simulate)":
+elif "Two-Stage Tournament" in mode:
     render_tab_two_stage(df, current_squad, bank=bank_balance)
-elif mode == "🎴 Long-Term Chip Strategy & Season Roadmap":
+elif "Chip Strategy" in mode:
     render_tab_chip_strategy()
-elif mode == "🤖 Autonomous CPN Execution & Robotic Manager":
+elif "Autonomous CPN" in mode:
     render_tab_autonomous_cpn(df, current_squad)
-elif mode == "🧠 Shane's Domain Intel Desk":
+elif "Shane's Domain Intel" in mode:
     render_tab_domain_intel(df, current_squad)
-elif mode == "Modify Current Team (Transfers)":
+elif "Modify Current Team" in mode:
     num_transfers = st.sidebar.slider("Number of Transfers", 1, 4, 1, key="mod_transfers_count")
     objective = st.sidebar.selectbox("Optimization Metric", ["fdr_moneyball", "forward_moneyball", "setpiece_moneyball", "moneyball", "points", "form"], format_func=lambda x: {
         "fdr_moneyball": "Fixture-Adjusted Moneyball (xGI & FDR)",
@@ -315,27 +324,27 @@ elif mode == "Modify Current Team (Transfers)":
     }[x], key="mod_transfers_obj")
     bank_slider = st.sidebar.slider("Bank Balance (£m)", 0.0, 15.0, bank_balance, 0.1, key="mod_transfers_bank")
     render_tab_transfers(df, opt, current_squad, bank_balance=bank_slider, num_transfers=num_transfers, objective=objective)
-elif mode == "🏆 Mini-League Scout & Rival Spy":
+elif "Mini-League" in mode:
     render_tab_leagues(df)
-elif mode == "🛡️ Monte Carlo Lineup & Substitution Strategist":
+elif "Monte Carlo Lineup" in mode:
     render_tab_montecarlo_lineup(df, current_squad)
-elif mode == "🎰 Bookmaker Odds & Expected Points (xP)":
+elif "Bookmaker Odds" in mode:
     render_tab_odds_xp()
-elif mode == "🎲 Monte Carlo Transfer Simulator":
+elif "Monte Carlo Transfer" in mode:
     render_tab_montecarlo_transfers(df, current_squad, bank_balance=bank_balance)
-elif mode == "Tactical Process & Shot Quality":
+elif "Tactical Process" in mode:
     render_tab_tactical(df)
-elif mode == "Match-by-Match Trend Engine":
+elif "Trend Engine" in mode:
     render_tab_trends(df, current_squad)
-elif mode == "Market Velocity & Price Predictor":
+elif "Market Velocity" in mode:
     render_tab_market(df, current_squad)
-elif mode == "Fixture Difficulty (FDR) Ticker":
+elif "Fixture Difficulty" in mode:
     render_tab_fixtures(df, current_squad)
-elif mode == "Set-Piece & Penalty Hierarchy":
+elif "Set-Piece" in mode:
     render_tab_setpieces(df)
-elif mode == "🏟️ Venue Impact & Home/Away Analysis":
+elif "Venue Impact" in mode:
     render_tab_venue(df, current_squad=current_squad)
-elif mode == "Draft New Optimal Squad":
+elif "Draft New Optimal" in mode:
     objective = st.sidebar.selectbox("Optimization Metric (Quick Solve)", ["fdr_moneyball", "setpiece_moneyball", "moneyball", "points", "form"], format_func=lambda x: {
         "fdr_moneyball": "Fixture-Adjusted Moneyball (xGI & FDR)",
         "setpiece_moneyball": "Set-Piece & Dead-Ball Moneyball (xG/xA Boost)",

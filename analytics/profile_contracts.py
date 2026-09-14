@@ -14,6 +14,7 @@ class ProfileType(str, Enum):
     """Classification of manager profile."""
     LIVE_FPL = "LIVE_FPL"            # Linked to an official public/authenticated FPL entry
     SANDBOX = "SANDBOX"              # Hypothetical draft or pre-season experimentation sandbox
+    CHALLENGE = "CHALLENGE"          # FPL Challenge weekly sprint profile
 
 
 @dataclass(frozen=True)
