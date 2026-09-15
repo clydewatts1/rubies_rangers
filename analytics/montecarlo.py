@@ -247,8 +247,19 @@ class MonteCarloEngine:
         mins = np.zeros(n_sims)
         n_starts = int(np.sum(starts))
         mins_std = prob_cfg.get("starter_mins_std", 7.5)
+        sub_cfg = mc_cfg.get("substitution_hazard", {})
+        sub_min = float(sub_cfg.get("regular_sub_min", 60.0))
+        sub_max = float(sub_cfg.get("regular_sub_max", 75.0))
+        p_early_sub = float(sub_cfg.get("prob_subbed_off_early", 0.05))
+
         if n_starts > 0:
-            mins[starts == 1] = np.clip(np.random.normal(exp_starter_mins, mins_std, n_starts), 50.0, 90.0)
+            if mins_status == "SECURE_STARTER" or exp_starter_mins >= 88.0:
+                mins[starts == 1] = np.clip(np.random.normal(exp_starter_mins, mins_std, n_starts), 60.0, 90.0)
+            else:
+                early_mask = np.random.binomial(1, p_early_sub, n_starts)
+                regular_mins = np.clip(np.random.normal(exp_starter_mins, mins_std, n_starts), sub_min, 90.0)
+                early_mins = np.random.uniform(45.0, 59.0, n_starts)
+                mins[starts == 1] = np.where(early_mask == 1, early_mins, regular_mins)
         n_cameos = int(np.sum(cameos))
         cameo_min = prob_cfg.get("cameo_mins_min", 10.0)
         cameo_max = prob_cfg.get("cameo_mins_max", 30.0)
@@ -353,16 +364,6 @@ class MonteCarloEngine:
 
         match_xg = ((npxg_90 * mins_fraction * (team_xg / 1.35) * pace_scale * talisman_factor) + (pen_bonus * (mins > 0))) * form_mult * w_damp * finishing_factor
         match_xg = np.nan_to_num(np.clip(match_xg, 0.0, None), nan=0.0)
-        goals_draw = np.random.poisson(match_xg)
-
-        if pos == "FWD":
-            goal_pts = goals_draw * 4
-        elif pos == "MID":
-            goal_pts = goals_draw * 5
-        elif pos == "DEF":
-            goal_pts = goals_draw * 6
-        else:  # GKP
-            goal_pts = goals_draw * 10
 
         xa_90 = float(tac_dict.get("xA_90") or 0.0)
         if xa_90 == 0.0:
@@ -374,7 +375,31 @@ class MonteCarloEngine:
 
         match_xa = ((xa_90 * mins_fraction * (team_xg / 1.35) * pace_scale) + (deadball_bonus * (mins > 0))) * form_mult * w_damp
         match_xa = np.nan_to_num(np.clip(match_xa, 0.0, None), nan=0.0)
-        assists_draw = np.random.poisson(match_xa)
+
+        # Overdispersion via Compound Poisson-Gamma mixture (alpha = Var/Mean, default 1.30)
+        dispersion_alpha = float(mc_cfg.get("overdispersion_alpha", 1.30))
+        if dispersion_alpha > 1.0 and n_sims > 0:
+            k_shape = 1.0 / (dispersion_alpha - 1.0)
+            scale_theta = dispersion_alpha - 1.0
+            xi_goals = np.random.gamma(shape=k_shape, scale=scale_theta, size=n_sims)
+            xi_assists = np.random.gamma(shape=k_shape, scale=scale_theta, size=n_sims)
+            lambda_goals = np.nan_to_num(np.clip(match_xg * xi_goals, 0.0, None), nan=0.0)
+            lambda_assists = np.nan_to_num(np.clip(match_xa * xi_assists, 0.0, None), nan=0.0)
+            goals_draw = np.random.poisson(lambda_goals)
+            assists_draw = np.random.poisson(lambda_assists)
+        else:
+            goals_draw = np.random.poisson(match_xg)
+            assists_draw = np.random.poisson(match_xa)
+
+        if pos == "FWD":
+            goal_pts = goals_draw * 4
+        elif pos == "MID":
+            goal_pts = goals_draw * 5
+        elif pos == "DEF":
+            goal_pts = goals_draw * 6
+        else:  # GKP
+            goal_pts = goals_draw * 10
+
         assist_pts = assists_draw * 3
 
         # 7. Disciplinary Cards (Yellow & Red Cards) from config
@@ -582,30 +607,52 @@ class MonteCarloEngine:
         vc_pts = vice_captain["pts"]
         vc_mins = vice_captain["mins"]
 
-        # Base starter points
-        squad_totals = np.sum(starter_pts, axis=0)
+        # Base starter points (only for players who played > 0 mins)
+        starter_effective_pts = np.where(starter_mins > 0, starter_pts, 0)
+        squad_totals = np.sum(starter_effective_pts, axis=0)
 
         # Captain 2x (VC fallback if C gets 0 mins)
         c_bonus = np.where(c_mins > 0, c_pts, np.where(vc_mins > 0, vc_pts, 0))
         squad_totals += c_bonus
 
-        # Auto-substitutions trial-by-trial for 0-minute starters
+        # Auto-substitutions trial-by-trial for 0-minute starters enforcing strict FPL formation rules
         zero_starter_mask = np.any(starter_mins == 0, axis=0)
         zero_trial_indices = np.where(zero_starter_mask)[0]
 
-        # Auto-substitutions vectorized
-        # 1. GKP sub
+        # 1. GKP sub: If starting GKP played 0 mins and bench GKP played > 0 mins
         if bench_gkp:
             squad_totals += np.where((starter_mins[0] == 0) & (bgkp_mins > 0), bgkp_pts, 0)
 
-        # 2. Outfield subs: count how many outfield starters played 0 mins
-        num_zeros = np.sum(starter_mins[1:] == 0, axis=0)
-        if len(bench_outfield) > 0:
-            squad_totals += np.where((num_zeros >= 1) & (bench_mins[0] > 0), bench_pts[0], 0)
-        if len(bench_outfield) > 1:
-            squad_totals += np.where((num_zeros >= 2) & (bench_mins[1] > 0), bench_pts[1], 0)
-        if len(bench_outfield) > 2:
-            squad_totals += np.where((num_zeros >= 3) & (bench_mins[2] > 0), bench_pts[2], 0)
+        # 2. Outfield auto-substitutions: strict formation legality validation
+        # Requires at least 3 DEF, at least 2 MID, at least 1 FWD in final active 10 outfield players.
+        if len(bench_outfield) > 0 and len(zero_trial_indices) > 0:
+            for s_idx in zero_trial_indices:
+                active_defs = sum(1 for i, p_pos in enumerate(starter_pos[1:], 1) if p_pos == "DEF" and starter_mins[i, s_idx] > 0)
+                active_mids = sum(1 for i, p_pos in enumerate(starter_pos[1:], 1) if p_pos == "MID" and starter_mins[i, s_idx] > 0)
+                active_fwds = sum(1 for i, p_pos in enumerate(starter_pos[1:], 1) if p_pos == "FWD" and starter_mins[i, s_idx] > 0)
+                missing_slots = 10 - (active_defs + active_mids + active_fwds)
+
+                if missing_slots > 0:
+                    slots_remaining = missing_slots
+                    for b_idx in range(len(bench_outfield)):
+                        if slots_remaining <= 0:
+                            break
+                        if bench_mins[b_idx, s_idx] == 0:
+                            continue
+
+                        b_pos = bench_pos[b_idx]
+                        cand_defs = active_defs + (1 if b_pos == "DEF" else 0)
+                        cand_mids = active_mids + (1 if b_pos == "MID" else 0)
+                        cand_fwds = active_fwds + (1 if b_pos == "FWD" else 0)
+
+                        needed_def = max(0, 3 - cand_defs)
+                        needed_mid = max(0, 2 - cand_mids)
+                        needed_fwd = max(0, 1 - cand_fwds)
+
+                        if (needed_def + needed_mid + needed_fwd) <= (slots_remaining - 1):
+                            squad_totals[s_idx] += bench_pts[b_idx, s_idx]
+                            active_defs, active_mids, active_fwds = cand_defs, cand_mids, cand_fwds
+                            slots_remaining -= 1
 
         meta = {
             "formation": f"{best_formation[0]}-{best_formation[1]}-{best_formation[2]}",

@@ -27,6 +27,7 @@ from analytics.challenge.rule_extractor import (
     CHALLENGE_PRESETS,
     get_available_challenge_presets,
     extract_rules_from_event,
+    build_custom_challenge_rule_set,
 )
 from analytics.challenge.two_stage_optimizer import ChallengeTwoStageOptimizer
 from clients.fpl_challenge_client import FPLChallengeClient
@@ -39,7 +40,7 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
     st.title("🎯 Challenge: Two-Stage Tournament (Screen & Simulate)")
     st.markdown(r"""
     **High-Dimensional Quantitative Optimization Engine for FPL Challenge Mode:**
-    - **Stage 1 (MILP Screening, <25ms)**: Enforces weekly dynamic constraints (variable squad size $N \in \{6, 11\}$, strict club limits $C \in \{1, 3, 5\}$, budget caps $\mathcal{B}$, positional constraints, and captaincy $c_i \le x_i$) across 5 tactical Pareto vectors.
+    - **Stage 1 (MILP Screening, <25ms)**: Enforces weekly dynamic constraints (variable squad size $N \in \{5, 6, 7, 11\}$, strict club limits $C \in \{1, 3, 5\}$, budget caps $\mathcal{B}$, positional constraints $\min \le x_{\text{pos}} \le \max$, and captaincy $c_i \le x_i$) across 5 tactical Pareto vectors.
     - **Stage 2 (Monte Carlo Tournament)**: Simulates each candidate across 1,000–10,000 joint draws to quantify Expected Return ($E[V]$), Downside Floor ($P_{10}$), Upside Ceiling ($P_{90}$), Tournament-Winning Right-Tail ($P_{99}$), and GPP Win Probability.
     """)
 
@@ -47,19 +48,20 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
     preset_names = list(presets.keys())
     preset_labels = [presets[k].name for k in preset_names]
     preset_labels.append("🌐 Live Challenge API (Auto-Fetch)")
+    preset_labels.append("🛠️ Custom Positional & Squad Configuration")
 
     # ------------------------------------------------------------------
     # 1. Dynamic Rules & Challenge Preset Selector
     # ------------------------------------------------------------------
-    with st.expander("⚙️ Dynamic Challenge Rule Set & Presets", expanded=True):
+    with st.expander("⚙️ Dynamic Challenge Rule Set & Positional Structure", expanded=True):
         col_preset, col_sim = st.columns([2, 1])
         with col_preset:
             selected_label = st.selectbox(
-                "Select Gameweek Challenge Rule Preset:",
+                "Select Gameweek Challenge Rule Preset / Mode:",
                 options=preset_labels,
                 index=0,
                 key="challenge_preset_select",
-                help="Switch between official weekly challenge formats (e.g. One Player Per Club, Outside-the-Box Goals, Penny Pincher, or Live API)."
+                help="Switch between official weekly challenge formats (e.g. Balanced 2-2-2, One Player Per Club, All-Out Attack, Live API, or Custom Positional Configuration)."
             )
 
         with col_sim:
@@ -71,8 +73,8 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
                 help="Higher draws provide tighter tail estimation for tournament-winning P99 metrics."
             )
 
-        # Resolve active ChallengeRuleSet
-        active_rule_set: ChallengeRuleSet
+        # Resolve initial base ChallengeRuleSet from preset or API
+        base_rule_set: ChallengeRuleSet
         if selected_label == "🌐 Live Challenge API (Auto-Fetch)":
             with st.spinner("Connecting to official FPL Challenge API..."):
                 try:
@@ -80,42 +82,160 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
                     bootstrap = client.get_challenge_bootstrap()
                     events = bootstrap.get("events", [])
                     curr_ev = next((e for e in events if e.get("is_current")), events[0] if events else {})
-                    active_rule_set = extract_rules_from_event(curr_ev)
-                    st.success(f"Connected to Live API: Loaded '{active_rule_set.name}'")
+                    base_rule_set = extract_rules_from_event(curr_ev)
+                    st.success(f"Connected to Live API: Loaded '{base_rule_set.name}'")
                 except Exception as e:
                     st.warning(f"Could not connect to live challenge endpoint ({e}). Falling back to One Player Per Club preset.")
-                    active_rule_set = presets["gw5_one_player_per_club"]
+                    base_rule_set = presets["gw5_one_player_per_club"]
+        elif selected_label == "🛠️ Custom Positional & Squad Configuration":
+            base_rule_set = presets["standard_6_a_side"]
         else:
             p_idx = preset_labels.index(selected_label)
             p_key = preset_names[p_idx]
-            active_rule_set = presets[p_key]
+            base_rule_set = presets[p_key]
+
+        # --------------------------------------------------------------
+        # Positional Requirements & Squad Structure Controls
+        # --------------------------------------------------------------
+        is_custom_selected = (selected_label == "🛠️ Custom Positional & Squad Configuration")
+        override_positions = st.checkbox(
+            "🛠️ Override / Fine-Tune Weekly Positional Limits & Squad Rules",
+            value=is_custom_selected,
+            key="challenge_override_positions_toggle",
+            help="Enable direct manual control over Min/Max requirements for Goalkeepers, Defenders, Midfielders, Forwards, Squad Size, and Budget."
+        )
+
+        active_rule_set: ChallengeRuleSet
+        if override_positions:
+            st.markdown("##### 📐 Positional Requirements (Min – Max Players per Position)")
+            p_c1, p_c2, p_c3, p_c4 = st.columns(4)
+
+            init_gkp = base_rule_set.get_position_bounds("GKP")
+            init_def = base_rule_set.get_position_bounds("DEF")
+            init_mid = base_rule_set.get_position_bounds("MID")
+            init_fwd = base_rule_set.get_position_bounds("FWD")
+
+            with p_c1:
+                gkp_range = st.slider(
+                    "🧤 Goalkeepers (GKP)",
+                    min_value=0,
+                    max_value=2,
+                    value=(int(init_gkp[0]), int(init_gkp[1])),
+                    key="slider_challenge_gkp"
+                )
+            with p_c2:
+                def_range = st.slider(
+                    "🛡️ Defenders (DEF)",
+                    min_value=0,
+                    max_value=5,
+                    value=(int(init_def[0]), int(init_def[1])),
+                    key="slider_challenge_def"
+                )
+            with p_c3:
+                mid_range = st.slider(
+                    "⚙️ Midfielders (MID)",
+                    min_value=0,
+                    max_value=5,
+                    value=(int(init_mid[0]), int(init_mid[1])),
+                    key="slider_challenge_mid"
+                )
+            with p_c4:
+                fwd_range = st.slider(
+                    "🎯 Forwards (FWD)",
+                    min_value=0,
+                    max_value=5,
+                    value=(int(init_fwd[0]), int(init_fwd[1])),
+                    key="slider_challenge_fwd"
+                )
+
+            st.markdown("##### 🏟️ Squad & Financial Constraints")
+            s_c1, s_c2, s_c3 = st.columns(3)
+            with s_c1:
+                custom_size = st.number_input(
+                    "Squad Size (N Players)",
+                    min_value=5,
+                    max_value=15,
+                    value=int(base_rule_set.squad_size),
+                    step=1,
+                    key="input_challenge_squad_size"
+                )
+            with s_c2:
+                custom_max_club = st.number_input(
+                    "Max Players Per Club (C)",
+                    min_value=1,
+                    max_value=5,
+                    value=int(base_rule_set.max_per_team),
+                    step=1,
+                    key="input_challenge_max_per_team"
+                )
+            with s_c3:
+                custom_budget = st.number_input(
+                    "Budget Cap £m (999.9 for Unlimited)",
+                    min_value=30.0,
+                    max_value=999.9,
+                    value=float(base_rule_set.budget_cap),
+                    step=5.0,
+                    key="input_challenge_budget_cap"
+                )
+
+            # Feasibility validation
+            min_sum = gkp_range[0] + def_range[0] + mid_range[0] + fwd_range[0]
+            max_sum = gkp_range[1] + def_range[1] + mid_range[1] + fwd_range[1]
+
+            if min_sum > custom_size:
+                st.error(f"⚠️ **Infeasible Positional Limits:** Sum of minimum positions required ({min_sum}) exceeds total squad size ({custom_size})! Please adjust your bounds.")
+            elif max_sum < custom_size:
+                st.error(f"⚠️ **Infeasible Positional Limits:** Sum of maximum positions allowed ({max_sum}) is less than total squad size ({custom_size})! Please adjust your bounds.")
+            else:
+                st.success(f"✅ **Valid Structure:** Required min sum ({min_sum}) ≤ Squad size ({custom_size}) ≤ Max capacity ({max_sum}).")
+
+            active_rule_set = build_custom_challenge_rule_set(
+                gameweek=base_rule_set.gameweek,
+                name=f"Custom: {custom_size}-a-side ({def_range[0]}-{def_range[1]} DEF, {mid_range[0]}-{mid_range[1]} MID, {fwd_range[0]}-{fwd_range[1]} FWD)",
+                squad_size=int(custom_size),
+                max_per_team=int(custom_max_club),
+                budget_cap=float(custom_budget),
+                gkp_bounds=(int(gkp_range[0]), int(gkp_range[1])),
+                def_bounds=(int(def_range[0]), int(def_range[1])),
+                mid_bounds=(int(mid_range[0]), int(mid_range[1])),
+                fwd_bounds=(int(fwd_range[0]), int(fwd_range[1])),
+                scoring_modifiers=base_rule_set.scoring_modifiers,
+                description=f"User configured: {custom_size} players, max {custom_max_club} per club, budget £{custom_budget:.1f}m."
+            )
+        else:
+            active_rule_set = base_rule_set
 
         # Render Active Constraint KPI Badges
         st.markdown("---")
-        kb1, kb2, kb3, kb4 = st.columns(4)
+        kb1, kb2, kb3, kb4, kb5 = st.columns(5)
         kb1.metric(
             "🏟️ Squad Size",
             f"{active_rule_set.squad_size} Players",
-            "Outfield Only (No GK)" if active_rule_set.squad_size <= 6 else "Full 11-a-side"
+            "Outfield Only (No GK)" if active_rule_set.is_outfield_only else "Goalkeeper Active"
         )
         kb2.metric(
             "🚫 Club Quota",
             f"Max {active_rule_set.max_per_team} Per Club",
-            "Unique Club Constraint" if active_rule_set.max_per_team == 1 else "Standard Cap"
+            "Unique Club Limit" if active_rule_set.max_per_team == 1 else "Standard Cap"
         )
         kb3.metric(
             "💰 Budget Cap",
             "Unlimited (£999.9m)" if active_rule_set.budget_cap >= 900.0 else f"£{active_rule_set.budget_cap:.1f}m",
             "Financial Austerity" if active_rule_set.budget_cap < 90.0 else "Unconstrained"
         )
-        mod_desc = ", ".join([f"{k} (+{v})" for k, v in active_rule_set.scoring_modifiers.items()]) if active_rule_set.scoring_modifiers else "Standard Rules"
         kb4.metric(
+            "📐 Positional Limits",
+            active_rule_set.position_summary_str,
+            "Exact Formation" if "Exact" in active_rule_set.name else "Dynamic Range"
+        )
+        mod_desc = ", ".join([f"{k} (+{v})" for k, v in active_rule_set.scoring_modifiers.items()]) if active_rule_set.scoring_modifiers else "Standard Rules"
+        kb5.metric(
             "⚡ Scoring Modifiers",
             f"{len(active_rule_set.scoring_modifiers)} Active" if active_rule_set.scoring_modifiers else "None",
             mod_desc
         )
 
-        st.caption(f"ℹ️ **Description:** {active_rule_set.description}")
+        st.caption(f"ℹ️ **Active Challenge Specification:** {active_rule_set.description}")
 
     # ------------------------------------------------------------------
     # 2. Squad Draft Constraints (Locks & Excludes)
@@ -477,12 +597,13 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
 
 
 def _render_challenge_pitch(df: pd.DataFrame, squad: ChallengeOptimalSquad) -> None:
-    """Renders synthetic 6-a-side pitch graphic grouping players by DEF, MID, FWD."""
+    """Renders synthetic pitch graphic grouping players by GKP, DEF, MID, FWD."""
     # Lookup player details
     p_df = df[df["web_name"].isin(squad.squad_names)].copy()
     if "position" not in p_df.columns and "position_name" in p_df.columns:
         p_df["position"] = p_df["position_name"]
 
+    gkps = p_df[p_df["position"] == "GKP"].to_dict(orient="records")
     defs = p_df[p_df["position"] == "DEF"].to_dict(orient="records")
     mids = p_df[p_df["position"] == "MID"].to_dict(orient="records")
     fwds = p_df[p_df["position"] == "FWD"].to_dict(orient="records")
@@ -507,9 +628,18 @@ def _render_challenge_pitch(df: pd.DataFrame, squad: ChallengeOptimalSquad) -> N
         """
 
     # Build pitch container
+    gkp_cards = "".join([_render_player_card(p) for p in gkps])
     def_cards = "".join([_render_player_card(p) for p in defs])
     mid_cards = "".join([_render_player_card(p) for p in mids])
     fwd_cards = "".join([_render_player_card(p) for p in fwds])
+
+    gkp_section = f"""
+        <div style="border-top: 1px dashed rgba(255,255,255,0.2); margin: 16px 0;"></div>
+        <div style="text-align: center; color: rgba(255,255,255,0.4); font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-bottom: 12px;">GOALKEEPING BASE</div>
+        <div style="display: flex; justify-content: space-around; align-items: center;">
+            {gkp_cards}
+        </div>
+    """ if gkps else ""
 
     render_html(f"""
     <div style="background: radial-gradient(ellipse at center, #14532d 0%, #052e16 100%); border: 2px solid #22c55e; border-radius: 14px; padding: 24px; margin-bottom: 20px; box-shadow: inset 0 0 40px rgba(0,0,0,0.6);">
@@ -530,5 +660,6 @@ def _render_challenge_pitch(df: pd.DataFrame, squad: ChallengeOptimalSquad) -> N
         <div style="display: flex; justify-content: space-around; align-items: center;">
             {def_cards if def_cards else "<span style='color: #64748b;'>No Defenders</span>"}
         </div>
+        {gkp_section}
     </div>
     """)

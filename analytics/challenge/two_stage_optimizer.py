@@ -98,7 +98,9 @@ class ChallengeTwoStageOptimizer:
         n_sims: int
     ) -> Tuple[np.ndarray, float, float, float, float, float, float, float, str]:
         """
-        Execute vectorized Monte Carlo joint simulation for a single candidate squad.
+        Execute vectorized discrete-event Monte Carlo joint simulation for a single candidate squad.
+        Incorporates appearance, clean sheet probability, Compound Poisson-Gamma overdispersion
+        for goals and assists, dynamic challenge scoring modifiers, disciplinary cards, and BPS bonus.
         Returns: (raw_totals, mean, p10, p50, p90, p99, std_dev, sharpe, key_talismans)
         """
         squad_names = candidate.squad_names
@@ -109,41 +111,110 @@ class ChallengeTwoStageOptimizer:
             return zeros, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ""
 
         means = np.zeros(m)
-        sigmas = np.zeros(m)
         multipliers = np.ones(m)
         clubs = []
+        modifiers = self.rule_set.scoring_modifiers
+
+        # Pre-allocate arrays of shape (n_sims, m)
+        player_mins = np.zeros((n_sims, m), dtype=float)
+        base_player_pts = np.zeros((n_sims, m), dtype=float)
 
         for idx, name in enumerate(squad_names):
             p_data = self.player_map.get(name, {})
-            means[idx] = float(p_data.get("challenge_xP", 3.5))
-            sigmas[idx] = float(p_data.get("sigma", 2.0))
-            clubs.append(p_data.get("club", "UNK"))
-            if name == captain_name:
-                multipliers[idx] = 2.0  # Challenge 2x captaincy
+            pos = p_data.get("position", "MID")
+            club = p_data.get("club", "UNK")
+            clubs.append(club)
+            ch_xp = float(p_data.get("challenge_xP", 3.5))
+            means[idx] = ch_xp
 
-        # 1. Base individual player draws from normal distribution truncated at 0
-        # Shape: (n_sims, m)
-        raw_draws = self.rng.normal(loc=means, scale=sigmas, size=(n_sims, m))
-        raw_draws = np.clip(raw_draws, 0.0, None)
+            # 1. Appearance and Minutes simulation
+            starts = self.rng.binomial(1, 0.94, n_sims)
+            cameos = self.rng.binomial(1, 0.04, n_sims) * (1 - starts)
+            mins = np.where(starts == 1, 90.0, np.where(cameos == 1, 20.0, 0.0))
+            app_pts = np.where(mins >= 60.0, 2, np.where(mins > 0.0, 1, 0))
+            player_mins[:, idx] = mins
 
-        # 2. Minutes volatility / start probability (~94% start rate)
-        # Occasional sub or bench appearance gives 1 point
-        start_mask = self.rng.binomial(n=1, p=0.94, size=(n_sims, m))
-        raw_draws = np.where(start_mask == 1, raw_draws, np.clip(raw_draws * 0.25, 0.0, 1.0))
+            # 2. Clean Sheet Points with Challenge modifiers
+            cs_prob = float(p_data.get("clean_sheet_prob", 0.28))
+            cs_draw = (mins >= 60.0) * self.rng.binomial(1, cs_prob, n_sims)
+            if pos in ["DEF", "GKP"]:
+                def_cs_bonus = float(modifiers.get("def_clean_sheet", modifiers.get("clean_sheets_DEF", 0.0)))
+                cs_pts = cs_draw * (4 + def_cs_bonus)
+            elif pos == "MID":
+                mid_cs_bonus = float(modifiers.get("mid_clean_sheet", modifiers.get("clean_sheets_MID", 0.0)))
+                base_mid_cs = 1 if (mid_cs_bonus > 0 or "clean_sheets_MID" in modifiers) else 0
+                cs_pts = cs_draw * (base_mid_cs + mid_cs_bonus)
+            else:
+                cs_pts = np.zeros(n_sims)
 
-        # 3. Apply captain multiplier
-        squad_draws = raw_draws * multipliers
+            # 3. Attacking Returns with Compound Poisson-Gamma Overdispersion (alpha = 1.30)
+            xg_rate = float(p_data.get("expected_goals_per_90", p_data.get("xG", 0.0)))
+            if xg_rate <= 0.0:
+                xg_rate = ch_xp * 0.08 if pos == "FWD" else (ch_xp * 0.06 if pos == "MID" else (ch_xp * 0.02 if pos == "DEF" else 0.0))
 
-        # 4. Club covariance: if multiple players from same club, boost in high-scoring draws
+            xa_rate = float(p_data.get("expected_assists_per_90", p_data.get("xA", 0.0)))
+            if xa_rate <= 0.0:
+                xa_rate = ch_xp * 0.04 if pos in ["FWD", "MID"] else (ch_xp * 0.02 if pos == "DEF" else 0.0)
+
+            k_shape = 3.333
+            scale_theta = 0.30
+            xi_goals = self.rng.gamma(shape=k_shape, scale=scale_theta, size=n_sims)
+            xi_assists = self.rng.gamma(shape=k_shape, scale=scale_theta, size=n_sims)
+
+            lam_goals = np.clip(xg_rate * (mins / 90.0) * xi_goals, 0.0, None)
+            lam_assists = np.clip(xa_rate * (mins / 90.0) * xi_assists, 0.0, None)
+
+            goals_draw = self.rng.poisson(lam_goals)
+            assists_draw = self.rng.poisson(lam_assists)
+
+            # Goal scoring points calculation with challenge multipliers
+            base_goal_pts = 4 if pos == "FWD" else (5 if pos == "MID" else (6 if pos == "DEF" else 10))
+            if pos == "FWD" and "forward_goal_multiplier" in modifiers:
+                base_goal_pts = base_goal_pts * float(modifiers["forward_goal_multiplier"])
+
+            threat_val = float(p_data.get("threat", 20.0))
+            ob_bonus = 0.0
+            if "outside_box_goals" in modifiers and threat_val > 15:
+                ob_bonus = float(modifiers["outside_box_goals"]) * 0.20
+
+            goal_pts = goals_draw * (base_goal_pts + ob_bonus)
+            assist_pts = assists_draw * 3.0
+
+            # 4. Disciplinary Cards & BPS Bonus
+            yc_draw = (mins > 0) * self.rng.binomial(1, 0.10, n_sims) * -1
+            rc_draw = (mins > 0) * self.rng.binomial(1, 0.008, n_sims) * -3
+
+            bps = (goals_draw * 24) + (assists_draw * 18) + (cs_draw * 12) + np.where(mins >= 60, 2, 0)
+            bonus_pts = np.where(bps >= 30, 3, np.where(bps >= 22, 2, np.where(bps >= 14, 1, 0)))
+
+            player_total = app_pts + cs_pts + goal_pts + assist_pts + yc_draw + rc_draw + bonus_pts
+            player_total = np.maximum(-2.0, player_total)
+            base_player_pts[:, idx] = player_total
+
+        # Base squad draws
+        squad_draws = base_player_pts.copy()
+
+        # 5. Captaincy 2x bonus with Vice-Captain fallback if Captain plays 0 minutes
+        capt_idx = squad_names.index(captain_name) if captain_name in squad_names else 0
+        vc_name = candidate.vice_captain
+        vc_idx = squad_names.index(vc_name) if (vc_name and vc_name in squad_names) else None
+
+        capt_active = player_mins[:, capt_idx] > 0
+        squad_draws[:, capt_idx] += np.where(capt_active, base_player_pts[:, capt_idx], 0.0)
+
+        if vc_idx is not None and vc_idx != capt_idx:
+            vc_active = player_mins[:, vc_idx] > 0
+            squad_draws[:, vc_idx] += np.where((~capt_active) & vc_active, base_player_pts[:, vc_idx], 0.0)
+
+        # 6. Teammate covariance stacking
         unique_clubs, counts = np.unique(clubs, return_counts=True)
         stacked_clubs = unique_clubs[counts > 1]
         if len(stacked_clubs) > 0:
             for c in stacked_clubs:
                 club_indices = [i for i, club_name in enumerate(clubs) if club_name == c]
-                # Joint team attack shock
-                team_shock = self.rng.normal(0.0, 1.2, size=n_sims)
+                team_shock = self.rng.normal(0.0, 1.0, size=n_sims)
                 for c_idx in club_indices:
-                    squad_draws[:, c_idx] = np.clip(squad_draws[:, c_idx] + team_shock * 0.35, 0.0, None)
+                    squad_draws[:, c_idx] = np.clip(squad_draws[:, c_idx] + team_shock * 0.25, 0.0, None)
 
         # Sum draws across squad
         totals = np.sum(squad_draws, axis=1)

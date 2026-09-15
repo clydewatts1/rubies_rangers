@@ -6,15 +6,15 @@ system:
   - Verbruggen
   - Pedro Porro
   - Senesi
-  - Guéhi
+  - "Gu\xE9hi"
   - Robinson
   - Thiaw
   - Foden
-  - Ødegaard
+  - "\xD8degaard"
   - Mbeumo
   - Cherki
   - Rogers
-  - João Pedro
+  - "Jo\xE3o Pedro"
   - Isak
   - Solanke
   default_bank: 3.7
@@ -303,6 +303,13 @@ heuristic:
       enforce_coupled_defense: true
       enforce_discrete_poisson_gc: true
       enforce_pace_scaling: true
+    overdispersion_alpha: 1.3
+    assist_coupling_rate: 0.76
+    relative_bps_enabled: true
+    substitution_hazard:
+      enabled: true
+      early_tactical_min: 60.0
+      early_tactical_max: 72.0
   optimizer:
     budget: 100.0
     max_players_per_club: 3
@@ -355,7 +362,7 @@ heuristic:
   two_stage_optimizer:
     default_sims: 2500
     risk_profile: balanced
-    pareto_objectives: &id001
+    pareto_objectives:
     - label: balanced
       metric: fdr_moneyball
       enabled: true
@@ -419,6 +426,24 @@ heuristic:
       enabled: true
       tier: contextual
       description: Short-term 30-day streak tracking
+  strategic:
+    horizon:
+      lookahead_gws: 8
+      discount_gamma: 0.92
+    venue:
+      nu_att_home: 1.15
+      nu_att_away: 0.87
+      nu_def_home: 0.85
+      nu_def_away: 1.18
+    defense:
+      kappa_cs_scale: 1.0
+    waves:
+      threshold_green: 2.5
+      threshold_red: 3.4
+    market:
+      momentum_weight: 0.2
+    balance_sheet:
+      ft_option_mult: 1.5
 tuned:
   moneyball:
     fwd_mid:
@@ -590,6 +615,21 @@ tuned:
       top_candidates_per_pos: 15
       min_minutes_filter: 15
       min_chance_of_playing_filter: 50
+    macro_jitter:
+      enabled: true
+      pace_volatility: 0.15
+      clip_pace_min: 0.5
+      clip_pace_max: 2.0
+      enforce_coupled_defense: true
+      enforce_discrete_poisson_gc: true
+      enforce_pace_scaling: true
+    overdispersion_alpha: 1.3
+    assist_coupling_rate: 0.76
+    relative_bps_enabled: true
+    substitution_hazard:
+      enabled: true
+      early_tactical_min: 60.0
+      early_tactical_max: 72.0
   optimizer:
     budget: 100.0
     max_players_per_club: 3
@@ -642,7 +682,88 @@ tuned:
   two_stage_optimizer:
     default_sims: 2500
     risk_profile: balanced
-    pareto_objectives: *id001
+    pareto_objectives:
+    - label: balanced
+      metric: fdr_moneyball
+      enabled: true
+      tier: core
+      description: Fixture Difficulty Rating & venue-adjusted base Moneyball efficiency
+    - label: forward_alpha
+      metric: forward_moneyball
+      enabled: true
+      tier: core
+      description: 'High-alpha tactical metrics: Talisman Share, Finishing Skill &
+        Pressing Disruption'
+    - label: weather_resilience
+      metric: weather_moneyball
+      enabled: true
+      tier: core
+      description: Pitch-level wind shear, precipitation dampening & turnaround rest
+        fatigue
+    - label: mean_reversion
+      metric: mean_reversion_score
+      enabled: true
+      tier: core
+      description: Big Chances Missed (BCM) and (xG - G)+ buy-low mean-reversion breakout
+    - label: high_attack
+      metric: xgi
+      enabled: true
+      tier: core
+      description: Pure underlying expected goal involvements per 90 (shot creation
+        + threat)
+    - label: defensive_solidity
+      metric: defensive_contribution_per_90
+      enabled: true
+      tier: contextual
+      description: High floor defensive actions (tackles, recoveries, clearances)
+        & clean sheet security
+    - label: odds_implied_xp
+      metric: xp
+      enabled: true
+      tier: contextual
+      description: Consensus liquid betting market implied clean sheet and anytime
+        goal probabilities
+    - label: cost_efficiency
+      metric: ppm
+      enabled: true
+      tier: contextual
+      description: Points Per Million (PPM) & budget surplus generation for future
+        flexibility
+    - label: low_block_threat
+      metric: outside_box_xg
+      enabled: true
+      tier: contextual
+      description: Perimeter snipers breaking compact low blocks & FPL Challenge outside-box
+        bonus
+    - label: setpiece_focus
+      metric: setpiece_moneyball
+      enabled: true
+      tier: contextual
+      description: Penalties, direct free kicks & corner duties for high dead-ball
+        floor
+    - label: momentum
+      metric: form
+      enabled: true
+      tier: contextual
+      description: Short-term 30-day streak tracking
+  strategic:
+    horizon:
+      lookahead_gws: 8
+      discount_gamma: 0.92
+    venue:
+      nu_att_home: 1.15
+      nu_att_away: 0.87
+      nu_def_home: 0.85
+      nu_def_away: 1.18
+    defense:
+      kappa_cs_scale: 1.0
+    waves:
+      threshold_green: 2.5
+      threshold_red: 3.4
+    market:
+      momentum_weight: 0.2
+    balance_sheet:
+      ft_option_mult: 1.5
 tuning_metadata:
   best_trial_id: 1685
   train_seasons:
@@ -654,4 +775,4 @@ tuning_metadata:
   test_points: 2160.0
   baseline_heuristic_points: 2160.0
   improvement_pct: 0.0
-  last_tuned_at: '2026-09-12T18:16:24.846591'
+  last_tuned_at: '2026-09-15T08:51:20.563546'

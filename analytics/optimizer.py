@@ -80,6 +80,18 @@ class FPLOptimizer:
             return -self.df["form"].values
         elif objective == "xgi":
             return -self.df["expected_goal_involvements_per_90"].values
+        elif objective in ["markowitz", "markowitz_portfolio", "risk_averse"]:
+            base_xp = self.df["xp"].values if "xp" in self.df.columns else self.df["moneyball_score"].values
+            sigmas = 0.48 * np.maximum(0.0, base_xp) + 1.35
+            return -(base_xp - 0.25 * (sigmas ** 2))
+        elif objective in ["maximum_variance", "boom"]:
+            base_xp = self.df["xp"].values if "xp" in self.df.columns else self.df["moneyball_score"].values
+            sigmas = 0.48 * np.maximum(0.0, base_xp) + 1.35
+            return -(base_xp + 1.25 * sigmas)
+        elif objective in ["floor_safety", "safe_floor"]:
+            base_xp = self.df["xp"].values if "xp" in self.df.columns else self.df["moneyball_score"].values
+            sigmas = 0.48 * np.maximum(0.0, base_xp) + 1.35
+            return -(base_xp - 0.75 * sigmas)
         else:  # moneyball (default)
             return -self.df["moneyball_score"].values
 

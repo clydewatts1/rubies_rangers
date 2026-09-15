@@ -21,8 +21,13 @@ def test_get_param_ranges():
     assert "venue.def_home_mult" in ranges
     assert "venue.away_mult" in ranges
     assert "monte_carlo.macro_jitter.pace_volatility" in ranges
-    # Active search space has 14 Moneyball + 6 Venue + 1 Macro Jitter = 21 parameters
-    assert len(ranges) == 21
+    assert "strategic.horizon.discount_gamma" in ranges
+    assert "strategic.venue.nu_att_home" in ranges
+    assert "weather.beta_wind" in ranges
+    assert "seasonality.alpha_congestion" in ranges
+    assert "forward_metrics.weights.talisman_share" in ranges
+    # Active search space has 14 Moneyball + 6 Venue + 1 Macro Jitter + 10 Strategic + 3 Weather + 2 Seasonality + 4 Forward Alpha = 40 parameters
+    assert len(ranges) == 40
 
 
 def test_sample_config_params():
@@ -37,6 +42,12 @@ def test_sample_config_params():
         assert "monte_carlo" in params
         assert "macro_jitter" in params["monte_carlo"]
         assert 0.05 <= params["monte_carlo"]["macro_jitter"]["pace_volatility"] <= 0.30
+        assert "weather" in params
+        assert "beta_wind" in params["weather"]
+        assert "seasonality" in params
+        assert "alpha_congestion" in params["seasonality"]
+        assert "forward_metrics" in params
+        assert "talisman_share" in params["forward_metrics"]["weights"]
         return 1.0
 
     study = optuna.create_study(direction="maximize")

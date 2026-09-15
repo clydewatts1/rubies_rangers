@@ -110,9 +110,14 @@ class HyperparameterTuner:
             self.study_name, self.storage_url, n_trials, n_jobs
         )
 
+        storage = optuna.storages.RDBStorage(
+            url=self.storage_url,
+            engine_kwargs={"connect_args": {"timeout": 30.0}}
+        )
+
         study = optuna.create_study(
             study_name=self.study_name,
-            storage=self.storage_url,
+            storage=storage,
             direction="maximize",
             load_if_exists=True,
             sampler=optuna.samplers.TPESampler(seed=42)

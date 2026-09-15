@@ -32,6 +32,32 @@ class ChallengeRuleSet:
     rolling_deadlines: bool = True
     description: str = "Dynamic constraint weekly challenge."
 
+    def get_position_bounds(self, pos: str) -> Tuple[int, int]:
+        """Return (min_select, max_select) for position, defaulting safely."""
+        pos_upper = pos.strip().upper()
+        if pos_upper in self.allowed_positions:
+            return self.allowed_positions[pos_upper]
+        if pos_upper == "GKP":
+            return (0, 0) if self.squad_size <= 6 else (1, 1)
+        return (0, self.squad_size)
+
+    @property
+    def is_outfield_only(self) -> bool:
+        """True if goalkeepers are not permitted."""
+        return self.get_position_bounds("GKP")[1] == 0
+
+    @property
+    def position_summary_str(self) -> str:
+        """Formatted string of active positional limits (e.g. DEF: 1-3 | MID: 1-3 | FWD: 1-3)."""
+        parts = []
+        for pos in ["GKP", "DEF", "MID", "FWD"]:
+            if pos in self.allowed_positions:
+                low, high = self.allowed_positions[pos]
+                if pos == "GKP" and high == 0:
+                    continue
+                parts.append(f"{pos}: {low}-{high}" if low != high else f"{pos}: {low}")
+        return " | ".join(parts) if parts else "Standard Outfield"
+
 
 @dataclass(frozen=True)
 class ChallengeOptimalSquad:
@@ -46,6 +72,7 @@ class ChallengeOptimalSquad:
     objective_name: str
     formation: str = "1-3-2"
     generator_type: str = "MILP Challenge"
+    vice_captain: str = ""
 
 
 @dataclass(frozen=True)

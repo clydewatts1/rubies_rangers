@@ -13,7 +13,7 @@ from analytics.challenge.contracts import ChallengeRuleSet
 CHALLENGE_PRESETS: Dict[str, ChallengeRuleSet] = {
     "gw5_one_player_per_club": ChallengeRuleSet(
         gameweek=5,
-        name="Gameweek 5: One Player Per Club Challenge",
+        name="Gameweek 5: One Player Per Club",
         squad_size=6,
         max_per_team=1,
         budget_cap=999.9,
@@ -64,7 +64,7 @@ CHALLENGE_PRESETS: Dict[str, ChallengeRuleSet] = {
     ),
     "gw8_all_out_attack": ChallengeRuleSet(
         gameweek=8,
-        name="Gameweek 8: All-Out Attack",
+        name="Gameweek 8: All-Out Attack (1-DEF)",
         squad_size=6,
         max_per_team=3,
         budget_cap=999.9,
@@ -80,9 +80,57 @@ CHALLENGE_PRESETS: Dict[str, ChallengeRuleSet] = {
         rolling_deadlines=True,
         description="Attack-oriented formation: Exactly 1 defender with heavy midfield & forward allocation.",
     ),
+    "balanced_2_2_2": ChallengeRuleSet(
+        gameweek=5,
+        name="Formation: Balanced 2-2-2 (Exact)",
+        squad_size=6,
+        max_per_team=3,
+        budget_cap=999.9,
+        allowed_positions={
+            "GKP": (0, 0),
+            "DEF": (2, 2),
+            "MID": (2, 2),
+            "FWD": (2, 2),
+        },
+        scoring_modifiers={},
+        rolling_deadlines=True,
+        description="Equally balanced 6-a-side roster: Exactly 2 Defenders, 2 Midfielders, and 2 Forwards.",
+    ),
+    "heavy_midfield_1_4_1": ChallengeRuleSet(
+        gameweek=5,
+        name="Formation: Heavy Midfield (1-4-1)",
+        squad_size=6,
+        max_per_team=3,
+        budget_cap=999.9,
+        allowed_positions={
+            "GKP": (0, 0),
+            "DEF": (1, 1),
+            "MID": (4, 4),
+            "FWD": (1, 1),
+        },
+        scoring_modifiers={},
+        rolling_deadlines=True,
+        description="Midfield domination: 1 Defender, 4 Midfielders, and 1 Forward.",
+    ),
+    "defensive_wall_3_def": ChallengeRuleSet(
+        gameweek=5,
+        name="Formation: Park the Bus (3-DEF)",
+        squad_size=6,
+        max_per_team=3,
+        budget_cap=999.9,
+        allowed_positions={
+            "GKP": (0, 0),
+            "DEF": (3, 3),
+            "MID": (1, 2),
+            "FWD": (1, 2),
+        },
+        scoring_modifiers={},
+        rolling_deadlines=True,
+        description="Heavy backline structure: Exactly 3 Defenders with remaining slots split between MIDs and FWDs.",
+    ),
     "standard_6_a_side": ChallengeRuleSet(
         gameweek=5,
-        name="Standard 6-a-Side Sprint",
+        name="Standard 6-a-Side Sprint (1-3 Each)",
         squad_size=6,
         max_per_team=3,
         budget_cap=999.9,
@@ -96,6 +144,22 @@ CHALLENGE_PRESETS: Dict[str, ChallengeRuleSet] = {
         rolling_deadlines=True,
         description="Default 6-a-side outfield sprint with standard club quotas and unlimited budget.",
     ),
+    "full_11_a_side": ChallengeRuleSet(
+        gameweek=5,
+        name="Full 11-a-Side Classic Challenge",
+        squad_size=11,
+        max_per_team=3,
+        budget_cap=100.0,
+        allowed_positions={
+            "GKP": (1, 1),
+            "DEF": (3, 5),
+            "MID": (2, 5),
+            "FWD": (1, 3),
+        },
+        scoring_modifiers={},
+        rolling_deadlines=True,
+        description="Full 11-player lineup with 1 Goalkeeper and traditional FPL formation rules.",
+    ),
 }
 
 
@@ -104,10 +168,43 @@ def get_available_challenge_presets() -> Dict[str, ChallengeRuleSet]:
     return CHALLENGE_PRESETS.copy()
 
 
+def build_custom_challenge_rule_set(
+    gameweek: int = 5,
+    name: str = "Custom Weekly Challenge",
+    squad_size: int = 6,
+    max_per_team: int = 3,
+    budget_cap: float = 999.9,
+    gkp_bounds: tuple[int, int] = (0, 0),
+    def_bounds: tuple[int, int] = (1, 3),
+    mid_bounds: tuple[int, int] = (1, 3),
+    fwd_bounds: tuple[int, int] = (1, 3),
+    scoring_modifiers: Optional[Dict[str, float]] = None,
+    description: str = "Custom user-configured challenge rules."
+) -> ChallengeRuleSet:
+    """Convenience factory for constructing calibrated custom challenge rule sets."""
+    return ChallengeRuleSet(
+        gameweek=gameweek,
+        name=name,
+        squad_size=squad_size,
+        max_per_team=max_per_team,
+        budget_cap=budget_cap,
+        allowed_positions={
+            "GKP": gkp_bounds,
+            "DEF": def_bounds,
+            "MID": mid_bounds,
+            "FWD": fwd_bounds,
+        },
+        scoring_modifiers=scoring_modifiers or {},
+        rolling_deadlines=True,
+        description=description,
+    )
+
+
 def extract_rules_from_event(event_dict: Dict[str, Any], default_gw: int = 5) -> ChallengeRuleSet:
     """
     Extract dynamic ChallengeRuleSet from an official FPL Challenge event object.
     Falls back gracefully to sensible standard constraints if elements are omitted.
+    Strictly ensures all four positions (GKP, DEF, MID, FWD) are explicitly bounded.
     """
     gw_id = event_dict.get("id", default_gw)
     event_name = event_dict.get("name", f"Gameweek {gw_id} Challenge")
@@ -132,18 +229,39 @@ def extract_rules_from_event(event_dict: Dict[str, Any], default_gw: int = 5) ->
 
     # Position constraints
     pos_bounds: Dict[str, tuple[int, int]] = {}
+    pos_id_map = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+    pos_name_map = {
+        "GKP": "GKP", "GK": "GKP", "GOALKEEPER": "GKP", "GOALKEEPERS": "GKP",
+        "DEF": "DEF", "DEFENDER": "DEF", "DEFENDERS": "DEF",
+        "MID": "MID", "MIDFIELDER": "MID", "MIDFIELDERS": "MID",
+        "FWD": "FWD", "FORWARD": "FWD", "FORWARDS": "FWD",
+    }
+
     if element_types:
         for et in element_types:
-            name = et.get("singular_name_short") or et.get("name_short")
-            if not name:
+            raw_name = et.get("singular_name_short") or et.get("name_short") or et.get("singular_name") or ""
+            canon_name = pos_name_map.get(str(raw_name).strip().upper())
+            if not canon_name:
                 etype_id = et.get("id")
-                id_map = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
-                name = id_map.get(etype_id, "UNK")
-            min_sel = int(et.get("squad_min_select", 0))
-            max_sel = int(et.get("squad_max_select", 3))
-            pos_bounds[name] = (min_sel, max_sel)
+                canon_name = pos_id_map.get(etype_id, "UNK")
+
+            # Check if exact select count specified
+            exact_sel = et.get("squad_select")
+            if exact_sel is not None and int(exact_sel) > 0:
+                pos_bounds[canon_name] = (int(exact_sel), int(exact_sel))
+            else:
+                min_sel = et.get("squad_min_select") if et.get("squad_min_select") is not None else et.get("squad_min_play", 0)
+                max_sel = et.get("squad_max_select") if et.get("squad_max_select") is not None else et.get("squad_max_play", squad_size)
+                pos_bounds[canon_name] = (int(min_sel), int(max_sel))
+
+        # Explicitly ensure all 4 positions are present
+        if "GKP" not in pos_bounds:
+            pos_bounds["GKP"] = (0, 0) if squad_size <= 6 else (1, 1)
+        for pos in ["DEF", "MID", "FWD"]:
+            if pos not in pos_bounds:
+                pos_bounds[pos] = (0, squad_size)
     else:
-        # Default 6-a-side outfield bounds
+        # Default fallback bounds
         if squad_size <= 6:
             pos_bounds = {
                 "GKP": (0, 0),

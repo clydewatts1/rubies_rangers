@@ -2,9 +2,8 @@
 Search Space Definition for Optuna Hyperparameter Optimization
 Maps Optuna Trial suggestions directly into the nested config structure.
 
-ISSUE-10 fix: Only includes parameters that the WalkForwardSimulator actually
-reads and uses. XP model and Monte Carlo parameters are commented out until
-those models are wired into the backtest simulation loop.
+Populates both canonical and alias keys for full interoperability across
+all sub-models (Moneyball, Venue, Strategic, Macro Jitter, Weather, Seasonality, Forward Alpha).
 """
 
 from __future__ import annotations
@@ -45,6 +44,34 @@ def get_param_ranges() -> Dict:
         "venue.tier_damping.mid_table": (1.10, 1.50, 0.05),
         # Macro Match Jitter
         "monte_carlo.macro_jitter.pace_volatility": (0.05, 0.30, 0.05),
+        # Strategic Horizon & Discount
+        "strategic.horizon.discount_gamma": (0.82, 0.98, 0.01),
+        # Strategic Venue Multipliers
+        "strategic.venue.nu_att_home": (1.02, 1.30, 0.01),
+        "strategic.venue.nu_att_away": (0.75, 0.98, 0.01),
+        "strategic.venue.nu_def_home": (0.70, 0.95, 0.01),
+        "strategic.venue.nu_def_away": (1.05, 1.35, 0.01),
+        # Strategic Defense Clean Sheet Scale
+        "strategic.defense.kappa_cs_scale": (0.80, 1.25, 0.01),
+        # Strategic Fixture Wave Thresholds
+        "strategic.waves.threshold_green": (2.20, 2.80, 0.05),
+        "strategic.waves.threshold_red": (3.10, 3.80, 0.05),
+        # Strategic Market Momentum Weight
+        "strategic.market.momentum_weight": (0.00, 0.50, 0.02),
+        # Strategic Balance Sheet Option Value
+        "strategic.balance_sheet.ft_option_mult": (0.50, 3.00, 0.10),
+        # Weather Environmental Multipliers
+        "weather.beta_wind": (0.002, 0.020, 0.002),
+        "weather.beta_rain": (0.005, 0.050, 0.005),
+        "weather.max_dampener": (0.10, 0.40, 0.05),
+        # Seasonality & Fixture Congestion
+        "seasonality.alpha_congestion": (0.02, 0.15, 0.01),
+        "seasonality.veteran_multiplier": (1.10, 2.00, 0.10),
+        # Forward Alpha Tactical Process Weights
+        "forward_metrics.weights.talisman_share": (0.01, 0.10, 0.01),
+        "forward_metrics.weights.box_touch_ratio": (0.01, 0.08, 0.01),
+        "forward_metrics.weights.finishing_delta": (0.01, 0.08, 0.01),
+        "forward_metrics.weights.defensive_disruption": (0.01, 0.05, 0.01),
     }
 
 
@@ -52,12 +79,6 @@ def sample_config_params(trial: optuna.Trial, base_config: Optional[Dict] = None
     """
     Samples trial values and structures them into a complete parameter dictionary
     ready to be tested by WalkForwardSimulator or written to config.yaml.
-
-    Only tunes parameters that the simulator actually reads:
-    - Moneyball scoring weights (FWD/MID, DEF, GKP)
-    - FDR scaling
-    Populates both canonical keys (fwd_mid, def, gkp, fdr_multiplier) and
-    alias keys (fwd_mid_weights, def_weights, gkp_weights, fdr) for full compatibility.
     """
     if base_config is None:
         cfg = get_config()
@@ -151,6 +172,49 @@ def sample_config_params(trial: optuna.Trial, base_config: Optional[Dict] = None
     mc = base_params.setdefault("monte_carlo", {})
     mj = mc.setdefault("macro_jitter", {})
     mj["pace_volatility"] = round(trial.suggest_float("mc_pace_volatility", 0.05, 0.30, step=0.05), 2)
+
+    # 7. Strategic Multi-Period Hyperparameters
+    strat = base_params.setdefault("strategic", {})
+    strat_hor = strat.setdefault("horizon", {})
+    strat_hor["discount_gamma"] = round(trial.suggest_float("strat_discount_gamma", 0.82, 0.98, step=0.01), 2)
+
+    strat_ven = strat.setdefault("venue", {})
+    strat_ven["nu_att_home"] = round(trial.suggest_float("strat_nu_att_home", 1.02, 1.30, step=0.01), 2)
+    strat_ven["nu_att_away"] = round(trial.suggest_float("strat_nu_att_away", 0.75, 0.98, step=0.01), 2)
+    strat_ven["nu_def_home"] = round(trial.suggest_float("strat_nu_def_home", 0.70, 0.95, step=0.01), 2)
+    strat_ven["nu_def_away"] = round(trial.suggest_float("strat_nu_def_away", 1.05, 1.35, step=0.01), 2)
+
+    strat_def = strat.setdefault("defense", {})
+    strat_def["kappa_cs_scale"] = round(trial.suggest_float("strat_kappa_cs_scale", 0.80, 1.25, step=0.01), 2)
+
+    strat_wav = strat.setdefault("waves", {})
+    strat_wav["threshold_green"] = round(trial.suggest_float("strat_threshold_green", 2.20, 2.80, step=0.05), 2)
+    strat_wav["threshold_red"] = round(trial.suggest_float("strat_threshold_red", 3.10, 3.80, step=0.05), 2)
+
+    strat_mkt = strat.setdefault("market", {})
+    strat_mkt["momentum_weight"] = round(trial.suggest_float("strat_momentum_weight", 0.00, 0.50, step=0.02), 2)
+
+    strat_bs = strat.setdefault("balance_sheet", {})
+    strat_bs["ft_option_mult"] = round(trial.suggest_float("strat_ft_option_mult", 0.50, 3.00, step=0.10), 2)
+
+    # 8. Weather Environmental Multipliers
+    wthr = base_params.setdefault("weather", {})
+    wthr["beta_wind"] = round(trial.suggest_float("wthr_beta_wind", 0.002, 0.020, step=0.002), 4)
+    wthr["beta_rain"] = round(trial.suggest_float("wthr_beta_rain", 0.005, 0.050, step=0.005), 4)
+    wthr["max_dampener"] = round(trial.suggest_float("wthr_max_dampener", 0.10, 0.40, step=0.05), 2)
+
+    # 9. Seasonality & Congestion
+    seas = base_params.setdefault("seasonality", {})
+    seas["alpha_congestion"] = round(trial.suggest_float("seas_alpha_congestion", 0.02, 0.15, step=0.01), 3)
+    seas["veteran_multiplier"] = round(trial.suggest_float("seas_veteran_multiplier", 1.10, 2.00, step=0.10), 2)
+
+    # 10. Forward Alpha Tactical Process Weights
+    fwd_m = base_params.setdefault("forward_metrics", {})
+    fwd_m_w = fwd_m.setdefault("weights", {})
+    fwd_m_w["talisman_share"] = round(trial.suggest_float("fwd_talisman_share", 0.01, 0.10, step=0.01), 3)
+    fwd_m_w["box_touch_ratio"] = round(trial.suggest_float("fwd_box_touch_ratio", 0.01, 0.08, step=0.01), 3)
+    fwd_m_w["finishing_delta"] = round(trial.suggest_float("fwd_finishing_delta", 0.01, 0.08, step=0.01), 3)
+    fwd_m_w["defensive_disruption"] = round(trial.suggest_float("fwd_defensive_disruption", 0.01, 0.05, step=0.01), 3)
 
     return base_params
 
@@ -247,5 +311,48 @@ def reconstruct_params_from_dict(params_dict: Dict, base_config: Optional[Dict] 
     mc = base_params.setdefault("monte_carlo", {})
     mj = mc.setdefault("macro_jitter", {})
     mj["pace_volatility"] = round(params_dict.get("mc_pace_volatility", 0.15), 2)
+
+    # Strategic Multi-Period Hyperparameters
+    strat = base_params.setdefault("strategic", {})
+    strat_hor = strat.setdefault("horizon", {})
+    strat_hor["discount_gamma"] = round(params_dict.get("strat_discount_gamma", 0.92), 2)
+
+    strat_ven = strat.setdefault("venue", {})
+    strat_ven["nu_att_home"] = round(params_dict.get("strat_nu_att_home", 1.15), 2)
+    strat_ven["nu_att_away"] = round(params_dict.get("strat_nu_att_away", 0.87), 2)
+    strat_ven["nu_def_home"] = round(params_dict.get("strat_nu_def_home", 0.85), 2)
+    strat_ven["nu_def_away"] = round(params_dict.get("strat_nu_def_away", 1.18), 2)
+
+    strat_def = strat.setdefault("defense", {})
+    strat_def["kappa_cs_scale"] = round(params_dict.get("strat_kappa_cs_scale", 1.00), 2)
+
+    strat_wav = strat.setdefault("waves", {})
+    strat_wav["threshold_green"] = round(params_dict.get("strat_threshold_green", 2.50), 2)
+    strat_wav["threshold_red"] = round(params_dict.get("strat_threshold_red", 3.40), 2)
+
+    strat_mkt = strat.setdefault("market", {})
+    strat_mkt["momentum_weight"] = round(params_dict.get("strat_momentum_weight", 0.20), 2)
+
+    strat_bs = strat.setdefault("balance_sheet", {})
+    strat_bs["ft_option_mult"] = round(params_dict.get("strat_ft_option_mult", 1.50), 2)
+
+    # Weather
+    wthr = base_params.setdefault("weather", {})
+    wthr["beta_wind"] = round(params_dict.get("wthr_beta_wind", 0.008), 4)
+    wthr["beta_rain"] = round(params_dict.get("wthr_beta_rain", 0.025), 4)
+    wthr["max_dampener"] = round(params_dict.get("wthr_max_dampener", 0.25), 2)
+
+    # Seasonality
+    seas = base_params.setdefault("seasonality", {})
+    seas["alpha_congestion"] = round(params_dict.get("seas_alpha_congestion", 0.08), 3)
+    seas["veteran_multiplier"] = round(params_dict.get("seas_veteran_multiplier", 1.50), 2)
+
+    # Forward Alpha
+    fwd_m = base_params.setdefault("forward_metrics", {})
+    fwd_m_w = fwd_m.setdefault("weights", {})
+    fwd_m_w["talisman_share"] = round(params_dict.get("fwd_talisman_share", 0.05), 3)
+    fwd_m_w["box_touch_ratio"] = round(params_dict.get("fwd_box_touch_ratio", 0.03), 3)
+    fwd_m_w["finishing_delta"] = round(params_dict.get("fwd_finishing_delta", 0.04), 3)
+    fwd_m_w["defensive_disruption"] = round(params_dict.get("fwd_defensive_disruption", 0.02), 3)
 
     return base_params

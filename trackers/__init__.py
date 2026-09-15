@@ -18,6 +18,13 @@ from trackers.trend import audit_squad_trends, show_player_deep_dive
 from trackers.setpiece import run_setpiece_tracker
 from trackers.xp import display_lineup, display_squad, display_odds, display_captains
 from trackers.montecarlo import run_montecarlo_cli
+from trackers.decision_audit import (
+    DecisionAuditLedger,
+    SuggestionSnapshot,
+    CalibrationMetrics,
+    PlayerAuditItem,
+    TransferAuditItem,
+)
 
 __all__ = [
     "run_fixture_tracker",
@@ -39,4 +46,9 @@ __all__ = [
     "display_odds",
     "display_captains",
     "run_montecarlo_cli",
+    "DecisionAuditLedger",
+    "SuggestionSnapshot",
+    "CalibrationMetrics",
+    "PlayerAuditItem",
+    "TransferAuditItem",
 ]

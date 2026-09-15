@@ -267,3 +267,183 @@ def test_challenge_duplicate_web_names_handled(mock_challenge_players_df):
     assert report is not None
     assert len(report.evaluated_candidates) >= 1
 
+
+def test_challenge_custom_position_requirements_balanced_2_2_2(mock_challenge_players_df):
+    """
+    Positional Invariant Test:
+    When allowed_positions requires exactly 2 DEF, 2 MID, 2 FWD, the solver must produce a 2-2-2 formation.
+    """
+    rule_set = CHALLENGE_PRESETS["balanced_2_2_2"]
+    optimizer = ChallengeOptimizer(mock_challenge_players_df, rule_set)
+    squad = optimizer.solve_single_vector("max_ev")
+
+    assert squad is not None
+    assert len(squad.squad_names) == 6
+    assert squad.formation == "2-2-2"
+
+    squad_df = mock_challenge_players_df[mock_challenge_players_df["web_name"].isin(squad.squad_names)]
+    assert (squad_df["position"] == "DEF").sum() == 2
+    assert (squad_df["position"] == "MID").sum() == 2
+    assert (squad_df["position"] == "FWD").sum() == 2
+    assert (squad_df["position"] == "GKP").sum() == 0
+
+
+def test_challenge_custom_position_requirements_heavy_midfield_1_4_1(mock_challenge_players_df):
+    """
+    Positional Invariant Test:
+    When allowed_positions requires exactly 1 DEF, 4 MID, 1 FWD, the solver must strictly enforce 1-4-1.
+    """
+    rule_set = CHALLENGE_PRESETS["heavy_midfield_1_4_1"]
+    optimizer = ChallengeOptimizer(mock_challenge_players_df, rule_set)
+    squad = optimizer.solve_single_vector("max_ev")
+
+    assert squad is not None
+    assert len(squad.squad_names) == 6
+    assert squad.formation == "1-4-1"
+
+    squad_df = mock_challenge_players_df[mock_challenge_players_df["web_name"].isin(squad.squad_names)]
+    assert (squad_df["position"] == "DEF").sum() == 1
+    assert (squad_df["position"] == "MID").sum() == 4
+    assert (squad_df["position"] == "FWD").sum() == 1
+
+
+def test_challenge_custom_position_requirements_park_the_bus(mock_challenge_players_df):
+    """
+    Positional Invariant Test:
+    When allowed_positions requires exactly 3 DEF, the solver must select exactly 3 defenders.
+    """
+    rule_set = CHALLENGE_PRESETS["defensive_wall_3_def"]
+    optimizer = ChallengeOptimizer(mock_challenge_players_df, rule_set)
+    squad = optimizer.solve_single_vector("max_ev")
+
+    assert squad is not None
+    assert len(squad.squad_names) == 6
+
+    squad_df = mock_challenge_players_df[mock_challenge_players_df["web_name"].isin(squad.squad_names)]
+    assert (squad_df["position"] == "DEF").sum() == 3
+
+
+def test_challenge_full_11_a_side_with_gkp(mock_challenge_players_df):
+    """
+    Full Lineup Invariant Test:
+    In an 11-a-side challenge with GKP enabled, solver must select exactly 1 Goalkeeper
+    and format the formation string accordingly (e.g. 1-X-Y-Z).
+    """
+    rule_set = CHALLENGE_PRESETS["full_11_a_side"]
+    optimizer = ChallengeOptimizer(mock_challenge_players_df, rule_set)
+    squad = optimizer.solve_single_vector("max_ev")
+
+    assert squad is not None
+    assert len(squad.squad_names) == 11
+    assert squad.formation.startswith("1-")
+
+    squad_df = mock_challenge_players_df[mock_challenge_players_df["web_name"].isin(squad.squad_names)]
+    assert (squad_df["position"] == "GKP").sum() == 1
+    assert (squad_df["position"] == "DEF").sum() >= 3
+    assert (squad_df["position"] == "MID").sum() >= 2
+    assert (squad_df["position"] == "FWD").sum() >= 1
+
+
+def test_challenge_gkp_omission_defaults_to_zero():
+    """
+    Defensive Invariant Test:
+    When GKP is omitted from allowed_positions in a <=6 player rule set,
+    get_position_bounds("GKP") must safely return (0, 0).
+    """
+    rule_set = ChallengeRuleSet(
+        gameweek=5,
+        squad_size=6,
+        allowed_positions={"DEF": (1, 3), "MID": (1, 3), "FWD": (1, 3)}
+    )
+    assert rule_set.get_position_bounds("GKP") == (0, 0)
+    assert rule_set.is_outfield_only is True
+
+
+def test_challenge_optimizer_endogenous_vice_captain(mock_challenge_players_df):
+    """
+    Stage 1 Vice-Captaincy Test:
+    Solver must endogenously pick distinct Captain and Vice-Captain within the active squad.
+    """
+    rule_set = CHALLENGE_PRESETS["gw5_one_player_per_club"]
+    optimizer = ChallengeOptimizer(mock_challenge_players_df, rule_set)
+    squad = optimizer.solve_single_vector("max_ev")
+
+    assert squad is not None
+    assert squad.captain != ""
+    assert squad.vice_captain != ""
+    assert squad.captain != squad.vice_captain
+    assert squad.captain in squad.squad_names
+    assert squad.vice_captain in squad.squad_names
+
+
+def test_challenge_optimizer_new_pareto_vectors(mock_challenge_players_df):
+    """
+    Stage 1 Pareto Vector Test:
+    Verify floor_safety and cost_efficiency Pareto vectors solve valid squads.
+    """
+    rule_set = CHALLENGE_PRESETS["gw5_one_player_per_club"]
+    optimizer = ChallengeOptimizer(mock_challenge_players_df, rule_set)
+
+    squad_safe = optimizer.solve_single_vector("floor_safety")
+    assert squad_safe is not None
+    assert len(squad_safe.squad_names) == 6
+
+    squad_val = optimizer.solve_single_vector("cost_efficiency")
+    assert squad_val is not None
+    assert len(squad_val.squad_names) == 6
+
+
+def test_challenge_optimizer_generate_candidate_pool_7_vectors(mock_challenge_players_df):
+    """
+    Candidate Pool Test:
+    generate_candidate_pool must sweep across all 7 Pareto objectives.
+    """
+    rule_set = CHALLENGE_PRESETS["gw5_one_player_per_club"]
+    optimizer = ChallengeOptimizer(mock_challenge_players_df, rule_set)
+    candidates = optimizer.generate_candidate_pool()
+
+    assert len(candidates) >= 1
+    assert all(c.captain in c.squad_names for c in candidates)
+    assert all(c.vice_captain in c.squad_names for c in candidates)
+    assert all(c.captain != c.vice_captain for c in candidates)
+
+
+def test_challenge_optimizer_markowitz_miqp_risk_averse_and_seeking(mock_challenge_players_df):
+    """
+    Mixed-Integer Quadratic Programming (Markowitz Mean-Variance) Test:
+    Verify that solve_markowitz_portfolio solves valid optimal squads across
+    risk-averse (lambda > 0), neutral (lambda = 0), and upside-seeking (lambda < 0) regimes.
+    """
+    # Allow multiple players per team to enable teammate covariance coupling
+    rule_set = ChallengeRuleSet(
+        gameweek=8,
+        name="Markowitz MIQP Test",
+        squad_size=6,
+        max_per_team=3,
+        budget_cap=80.0,
+        allowed_positions={"GKP": (0, 0), "DEF": (1, 3), "MID": (1, 3), "FWD": (1, 3)},
+    )
+    optimizer = ChallengeOptimizer(mock_challenge_players_df, rule_set)
+
+    # 1. Risk-Averse (lambda = 1.0)
+    squad_averse = optimizer.solve_markowitz_portfolio(lambda_risk=1.0)
+    assert squad_averse is not None
+    assert len(squad_averse.squad_names) == 6
+    assert squad_averse.captain in squad_averse.squad_names
+    assert squad_averse.vice_captain in squad_averse.squad_names
+    assert squad_averse.captain != squad_averse.vice_captain
+    assert squad_averse.generator_type == "Markowitz MIQP"
+    assert squad_averse.objective_name == "markowitz_lambda_+1.00"
+
+    # 2. Risk-Seeking / Correlation-Stacking (lambda = -0.5)
+    squad_seeking = optimizer.solve_markowitz_portfolio(lambda_risk=-0.5)
+    assert squad_seeking is not None
+    assert len(squad_seeking.squad_names) == 6
+    assert squad_seeking.captain in squad_seeking.squad_names
+    assert squad_seeking.vice_captain in squad_seeking.squad_names
+    assert squad_seeking.captain != squad_seeking.vice_captain
+
+    # 3. Check candidate pool includes Markowitz solutions
+    candidates = optimizer.generate_candidate_pool()
+    markowitz_candidates = [c for c in candidates if c.generator_type == "Markowitz MIQP"]
+    assert len(markowitz_candidates) >= 1

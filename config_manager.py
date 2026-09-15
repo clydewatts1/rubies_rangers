@@ -73,6 +73,14 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
                 "enforce_coupled_defense": True,
                 "enforce_discrete_poisson_gc": True,
                 "enforce_pace_scaling": True,
+            },
+            "overdispersion_alpha": 1.30,
+            "assist_coupling_rate": 0.76,
+            "relative_bps_enabled": True,
+            "substitution_hazard": {
+                "enabled": True,
+                "early_tactical_min": 60.0,
+                "early_tactical_max": 72.0,
             }
         },
         "optimizer": {
@@ -130,6 +138,31 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
                 {"label": "setpiece_focus", "metric": "setpiece_moneyball", "enabled": False, "tier": "contextual", "description": "Penalties, direct free kicks & corner duties for high dead-ball floor"},
                 {"label": "momentum", "metric": "form", "enabled": False, "tier": "contextual", "description": "Short-term 30-day streak tracking"}
             ]
+        },
+        "strategic": {
+            "horizon": {
+                "lookahead_gws": 8,
+                "discount_gamma": 0.92
+            },
+            "venue": {
+                "nu_att_home": 1.15,
+                "nu_att_away": 0.87,
+                "nu_def_home": 0.85,
+                "nu_def_away": 1.18
+            },
+            "defense": {
+                "kappa_cs_scale": 1.00
+            },
+            "waves": {
+                "threshold_green": 2.50,
+                "threshold_red": 3.40
+            },
+            "market": {
+                "momentum_weight": 0.20
+            },
+            "balance_sheet": {
+                "ft_option_mult": 1.50
+            }
         }
     }
 }

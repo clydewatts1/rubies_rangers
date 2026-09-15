@@ -26,15 +26,26 @@ class ChallengeScoringAdapter:
         """
         df = df_players.copy()
 
-        # Standardize position
+        # Standardize position to canonical GKP, DEF, MID, FWD
+        pos_map = {
+            "GKP": "GKP", "GK": "GKP", "GOALKEEPER": "GKP", "GOALKEEPERS": "GKP", "1": "GKP", 1: "GKP",
+            "DEF": "DEF", "DEFENDER": "DEF", "DEFENDERS": "DEF", "2": "DEF", 2: "DEF",
+            "MID": "MID", "MIDFIELDER": "MID", "MIDFIELDERS": "MID", "3": "MID", 3: "MID",
+            "FWD": "FWD", "FORWARD": "FWD", "FORWARDS": "FWD", "ATT": "FWD", "ATTACKER": "FWD", "4": "FWD", 4: "FWD"
+        }
         if "position" not in df.columns:
             if "position_name" in df.columns:
                 df["position"] = df["position_name"]
             elif "element_type" in df.columns:
                 etype_map = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
-                df["position"] = df["element_type"].map(etype_map).fillna("MID")
+                df["position"] = df["element_type"].map(etype_map)
             else:
                 df["position"] = "MID"
+
+        # Apply canonical mapping
+        df["position"] = df["position"].astype(str).str.strip().str.upper().map(
+            lambda x: pos_map.get(x, pos_map.get(x.rstrip("S"), "MID"))
+        ).fillna("MID")
 
         # Standardize club
         if "club" not in df.columns:

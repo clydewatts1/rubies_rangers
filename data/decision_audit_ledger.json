@@ -1,0 +1,726 @@
+{
+  "2024-25_GW1": {
+    "gw": 1,
+    "season": "2024-25",
+    "timestamp": "2026-09-15T07:02:35.072200+00:00",
+    "profile_name": "Rubies Rangers",
+    "formation": "4-4-2",
+    "projected_starting_xp": 59.4,
+    "projected_effective_xp": 66.9,
+    "captain_name": "Isak",
+    "vice_captain_name": "\u00d8degaard",
+    "starters": [
+      {
+        "web_name": "Roefs",
+        "position_name": "GKP",
+        "club_short": "SUN",
+        "now_cost": 4.5,
+        "projected_xp": 4.0,
+        "xP": 4.0,
+        "actual_points": 1.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Pedro Porro",
+        "position_name": "DEF",
+        "club_short": "TOT",
+        "now_cost": 5.5,
+        "projected_xp": 5.0,
+        "xP": 5.0,
+        "actual_points": 0.0,
+        "actual_minutes": 0
+      },
+      {
+        "web_name": "Senesi",
+        "position_name": "DEF",
+        "club_short": "BOU",
+        "now_cost": 4.8,
+        "projected_xp": 4.2,
+        "xP": 4.2,
+        "actual_points": 3.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Gu\u00e9hi",
+        "position_name": "DEF",
+        "club_short": "CRY",
+        "now_cost": 4.5,
+        "projected_xp": 3.8,
+        "xP": 3.8,
+        "actual_points": 10.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Robinson",
+        "position_name": "DEF",
+        "club_short": "FUL",
+        "now_cost": 4.6,
+        "projected_xp": 4.1,
+        "xP": 4.1,
+        "actual_points": 1.0,
+        "actual_minutes": 81
+      },
+      {
+        "web_name": "Foden",
+        "position_name": "MID",
+        "club_short": "MCI",
+        "now_cost": 9.5,
+        "projected_xp": 7.2,
+        "xP": 7.2,
+        "actual_points": 1.0,
+        "actual_minutes": 81
+      },
+      {
+        "web_name": "\u00d8degaard",
+        "position_name": "MID",
+        "club_short": "ARS",
+        "now_cost": 8.5,
+        "projected_xp": 6.8,
+        "xP": 6.8,
+        "actual_points": 11.0,
+        "actual_minutes": 75
+      },
+      {
+        "web_name": "Mbeumo",
+        "position_name": "MID",
+        "club_short": "BRE",
+        "now_cost": 7.1,
+        "projected_xp": 6.5,
+        "xP": 6.5,
+        "actual_points": 2.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Cherki",
+        "position_name": "MID",
+        "club_short": "MCI",
+        "now_cost": 6.0,
+        "projected_xp": 4.5,
+        "xP": 4.5,
+        "actual_points": 8.0,
+        "actual_minutes": 27
+      },
+      {
+        "web_name": "Jo\u00e3o Pedro",
+        "position_name": "FWD",
+        "club_short": "BHA",
+        "now_cost": 5.7,
+        "projected_xp": 5.8,
+        "xP": 5.8,
+        "actual_points": 11.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Isak",
+        "position_name": "FWD",
+        "club_short": "NEW",
+        "now_cost": 8.5,
+        "projected_xp": 7.5,
+        "xP": 7.5,
+        "actual_points": 2.0,
+        "actual_minutes": 90
+      }
+    ],
+    "bench": [
+      {
+        "web_name": "Verbruggen",
+        "position_name": "GKP",
+        "club_short": "BHA",
+        "now_cost": 4.5,
+        "projected_xp": 3.5,
+        "xP": 3.5,
+        "actual_points": 6.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Rogers",
+        "position_name": "MID",
+        "club_short": "AVL",
+        "now_cost": 5.1,
+        "projected_xp": 4.2,
+        "xP": 4.2,
+        "actual_points": 8.0,
+        "actual_minutes": 81
+      },
+      {
+        "web_name": "Solanke",
+        "position_name": "FWD",
+        "club_short": "TOT",
+        "now_cost": 7.5,
+        "projected_xp": 5.5,
+        "xP": 5.5,
+        "actual_points": 1.0,
+        "actual_minutes": 22
+      },
+      {
+        "web_name": "Thiaw",
+        "position_name": "DEF",
+        "club_short": "NEW",
+        "now_cost": 4.5,
+        "projected_xp": 3.0,
+        "xP": 3.0,
+        "actual_points": 3.0,
+        "actual_minutes": 90
+      }
+    ],
+    "transfers": [],
+    "applied_by_user": true,
+    "is_reconciled": true,
+    "actual_starting_points": 58.0,
+    "actual_effective_points": 60.0,
+    "actual_captain_points": 2.0,
+    "auto_subs": [
+      [
+        "Pedro Porro",
+        "Rogers"
+      ]
+    ],
+    "prediction_residual": -6.9,
+    "transfer_net_alpha": 0.0,
+    "captaincy_efficiency": 18.2
+  },
+  "2024-25_GW2": {
+    "gw": 2,
+    "season": "2024-25",
+    "timestamp": "2026-09-15T07:02:35.357056+00:00",
+    "profile_name": "Rubies Rangers",
+    "formation": "4-4-2",
+    "projected_starting_xp": 59.4,
+    "projected_effective_xp": 66.9,
+    "captain_name": "Isak",
+    "vice_captain_name": "\u00d8degaard",
+    "starters": [
+      {
+        "web_name": "Roefs",
+        "position_name": "GKP",
+        "club_short": "SUN",
+        "now_cost": 4.5,
+        "projected_xp": 4.0,
+        "xP": 4.0,
+        "actual_points": 6.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Pedro Porro",
+        "position_name": "DEF",
+        "club_short": "TOT",
+        "now_cost": 5.5,
+        "projected_xp": 5.0,
+        "xP": 5.0,
+        "actual_points": 1.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Senesi",
+        "position_name": "DEF",
+        "club_short": "BOU",
+        "now_cost": 4.8,
+        "projected_xp": 4.2,
+        "xP": 4.2,
+        "actual_points": 0.0,
+        "actual_minutes": 0
+      },
+      {
+        "web_name": "Gu\u00e9hi",
+        "position_name": "DEF",
+        "club_short": "CRY",
+        "now_cost": 4.5,
+        "projected_xp": 3.8,
+        "xP": 3.8,
+        "actual_points": 2.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Robinson",
+        "position_name": "DEF",
+        "club_short": "FUL",
+        "now_cost": 4.6,
+        "projected_xp": 4.1,
+        "xP": 4.1,
+        "actual_points": 2.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Foden",
+        "position_name": "MID",
+        "club_short": "MCI",
+        "now_cost": 9.5,
+        "projected_xp": 7.2,
+        "xP": 7.2,
+        "actual_points": 9.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "\u00d8degaard",
+        "position_name": "MID",
+        "club_short": "ARS",
+        "now_cost": 8.5,
+        "projected_xp": 6.8,
+        "xP": 6.8,
+        "actual_points": 3.0,
+        "actual_minutes": 70
+      },
+      {
+        "web_name": "Mbeumo",
+        "position_name": "MID",
+        "club_short": "BRE",
+        "now_cost": 7.1,
+        "projected_xp": 6.5,
+        "xP": 6.5,
+        "actual_points": 11.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Cherki",
+        "position_name": "MID",
+        "club_short": "MCI",
+        "now_cost": 6.0,
+        "projected_xp": 4.5,
+        "xP": 4.5,
+        "actual_points": 14.0,
+        "actual_minutes": 81
+      },
+      {
+        "web_name": "Jo\u00e3o Pedro",
+        "position_name": "FWD",
+        "club_short": "BHA",
+        "now_cost": 5.7,
+        "projected_xp": 5.8,
+        "xP": 5.8,
+        "actual_points": 9.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Isak",
+        "position_name": "FWD",
+        "club_short": "NEW",
+        "now_cost": 8.5,
+        "projected_xp": 7.5,
+        "xP": 7.5,
+        "actual_points": 8.0,
+        "actual_minutes": 90
+      }
+    ],
+    "bench": [
+      {
+        "web_name": "Verbruggen",
+        "position_name": "GKP",
+        "club_short": "BHA",
+        "now_cost": 4.5,
+        "projected_xp": 3.5,
+        "xP": 3.5,
+        "actual_points": 0.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Rogers",
+        "position_name": "MID",
+        "club_short": "AVL",
+        "now_cost": 5.1,
+        "projected_xp": 4.2,
+        "xP": 4.2,
+        "actual_points": 5.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Solanke",
+        "position_name": "FWD",
+        "club_short": "TOT",
+        "now_cost": 7.5,
+        "projected_xp": 5.5,
+        "xP": 5.5,
+        "actual_points": 1.0,
+        "actual_minutes": 15
+      },
+      {
+        "web_name": "Thiaw",
+        "position_name": "DEF",
+        "club_short": "NEW",
+        "now_cost": 4.5,
+        "projected_xp": 3.0,
+        "xP": 3.0,
+        "actual_points": 6.0,
+        "actual_minutes": 90
+      }
+    ],
+    "transfers": [],
+    "applied_by_user": true,
+    "is_reconciled": true,
+    "actual_starting_points": 70.0,
+    "actual_effective_points": 78.0,
+    "actual_captain_points": 8.0,
+    "auto_subs": [
+      [
+        "Senesi",
+        "Rogers"
+      ]
+    ],
+    "prediction_residual": 11.1,
+    "transfer_net_alpha": 0.0,
+    "captaincy_efficiency": 57.1
+  },
+  "2024-25_GW3": {
+    "gw": 3,
+    "season": "2024-25",
+    "timestamp": "2026-09-15T07:02:35.624567+00:00",
+    "profile_name": "Rubies Rangers",
+    "formation": "4-4-2",
+    "projected_starting_xp": 59.4,
+    "projected_effective_xp": 66.6,
+    "captain_name": "Foden",
+    "vice_captain_name": "\u00d8degaard",
+    "starters": [
+      {
+        "web_name": "Roefs",
+        "position_name": "GKP",
+        "club_short": "SUN",
+        "now_cost": 4.5,
+        "projected_xp": 4.0,
+        "xP": 4.0,
+        "actual_points": 2.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Pedro Porro",
+        "position_name": "DEF",
+        "club_short": "TOT",
+        "now_cost": 5.5,
+        "projected_xp": 5.0,
+        "xP": 5.0,
+        "actual_points": 7.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Senesi",
+        "position_name": "DEF",
+        "club_short": "BOU",
+        "now_cost": 4.8,
+        "projected_xp": 4.2,
+        "xP": 4.2,
+        "actual_points": 0.0,
+        "actual_minutes": 0
+      },
+      {
+        "web_name": "Gu\u00e9hi",
+        "position_name": "DEF",
+        "club_short": "CRY",
+        "now_cost": 4.5,
+        "projected_xp": 3.8,
+        "xP": 3.8,
+        "actual_points": 8.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Robinson",
+        "position_name": "DEF",
+        "club_short": "FUL",
+        "now_cost": 4.6,
+        "projected_xp": 4.1,
+        "xP": 4.1,
+        "actual_points": 1.0,
+        "actual_minutes": 78
+      },
+      {
+        "web_name": "Foden",
+        "position_name": "MID",
+        "club_short": "MCI",
+        "now_cost": 9.5,
+        "projected_xp": 7.2,
+        "xP": 7.2,
+        "actual_points": 1.0,
+        "actual_minutes": 24
+      },
+      {
+        "web_name": "\u00d8degaard",
+        "position_name": "MID",
+        "club_short": "ARS",
+        "now_cost": 8.5,
+        "projected_xp": 6.8,
+        "xP": 6.8,
+        "actual_points": 10.0,
+        "actual_minutes": 76
+      },
+      {
+        "web_name": "Mbeumo",
+        "position_name": "MID",
+        "club_short": "BRE",
+        "now_cost": 7.1,
+        "projected_xp": 6.5,
+        "xP": 6.5,
+        "actual_points": 8.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Cherki",
+        "position_name": "MID",
+        "club_short": "MCI",
+        "now_cost": 6.0,
+        "projected_xp": 4.5,
+        "xP": 4.5,
+        "actual_points": 3.0,
+        "actual_minutes": 65
+      },
+      {
+        "web_name": "Jo\u00e3o Pedro",
+        "position_name": "FWD",
+        "club_short": "BHA",
+        "now_cost": 5.7,
+        "projected_xp": 5.8,
+        "xP": 5.8,
+        "actual_points": 1.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Isak",
+        "position_name": "FWD",
+        "club_short": "NEW",
+        "now_cost": 8.5,
+        "projected_xp": 7.5,
+        "xP": 7.5,
+        "actual_points": 13.0,
+        "actual_minutes": 63
+      }
+    ],
+    "bench": [
+      {
+        "web_name": "Verbruggen",
+        "position_name": "GKP",
+        "club_short": "BHA",
+        "now_cost": 4.5,
+        "projected_xp": 3.5,
+        "xP": 3.5,
+        "actual_points": 3.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Rogers",
+        "position_name": "MID",
+        "club_short": "AVL",
+        "now_cost": 5.1,
+        "projected_xp": 4.2,
+        "xP": 4.2,
+        "actual_points": 6.0,
+        "actual_minutes": 86
+      },
+      {
+        "web_name": "Solanke",
+        "position_name": "FWD",
+        "club_short": "TOT",
+        "now_cost": 7.5,
+        "projected_xp": 5.5,
+        "xP": 5.5,
+        "actual_points": 1.0,
+        "actual_minutes": 6
+      },
+      {
+        "web_name": "Thiaw",
+        "position_name": "DEF",
+        "club_short": "NEW",
+        "now_cost": 4.5,
+        "projected_xp": 3.0,
+        "xP": 3.0,
+        "actual_points": -1.0,
+        "actual_minutes": 90
+      }
+    ],
+    "transfers": [],
+    "applied_by_user": true,
+    "is_reconciled": true,
+    "actual_starting_points": 60.0,
+    "actual_effective_points": 61.0,
+    "actual_captain_points": 1.0,
+    "auto_subs": [
+      [
+        "Senesi",
+        "Rogers"
+      ]
+    ],
+    "prediction_residual": -5.6,
+    "transfer_net_alpha": 0.0,
+    "captaincy_efficiency": 7.7
+  },
+  "2024-25_GW4": {
+    "gw": 4,
+    "season": "2024-25",
+    "timestamp": "2026-09-15T07:02:35.881235+00:00",
+    "profile_name": "Rubies Rangers",
+    "formation": "4-4-2",
+    "projected_starting_xp": 59.4,
+    "projected_effective_xp": 66.6,
+    "captain_name": "Foden",
+    "vice_captain_name": "\u00d8degaard",
+    "starters": [
+      {
+        "web_name": "Roefs",
+        "position_name": "GKP",
+        "club_short": "SUN",
+        "now_cost": 4.5,
+        "projected_xp": 4.0,
+        "xP": 4.0,
+        "actual_points": 2.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Pedro Porro",
+        "position_name": "DEF",
+        "club_short": "TOT",
+        "now_cost": 5.5,
+        "projected_xp": 5.0,
+        "xP": 5.0,
+        "actual_points": 0.0,
+        "actual_minutes": 0
+      },
+      {
+        "web_name": "Senesi",
+        "position_name": "DEF",
+        "club_short": "BOU",
+        "now_cost": 4.8,
+        "projected_xp": 4.2,
+        "xP": 4.2,
+        "actual_points": 0.0,
+        "actual_minutes": 0
+      },
+      {
+        "web_name": "Gu\u00e9hi",
+        "position_name": "DEF",
+        "club_short": "CRY",
+        "now_cost": 4.5,
+        "projected_xp": 3.8,
+        "xP": 3.8,
+        "actual_points": 6.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Robinson",
+        "position_name": "DEF",
+        "club_short": "FUL",
+        "now_cost": 4.6,
+        "projected_xp": 4.1,
+        "xP": 4.1,
+        "actual_points": 6.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Foden",
+        "position_name": "MID",
+        "club_short": "MCI",
+        "now_cost": 9.5,
+        "projected_xp": 7.2,
+        "xP": 7.2,
+        "actual_points": -2.0,
+        "actual_minutes": 22
+      },
+      {
+        "web_name": "\u00d8degaard",
+        "position_name": "MID",
+        "club_short": "ARS",
+        "now_cost": 8.5,
+        "projected_xp": 6.8,
+        "xP": 6.8,
+        "actual_points": 3.0,
+        "actual_minutes": 84
+      },
+      {
+        "web_name": "Mbeumo",
+        "position_name": "MID",
+        "club_short": "BRE",
+        "now_cost": 7.1,
+        "projected_xp": 6.5,
+        "xP": 6.5,
+        "actual_points": 2.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Cherki",
+        "position_name": "MID",
+        "club_short": "MCI",
+        "now_cost": 6.0,
+        "projected_xp": 4.5,
+        "xP": 4.5,
+        "actual_points": 1.0,
+        "actual_minutes": 45
+      },
+      {
+        "web_name": "Jo\u00e3o Pedro",
+        "position_name": "FWD",
+        "club_short": "BHA",
+        "now_cost": 5.7,
+        "projected_xp": 5.8,
+        "xP": 5.8,
+        "actual_points": 12.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Isak",
+        "position_name": "FWD",
+        "club_short": "NEW",
+        "now_cost": 8.5,
+        "projected_xp": 7.5,
+        "xP": 7.5,
+        "actual_points": 2.0,
+        "actual_minutes": 90
+      }
+    ],
+    "bench": [
+      {
+        "web_name": "Verbruggen",
+        "position_name": "GKP",
+        "club_short": "BHA",
+        "now_cost": 4.5,
+        "projected_xp": 3.5,
+        "xP": 3.5,
+        "actual_points": 8.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Rogers",
+        "position_name": "MID",
+        "club_short": "AVL",
+        "now_cost": 5.1,
+        "projected_xp": 4.2,
+        "xP": 4.2,
+        "actual_points": 8.0,
+        "actual_minutes": 90
+      },
+      {
+        "web_name": "Solanke",
+        "position_name": "FWD",
+        "club_short": "TOT",
+        "now_cost": 7.5,
+        "projected_xp": 5.5,
+        "xP": 5.5,
+        "actual_points": 2.0,
+        "actual_minutes": 62
+      },
+      {
+        "web_name": "Thiaw",
+        "position_name": "DEF",
+        "club_short": "NEW",
+        "now_cost": 4.5,
+        "projected_xp": 3.0,
+        "xP": 3.0,
+        "actual_points": 2.0,
+        "actual_minutes": 90
+      }
+    ],
+    "transfers": [],
+    "applied_by_user": true,
+    "is_reconciled": true,
+    "actual_starting_points": 42.0,
+    "actual_effective_points": 40.0,
+    "actual_captain_points": -2.0,
+    "auto_subs": [
+      [
+        "Pedro Porro",
+        "Rogers"
+      ],
+      [
+        "Senesi",
+        "Thiaw"
+      ]
+    ],
+    "prediction_residual": -26.6,
+    "transfer_net_alpha": 0.0,
+    "captaincy_efficiency": -16.7
+  }
+}

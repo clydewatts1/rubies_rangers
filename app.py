@@ -37,6 +37,10 @@ from ui.tabs import (
     render_tab_weather,
     render_tab_challenge_optimizer,
     render_tab_challenge_rolling,
+    render_tab_strategic_macro,
+    render_tab_strategic_solver,
+    render_tab_strategic_balance_sheet,
+    render_tab_audit_ledger,
 )
 
 # 1. Page Configuration
@@ -333,7 +337,11 @@ with st.sidebar:
 # 5. Workflow Dispatcher
 mode = st.sidebar.selectbox("Workflow", [
     # --- Fantasy Mode Workflows (Classic FPL) ---
+    "📋 Suggestion & Outcome Audit Ledger",
     "🏟️ Fantasy: Matchday Center & Live Gameweek Scoreboard",
+    "🌊 Fantasy: Macro Fixture Radar & Wave Scanner",
+    "♟️ Fantasy: 5-GW Strategic Transfer Chessboard",
+    "💰 Fantasy: Dynamic Balance Sheet & Real Options Engine",
     "⚔️ Fantasy: Two-Stage Tournament (Screen & Simulate)",
     "🔄 Fantasy: Modify Current Team (Transfers)",
     "🎴 Fantasy: Long-Term Chip Strategy & Season Roadmap",
@@ -364,8 +372,16 @@ mode = st.sidebar.selectbox("Workflow", [
 bank_balance = float(get_system_config("default_bank") or 3.7)
 
 # Dispatch to modular tab renderers
-if "Matchday Center" in mode and "Challenge" not in mode:
+if "Audit Ledger" in mode or "Suggestion & Outcome" in mode:
+    render_tab_audit_ledger(df, current_squad, active_profile.display_name)
+elif "Matchday Center" in mode and "Challenge" not in mode:
     render_tab_matchday(df, current_squad, active_profile.display_name)
+elif "Macro Fixture Radar" in mode:
+    render_tab_strategic_macro(df, current_squad)
+elif "Strategic Transfer Chessboard" in mode:
+    render_tab_strategic_solver(df, current_squad)
+elif "Dynamic Balance Sheet" in mode:
+    render_tab_strategic_balance_sheet(df, current_squad)
 elif "Challenge: Two-Stage Tournament" in mode:
     render_tab_challenge_optimizer(df)
 elif "Challenge: Matchday Center" in mode:

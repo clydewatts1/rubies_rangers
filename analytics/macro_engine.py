@@ -29,6 +29,8 @@ class FixtureMacroState:
     away_goals: np.ndarray       # Poisson goals scored by away club
     home_cs: np.ndarray          # Binary indicator (away_goals == 0)
     away_cs: np.ndarray          # Binary indicator (home_goals == 0)
+    home_assists: Optional[np.ndarray] = None   # Coupled assists scored by home club
+    away_assists: Optional[np.ndarray] = None   # Coupled assists scored by away club
 
 
 def simulate_macro_fixtures(
@@ -125,6 +127,11 @@ def simulate_macro_fixtures(
         h_cs = (a_goals == 0).astype(int)
         a_cs = (h_goals == 0).astype(int)
 
+        # 4. Coupled Assists (approx 76% of goals are assisted)
+        assist_coupling_rate = float(mc_cfg.get("assist_coupling_rate", 0.76))
+        h_assists = np.random.binomial(h_goals, assist_coupling_rate)
+        a_assists = np.random.binomial(a_goals, assist_coupling_rate)
+
         fixture_states[f_key] = FixtureMacroState(
             fixture_key=f_key,
             home_team=h_team,
@@ -133,7 +140,9 @@ def simulate_macro_fixtures(
             home_goals=h_goals,
             away_goals=a_goals,
             home_cs=h_cs,
-            away_cs=a_cs
+            away_cs=a_cs,
+            home_assists=h_assists,
+            away_assists=a_assists
         )
 
     return fixture_states
@@ -153,7 +162,8 @@ def build_team_macro_lookup(
         "pace_mult": np.ndarray,
         "goals_scored": np.ndarray,
         "goals_conceded": np.ndarray,
-        "clean_sheet": np.ndarray
+        "clean_sheet": np.ndarray,
+        "assists_scored": np.ndarray
     }
     """
     team_lookup: Dict[str, Dict[str, Any]] = {}
@@ -167,7 +177,8 @@ def build_team_macro_lookup(
             "pace_mult": f_state.pace_mult,
             "goals_scored": f_state.home_goals,
             "goals_conceded": f_state.away_goals,
-            "clean_sheet": f_state.home_cs
+            "clean_sheet": f_state.home_cs,
+            "assists_scored": f_state.home_assists if f_state.home_assists is not None else np.zeros(len(f_state.home_goals))
         }
         # Away team perspective
         team_lookup[f_state.away_team] = {
@@ -177,7 +188,8 @@ def build_team_macro_lookup(
             "pace_mult": f_state.pace_mult,
             "goals_scored": f_state.away_goals,
             "goals_conceded": f_state.home_goals,
-            "clean_sheet": f_state.away_cs
+            "clean_sheet": f_state.away_cs,
+            "assists_scored": f_state.away_assists if f_state.away_assists is not None else np.zeros(len(f_state.away_goals))
         }
 
     return team_lookup

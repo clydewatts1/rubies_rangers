@@ -2,10 +2,10 @@
 ## The Data Engineering, Generative Metrics & Immutable Contract Layer for Multi-Period Optimization
 
 **Status**: PROPOSED / BRAINSTORM  
-**Target Subsystems**: `analytics/strategic/contracts.py`, `clients/fpl_client.py`, `analytics/strategic/trajectory_engine.py`, `tests/test_strategic_phase0.py`  
+**Target Subsystems**: `analytics/strategic/contracts.py`, `clients/fpl_client.py`, `analytics/strategic/trajectory_engine.py`, `tuner/`, `config.yaml`, `config_manager.py`, `tests/test_strategic_phase0.py`  
 **Execution Order**: **PHASE 0 (Prerequisite Foundation for Phase 1 & Phase 2)**  
 **Related Rules**:
-- [`.agents/rules/moneyball_strategy.md`](../../.agents/rules/moneyball_strategy.md) (Unconstrained Solvers, Stochastic Distributions, Vectorization, Anti-Leakage)
+- [`.agents/rules/moneyball_strategy.md`](../../.agents/rules/moneyball_strategy.md) (Unconstrained Solvers, Stochastic Distributions, Vectorization, Anti-Leakage, Rule 6: Baseline Priors vs. Post-Optimization Execution)
 - [`.agents/rules/python_standards.md`](../../.agents/rules/python_standards.md) (Layered Architecture, Frozen Dataclasses, PEP 8, No Row Iteration)
 
 ---
@@ -33,7 +33,7 @@ Currently, Rubies Rangers computes single-gameweek expected points ($xP$) and ba
 └────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Phase 0 establishes this foundational data architecture, ensuring that all subsequent strategic solvers operate on validated, high-speed, and mathematically sound inputs.
+Furthermore, in strict adherence to **Rule 6 of [`.agents/rules/moneyball_strategy.md`](../../.agents/rules/moneyball_strategy.md)**, **all heuristic parameters introduced in Phase 0 must default to intuitive baseline priors under the `heuristic` profile in `config.yaml`, while being fully exposed as continuous/discrete search spaces for automated Bayesian optimization in `tuner/` (producing the `tuned` empirical profile)**.
 
 ---
 
@@ -47,13 +47,13 @@ For each club $c \in [1, 20]$ and future gameweek $t \in [1, 8]$:
 1. **Club Attack Rating ($\alpha_c$):** Rolling 10-match expected goals scored per 90 ($\text{xG}_{\text{for}}$).
 2. **Club Defense Concession Rating ($\delta_c$):** Rolling 10-match expected goals conceded per 90 ($\text{xG}_{\text{against}}$).
 3. **Venue Multiplier ($\nu$):**
-   $$\nu_{\text{attack}} = \begin{cases} 1.15 & \text{if Home} \\ 0.87 & \text{if Away} \end{cases}, \quad \nu_{\text{defense}} = \begin{cases} 0.85 & \text{if Home (Concedes fewer)} \\ 1.18 & \text{if Away (Concedes more)} \end{cases}$$
+   $$\nu_{\text{attack}} = \begin{cases} \nu_{\text{att\_home}} & \text{if Home} \\ \nu_{\text{att\_away}} & \text{if Away} \end{cases}, \quad \nu_{\text{defense}} = \begin{cases} \nu_{\text{def\_home}} & \text{if Home (Concedes fewer)} \\ \nu_{\text{def\_away}} & \text{if Away (Concedes more)} \end{cases}$$
 4. **Expected Match Goals (Poisson Intensity):**
    $$\lambda_{\text{match}, c, t} = \alpha_c \times \delta_{\text{opp}(c, t)} \times \nu_{\text{attack}}$$
 5. **Expected Opponent Goals Conceded:**
    $$\mu_{\text{conceded}, c, t} = \alpha_{\text{opp}(c, t)} \times \delta_c \times \nu_{\text{defense}}$$
 6. **Clean Sheet Probability ($P(\text{CS})$):**
-   $$P(\text{CS}_{c, t}) = \exp(-\mu_{\text{conceded}, c, t})$$
+   $$P(\text{CS}_{c, t}) = \exp(-\mu_{\text{conceded}, c, t} \times \kappa_{\text{cs\_scale}})$$
 
 ---
 
@@ -165,21 +165,61 @@ To guarantee scientific integrity and fast execution:
 
 ---
 
-## 6. Phase 0 Acceptance Criteria & Verification Plan
+## 6. Heuristic Baseline Defaults & Bayesian Hyperparameter Trainability Lifecycle
 
-### Automated Test Suite (`tests/test_strategic_phase0.py`):
-1. **Contract Integrity**: Verify all dataclasses (`PlayerTrajectoryProfile`, `ClubScheduleProfile`, `StrategicSquadState`) instantiate cleanly, are immutable, and serialize to dict.
-2. **Dimension Invariants**: Ensure all trajectory vectors have exact length $H$ (e.g. 8 gameweeks).
-3. **Mathematical Bounds**:
-   * $0.0 \le P(\text{CS}_{c, t}) \le 1.0$ for all clubs and gameweeks.
-   * $0.0 \le xP_{i, t} \le 25.0$ (sanity bounds).
-   * Free transfers constrained to $1 \le \text{FT} \le 5$.
-4. **Performance Benchmark**: Multi-horizon tensor generation across all 650 players executes in $< 50\text{ms}$.
+In accordance with **Rule 6 of [`.agents/rules/moneyball_strategy.md`](../../.agents/rules/moneyball_strategy.md)**, no heuristic rule of thumb is hardcoded as an immutable truth. Every parameter exists in a dual lifecycle:
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              PARAMETER LIFECYCLE & DUAL-PROFILE ARCHITECTURE                           │
+├────────────────────────────────────────────────────┬───────────────────────────────────────────────────┤
+│ 1. COLD-START BOOTSTRAP: `heuristic` PROFILE       │ 2. EMPIRICAL EXECUTION: `tuned` PROFILE           │
+├────────────────────────────────────────────────────┼───────────────────────────────────────────────────┤
+│ • Pre-training / cold-start baseline prior         │ • Discovered via Bayesian Optuna Optimization     │
+│ • Defined under `heuristic:` in `config.yaml`      │ • Backtested across 3 historical seasons          │
+│ • Sensible domain defaults for immediate operation │ • Written to `tuned:` in `config.yaml` by tuner   │
+│ • Serves as warm-start prior for tuner             │ • Zero heuristic overrides permitted once tuned   │
+└────────────────────────────────────────────────────┴───────────────────────────────────────────────────┘
+```
+
+### Strategic Hyperparameter Search Space Specification (for `tuner/`):
+
+| Parameter Name | Configuration Key | Heuristic Baseline (Default) | Tuner Search Space (Optuna Bounds) | Tuning Objective Metric |
+| :--- | :--- | :---: | :---: | :--- |
+| **Home Attack Boost** | `strategic.venue.nu_att_home` | `1.15` | `[1.02, 1.30]` (Float) | Maximizes multi-gameweek xP predictive $R^2$ |
+| **Away Attack Penalty**| `strategic.venue.nu_att_away` | `0.87` | `[0.75, 0.98]` (Float) | Maximizes multi-gameweek xP predictive $R^2$ |
+| **Home Defense Multiplier**| `strategic.venue.nu_def_home` | `0.85` | `[0.70, 0.95]` (Float) | Minimizes Clean Sheet cross-entropy loss |
+| **Away Defense Penalty**| `strategic.venue.nu_def_away` | `1.18` | `[1.05, 1.35]` (Float) | Minimizes Clean Sheet cross-entropy loss |
+| **Clean Sheet Scale** | `strategic.defense.kappa_cs_scale` | `1.00` | `[0.80, 1.25]` (Float) | Brier score minimization on CS outcomes |
+| **Lookahead Discount ($\gamma$)** | `strategic.horizon.discount_gamma` | `0.92` | `[0.82, 0.98]` (Float) | Rolling 5-GW squad cumulative score |
+| **Green Wave FDR Threshold** | `strategic.waves.threshold_green` | `2.50` | `[2.20, 2.80]` (Float) | Sharpe ratio of swing trade transitions |
+| **Red Cliff FDR Threshold** | `strategic.waves.threshold_red` | `3.40` | `[3.10, 3.80]` (Float) | Hit-reduction rate on difficult runs |
+| **Price Momentum Weight** | `strategic.market.momentum_weight` | `0.20` | `[0.00, 0.50]` (Float) | Team Value J-Curve appreciation vs xP delta |
+| **FT Option Value Multiplier** | `strategic.balance_sheet.ft_option_mult` | `1.50` | `[0.50, 3.00]` (Float) | Net utility across 5-week transfer sequences |
+
+### Training Integration:
+* Automated training runs (`run_overnight_tuner.bat` or `python -m tuner.tune_params`) evaluate the full parameter space against historical seasons (2022/23, 2023/24, 2024/25).
+* Once the training job finishes, the best trial parameters are serialized automatically into `config.yaml` under `tuned:`, and production decision engines switch to `active_profile: tuned`.
 
 ---
 
-## 7. Next Step: Progression to Phase 1
+## 7. Phase 0 Acceptance Criteria & Verification Plan
+
+### Automated Test Suite (`tests/test_strategic_phase0.py`):
+1. **Contract Integrity**: Verify all dataclasses (`PlayerTrajectoryProfile`, `ClubScheduleProfile`, `StrategicSquadState`) instantiate cleanly, are immutable, and serialize to dict.
+2. **Dual-Profile Parameter Loading**: Ensure `config_manager.get_params("strategic")` resolves correctly under both `heuristic` and `tuned` profiles with zero hardcoded magic numbers.
+3. **Tuner Search Space Registration**: Ensure all 10 strategic hyperparameters are registered in `tuner/` with valid Optuna distributions.
+4. **Dimension Invariants**: Ensure all trajectory vectors have exact length $H$ (e.g. 8 gameweeks).
+5. **Mathematical Bounds**:
+   * $0.0 \le P(\text{CS}_{c, t}) \le 1.0$ for all clubs and gameweeks.
+   * $0.0 \le xP_{i, t} \le 25.0$ (sanity bounds).
+   * Free transfers constrained to $1 \le \text{FT} \le 5$.
+6. **Performance Benchmark**: Multi-horizon tensor generation across all 650 players executes in $< 50\text{ms}$.
+
+---
+
+## 8. Next Step: Progression to Phase 1
 
 Upon implementation and verification of Phase 0:
-* **Phase 1 (The Wave Scanner)** directly consumes `ClubScheduleProfile` and `PlayerTrajectoryProfile` to detect Green Waves, Red Cliffs, and Defensive Rotation Pairs.
-* **Phase 2 (The Multi-Period Solver)** consumes the dense $(N \times H)$ $xP$ tensor and `StrategicSquadState` to solve the 5-gameweek integer linear program.
+* **Phase 1 (The Wave Scanner)** directly consumes `ClubScheduleProfile` and `PlayerTrajectoryProfile` to detect Green Waves, Red Cliffs, and Defensive Rotation Pairs using either heuristic defaults or tuned thresholds.
+* **Phase 2 (The Multi-Period Solver)** consumes the dense $(N \times H)$ $xP$ tensor, dynamic discount $\gamma$, and `StrategicSquadState` to solve the 5-gameweek integer linear program.
