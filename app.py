@@ -4,6 +4,13 @@ Slim entry router dispatching to modular presentation tabs in `ui/tabs/`.
 Run locally with: streamlit run app.py
 """
 
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("rubies_rangers.app")
+
 import streamlit as st
 import pandas as pd
 
@@ -37,6 +44,7 @@ from ui.tabs import (
     render_tab_weather,
     render_tab_challenge_optimizer,
     render_tab_challenge_rolling,
+    render_tab_challenge_cpn,
     render_tab_strategic_macro,
     render_tab_strategic_solver,
     render_tab_strategic_balance_sheet,
@@ -65,14 +73,25 @@ from clients.auth_manager import AuthManager
 auth_mgr = AuthManager()
 session_info = auth_mgr.get_active_session()
 
+logger.info(
+    "[App] FPL Session loaded: Authenticated=%s | Manager=%s %s | Entry ID=%s | Bank=£%.1fm | FT=%d | Source=%s",
+    session_info.is_authenticated, session_info.first_name, session_info.last_name,
+    session_info.entry_id, session_info.bank, session_info.free_transfers, session_info.auth_source
+)
+
 if session_info.is_authenticated:
     st.sidebar.markdown(
         f"""
         <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px;">
-            <div style="color: #4ade80; font-weight: 700; font-size: 13px;">
-                🟢 {session_info.first_name} {session_info.last_name}
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="color: #4ade80; font-weight: 700; font-size: 13px;">
+                    🟢 {session_info.first_name} {session_info.last_name}
+                </div>
+                <div style="color: #6ee7b7; font-size: 10px; background: rgba(16, 185, 129, 0.25); padding: 1px 5px; border-radius: 3px;">
+                    {session_info.auth_source}
+                </div>
             </div>
-            <div style="color: #cbd5e1; font-size: 11px; margin-top: 2px;">
+            <div style="color: #cbd5e1; font-size: 11px; margin-top: 3px;">
                 Entry #{session_info.entry_id} • Bank: £{session_info.bank:.1f}m • FT: {session_info.free_transfers}
             </div>
         </div>
@@ -97,6 +116,7 @@ else:
 col_auth1, col_auth2 = st.sidebar.columns([1, 1])
 with col_auth1:
     if st.button("🔄 Refresh", key="sidebar_refresh_auth_btn", help="Re-verify FPL Session & Live Team State"):
+        logger.info("[App] Sidebar '🔄 Refresh' clicked by user; refreshing FPL session...")
         with st.spinner("Re-verifying..."):
             auth_mgr.refresh_session()
             st.cache_data.clear()
@@ -106,13 +126,34 @@ with col_auth2:
     with st.popover("⚡ Sync"):
         st.markdown(
             """
-            **1-Click Chrome Sync Bookmarklet:**
-            Save as a Chrome bookmark and click while on `fantasy.premierleague.com`:
-            ```javascript
-            javascript:(async()=>{try{const r=await fetch('http://localhost:8000/api/auth/sync_browser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookie:document.cookie})});const d=await r.json();if(d.is_authenticated){alert(`✅ Synced with Rubies Rangers!\nManager: ${d.first_name} ${d.last_name}\nTeam ID: ${d.entry_id}\nBank: £${d.bank}m`);}else{alert('❌ Sync failed: '+d.error_message);}}catch(e){alert('❌ Could not connect to API on localhost:8000. Make sure launch_api.bat is running.');}})()
-            ```
+            **Method 1: 1-Click Chrome Bookmarklet (Recommended)**
+            1. Press **`Ctrl + Shift + B`** in Chrome to show the Bookmarks Bar.
+            2. Right-click the Bookmarks Bar $\rightarrow$ **Add page...**
+            3. **Name**: `⚡ Sync Rubies Rangers`
+            4. **URL**: Copy and paste the snippet below:
             """
         )
+        st.code(
+            """javascript:(async()=>{try{const m=await(await fetch('/api/me/')).json();if(!m||!m.player){alert('❌ Please log into fantasy.premierleague.com first.');return;}let b=0.0,ft=1;try{const t=await(await fetch(`/api/my-team/${m.player.entry}/`)).json();if(t.transfers){b=t.transfers.bank/10.0;ft=t.transfers.limit;}}catch(e){}const r=await fetch('http://localhost:8000/api/auth/sync_browser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({entry_id:m.player.entry,first_name:m.player.first_name,last_name:m.player.last_name,bank:b,free_transfers:ft,cookie:document.cookie})});const d=await r.json();if(d.is_authenticated){alert(`✅ Synced with Rubies Rangers!\nManager: ${d.first_name} ${d.last_name}\nTeam ID: ${d.entry_id}\nBank: £${d.bank}m\nFree Transfers: ${d.free_transfers}`);}else{alert('❌ Sync failed: '+d.error_message);}}catch(e){alert('❌ Could not connect to API on localhost:8000. Make sure launch_api.bat is running.');}})()""",
+            language="javascript"
+        )
+        st.markdown(
+            """
+            5. Go to [fantasy.premierleague.com](https://fantasy.premierleague.com/) (logged in) and click the bookmark on your top bar!
+
+            ---
+            **Method 2: Run via Chrome DevTools Console**
+            1. On [fantasy.premierleague.com](https://fantasy.premierleague.com/) (logged in), press **`F12`** $\rightarrow$ click the **Console** tab.
+            2. ⚠️ **Chrome Security Notice:** Chrome blocks pasting code into the Console by default. To unlock it:
+               - Type **`allow pasting`** into the console and press **Enter**.
+            3. Now copy and paste the command below, then press **Enter**:
+            """
+        )
+        st.code(
+            """(async()=>{try{const m=await(await fetch('/api/me/')).json();if(!m||!m.player){alert('❌ Please log into fantasy.premierleague.com first.');return;}let b=0.0,ft=1;try{const t=await(await fetch(`/api/my-team/${m.player.entry}/`)).json();if(t.transfers){b=t.transfers.bank/10.0;ft=t.transfers.limit;}}catch(e){}const r=await fetch('http://localhost:8000/api/auth/sync_browser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({entry_id:m.player.entry,first_name:m.player.first_name,last_name:m.player.last_name,bank:b,free_transfers:ft,cookie:document.cookie})});const d=await r.json();if(d.is_authenticated){alert(`✅ Synced with Rubies Rangers!\nManager: ${d.first_name} ${d.last_name}\nTeam ID: ${d.entry_id}\nBank: £${d.bank}m\nFree Transfers: ${d.free_transfers}`);}else{alert('❌ Sync failed: '+d.error_message);}}catch(e){alert('❌ Could not connect to API on localhost:8000. Make sure launch_api.bat is running.');}})()""",
+            language="javascript"
+        )
+        st.markdown("---")
         raw_c = st.text_input("Or paste cookie / pl_profile:", key="sidebar_paste_cookie")
         if st.button("Apply Token", key="sidebar_apply_cookie"):
             if raw_c:
@@ -360,6 +401,7 @@ mode = st.sidebar.selectbox("Workflow", [
     # --- Challenge Mode Workflows (FPL Challenge) ---
     "🎯 Challenge: Two-Stage Tournament (Screen & Simulate)",
     "🎯 Challenge: Matchday Center & Rolling Lock Tracker",
+    "🤖 Challenge: Autonomous CPN Robotic Manager",
 
     # --- Tactical & Environmental Intelligence ---
     "🌤️ Weather Radar & Environmental Intelligence",
@@ -386,6 +428,8 @@ elif "Challenge: Two-Stage Tournament" in mode:
     render_tab_challenge_optimizer(df)
 elif "Challenge: Matchday Center" in mode:
     render_tab_challenge_rolling(df)
+elif "Challenge: Autonomous CPN" in mode:
+    render_tab_challenge_cpn(df)
 elif "Weather Radar" in mode:
     render_tab_weather(df, current_squad)
 elif "Two-Stage Tournament" in mode:

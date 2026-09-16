@@ -22,6 +22,14 @@ def _patched_init(self, *args, **kwargs):
     return _orig_init(self, *args, **kwargs)
 starlette.routing.Router.__init__ = _patched_init
 
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("rubies_rangers.api")
+
+import asyncio
 import numpy as np
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, Query, HTTPException
@@ -94,7 +102,13 @@ class AuthLoginRequest(BaseModel):
 
 
 class BrowserSyncRequest(BaseModel):
-    cookie: str = Field(..., description="Raw cookie string or pl_profile token extracted from Chrome/Edge")
+    cookie: Optional[str] = Field(default="", description="Raw cookie string or pl_profile token extracted from Chrome/Edge")
+    entry_id: Optional[int] = Field(default=None, description="Manager Entry ID")
+    first_name: Optional[str] = Field(default=None, description="Manager First Name")
+    last_name: Optional[str] = Field(default=None, description="Manager Last Name")
+    team_name: Optional[str] = Field(default="Rubies Rangers", description="Team Name")
+    bank: Optional[float] = Field(default=None, description="Bank balance in millions")
+    free_transfers: Optional[int] = Field(default=None, description="Available free transfers")
 
 
 _default_dry_run = bool(get_system_config("dry_run") if get_system_config("dry_run") is not None else True)
@@ -466,13 +480,32 @@ def auth_login(req: AuthLoginRequest):
 @app.post("/api/auth/sync_browser")
 def auth_sync_browser(req: BrowserSyncRequest):
     """
-    Ingests live session cookies pushed from Chrome / Edge 1-click bookmarklet or UI paste.
+    Ingests live session cookies or verified browser profile pushed from Chrome / Edge bookmarklet.
     Auto-resolves manager identity and updates active session.
     """
+    logger.info("[API] POST /api/auth/sync_browser received: entry_id=%s, manager=%s %s, bank=%s, ft=%s",
+                req.entry_id, req.first_name, req.last_name, req.bank, req.free_transfers)
     from clients.auth_manager import AuthManager
     auth_mgr = AuthManager()
-    session = auth_mgr.sync_browser_cookie(req.cookie, source="BROWSER_SYNC")
+    if req.entry_id:
+        session = auth_mgr.sync_browser_profile(
+            entry_id=req.entry_id,
+            first_name=req.first_name or "Manager",
+            last_name=req.last_name or "",
+            team_name=req.team_name or "Rubies Rangers",
+            bank=req.bank if req.bank is not None else 3.7,
+            free_transfers=req.free_transfers if req.free_transfers is not None else 1,
+            cookie=req.cookie or "",
+            source="BROWSER_SYNC"
+        )
+    else:
+        session = auth_mgr.sync_browser_cookie(req.cookie or "", source="BROWSER_SYNC")
+
+    logger.info("[API] Browser sync result: is_authenticated=%s, manager=%s %s, entry_id=%s",
+                session.is_authenticated, session.first_name, session.last_name, session.entry_id)
+
     if not session.is_authenticated:
+        logger.warning("[API] Browser sync rejected: %s", session.error_message)
         raise HTTPException(status_code=400, detail=session.error_message or "Invalid or expired cookie string.")
     return session.to_dict()
 
@@ -482,11 +515,171 @@ def auth_refresh():
     """
     Forces immediate re-verification and refresh of the active FPL session.
     """
+    logger.info("[API] POST /api/auth/refresh invoked")
     from clients.auth_manager import AuthManager
     auth_mgr = AuthManager()
     session = auth_mgr.refresh_session()
+    logger.info("[API] Refresh result: is_authenticated=%s, manager=%s %s, entry_id=%s",
+                session.is_authenticated, session.first_name, session.last_name, session.entry_id)
     return session.to_dict()
 
+
+# -------------------------------------------------------------
+# FPL Challenge Automation & CPN Endpoints
+# -------------------------------------------------------------
+
+class ChallengeSolveRequest(BaseModel):
+    gameweek: int = Field(default=5, ge=1, le=38, description="Target gameweek")
+    archetype: str = Field(default="max_ev", description="Target archetype: max_ev, safe_floor, or gpp_upside")
+    preset_key: Optional[str] = Field(default=None, description="Preset key (e.g. gw5_one_player_per_club, standard_6_a_side)")
+    n_simulations: int = Field(default=2500, ge=100, le=10000, description="Monte Carlo draws")
+    lock_players: Optional[List[str]] = Field(default=None, description="Players forced into lineup")
+    exclude_players: Optional[List[str]] = Field(default=None, description="Players barred from lineup")
+    available_only: bool = Field(default=True, description="Filter to available starters only")
+
+
+class ChallengeCPNRunRequest(BaseModel):
+    gameweek: int = Field(default=5, ge=1, le=38, description="Target gameweek")
+    entry_id: Optional[int] = Field(default=None, description="Manager entry ID (auto-resolved if omitted)")
+    archetype: str = Field(default="max_ev", description="Optimization archetype: max_ev, safe_floor, or gpp_upside")
+    preset_key: Optional[str] = Field(default=None, description="Preset key (e.g. gw5_one_player_per_club)")
+    dry_run: bool = Field(default=True, description="Run in dry-run mode (safe drill)")
+    max_retries: int = Field(default=3, ge=1, le=5, description="Max Saga retry attempts on drop")
+    n_simulations: int = Field(default=2500, ge=100, le=10000, description="Monte Carlo draws")
+    lock_players: Optional[List[str]] = Field(default=None, description="Players forced into lineup")
+    exclude_players: Optional[List[str]] = Field(default=None, description="Players barred from lineup")
+    available_only: bool = Field(default=True, description="Filter to available starters only")
+
+
+@app.get("/api/challenge/rules")
+def get_challenge_rules(gameweek: int = Query(default=5, ge=1, le=38)):
+    """
+    Returns available FPL Challenge presets and rules for the specified gameweek.
+    """
+    from analytics.challenge.rule_extractor import get_available_challenge_presets
+    presets = get_available_challenge_presets()
+    return {
+        "gameweek": gameweek,
+        "available_presets": {
+            k: {
+                "name": v.name,
+                "squad_size": v.squad_size,
+                "budget_cap": v.budget_cap,
+                "max_per_team": v.max_per_team,
+                "description": v.description,
+                "scoring_modifiers": v.scoring_modifiers
+            }
+            for k, v in presets.items()
+        }
+    }
+
+
+@app.post("/api/challenge/solve")
+def solve_challenge(req: ChallengeSolveRequest):
+    """
+    Solves optimal FPL Challenge lineup for the given archetype and constraints
+    using the modular ChallengePicker service.
+    """
+    from analytics.challenge.picker import ChallengePicker, ChallengePickerConfig
+    from analytics.challenge.rule_extractor import CHALLENGE_PRESETS
+    from clients.fpl_client import FPLClient
+
+    rule_set = CHALLENGE_PRESETS.get(req.preset_key or "gw5_one_player_per_club")
+    if not rule_set:
+        rule_set = CHALLENGE_PRESETS["gw5_one_player_per_club"]
+
+    cfg = ChallengePickerConfig(
+        archetype=req.archetype,
+        n_simulations=req.n_simulations,
+        lock_players=req.lock_players,
+        exclude_players=req.exclude_players,
+        available_only=req.available_only
+    )
+    fpl_c = FPLClient()
+    players_df = fpl_c.get_players_df()
+
+    try:
+        res = ChallengePicker.pick_challenge_squad(
+            players_df=players_df,
+            rule_set=rule_set,
+            config=cfg
+        )
+        return {
+            "archetype": res.archetype_chosen,
+            "squad": res.selected_squad.squad_names,
+            "captain": res.selected_squad.captain,
+            "vice_captain": res.selected_squad.vice_captain,
+            "expected_ev": round(float(res.evaluated_candidate.mean_points), 2),
+            "p99": round(float(res.evaluated_candidate.tournament_p99), 2),
+            "picks_payload": res.picks_payload,
+            "element_ids": res.element_ids
+        }
+    except Exception as e:
+        logger.error("[API] Challenge solve error: %s", e)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/challenge/cpn/run")
+async def run_challenge_cpn(req: ChallengeCPNRunRequest):
+    """
+    Executes the autonomous Kurt Jensen Coloured Petri Net (CPN) pipeline for FPL Challenge:
+    ingests market, solves archetype, validates config invariants, submits lineup,
+    and performs Saga verification with automated retries.
+    """
+    from automation.challenge_cpn import ChallengeCPNEngine, ChallengeCPNDiagnosticJournal
+    from clients.auth_manager import AuthManager
+
+    auth_mgr = AuthManager()
+    session = auth_mgr.get_active_session()
+    resolved_entry = req.entry_id or session.entry_id or 6173410
+
+    auth_headers = None
+    if not req.dry_run and session.is_authenticated:
+        auth_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RubiesRangersChallenge/1.0",
+            "Cookie": session.cookie_header
+        }
+        if session.auth_token.startswith("eyJ") and ";" not in session.auth_token:
+            auth_headers["Authorization"] = f"Bearer {session.auth_token}"
+
+    journal = ChallengeCPNDiagnosticJournal()
+    engine = ChallengeCPNEngine(
+        journal=journal,
+        dry_run=req.dry_run
+    )
+
+    try:
+        receipt = await engine.run_pipeline(
+            gameweek=req.gameweek,
+            entry_id=resolved_entry,
+            preset_key=req.preset_key,
+            archetype=req.archetype,
+            n_simulations=req.n_simulations,
+            max_retries=req.max_retries,
+            lock_players=req.lock_players,
+            exclude_players=req.exclude_players,
+            available_only=req.available_only,
+            auth_headers=auth_headers
+        )
+        return receipt
+    except Exception as e:
+        logger.error("[API] Challenge CPN error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/challenge/cpn/journal")
+def get_challenge_cpn_journal(limit: int = Query(default=50, ge=1, le=200)):
+    """
+    Fetches the latest immutable diagnostic entries from the Challenge CPN JSONL journal.
+    """
+    from automation.challenge_cpn import ChallengeCPNDiagnosticJournal
+    journal = ChallengeCPNDiagnosticJournal()
+    entries = journal.tail(limit=limit)
+    return {
+        "count": len(entries),
+        "limit": limit,
+        "entries": entries
+    }
 
 
 if __name__ == "__main__":

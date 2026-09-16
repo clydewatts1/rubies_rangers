@@ -144,3 +144,116 @@ class FPLChallengeClient:
                 "total_transfers": 999
             }
         }
+
+    # ----------------------------------------------------------------------
+    # Lineup Management & Verification Endpoints
+    # ----------------------------------------------------------------------
+
+    _simulated_teams: Dict[int, Dict[str, Any]] = {}
+
+    def get_my_team(
+        self,
+        entry_id: int,
+        auth_headers: Optional[Dict[str, str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Fetches the current Challenge lineup for the specified manager entry.
+        Supports live API query with session headers, falling back to simulated memory state.
+        """
+        # If simulated state exists, return it (essential for dry-run testing and chaos drills)
+        if entry_id in self._simulated_teams:
+            logger.info("[FPLChallengeClient] Returning simulated team state for Entry %d", entry_id)
+            return dict(self._simulated_teams[entry_id])
+
+        if auth_headers:
+            url = f"{CHALLENGE_BASE_URL}/my-team/{entry_id}/"
+            try:
+                req = urllib.request.Request(url, headers=auth_headers)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        logger.info("[FPLChallengeClient] Fetched live challenge team for Entry %d", entry_id)
+                        return data
+            except Exception as e:
+                logger.warning("[FPLChallengeClient] Live my-team query failed (%s); using baseline fallback.", e)
+
+        # Baseline fallback team structure
+        default_picks = [
+            {"element": 350, "position": 1, "is_captain": True, "is_vice_captain": False},
+            {"element": 300, "position": 2, "is_captain": False, "is_vice_captain": True},
+            {"element": 250, "position": 3, "is_captain": False, "is_vice_captain": False},
+            {"element": 200, "position": 4, "is_captain": False, "is_vice_captain": False},
+            {"element": 150, "position": 5, "is_captain": False, "is_vice_captain": False},
+            {"element": 100, "position": 6, "is_captain": False, "is_vice_captain": False},
+        ]
+        fallback = {
+            "entry": entry_id,
+            "picks": default_picks,
+            "transfers": {"limit": 999, "made": 0, "bank": 0},
+            "chips": [],
+        }
+        self._simulated_teams[entry_id] = fallback
+        return fallback
+
+    def post_challenge_team(
+        self,
+        entry_id: int,
+        payload: Dict[str, Any],
+        auth_headers: Optional[Dict[str, str]] = None,
+        dry_run: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Transmits lineup changes for FPL Challenge.
+        In dry-run mode, immediately mutates in-memory simulated state and returns 200 OK.
+        In live mode, executes HTTP POST to official FPL Challenge endpoint.
+        """
+        picks = payload.get("picks", [])
+        logger.info(
+            "[FPLChallengeClient] post_challenge_team called for Entry %d (picks: %d, dry_run: %s)",
+            entry_id, len(picks), dry_run
+        )
+
+        if dry_run or not auth_headers:
+            # Update simulated state
+            self._simulated_teams[entry_id] = {
+                "entry": entry_id,
+                "picks": list(picks),
+                "transfers": {"limit": 999, "made": len(picks), "bank": 0},
+                "chips": payload.get("chip"),
+                "last_updated": time.time(),
+            }
+            logger.info("[FPLChallengeClient: DRY RUN] Simulated Challenge lineup update saved for Entry %d", entry_id)
+            return {
+                "status_code": 200,
+                "result": "dry_run_success",
+                "picks_count": len(picks),
+                "entry_id": entry_id
+            }
+
+        # Live Transmission
+        url = f"{CHALLENGE_BASE_URL}/my-team/{entry_id}/"
+        try:
+            req_data = json.dumps(payload).encode("utf-8")
+            headers = dict(auth_headers)
+            headers["Content-Type"] = "application/json"
+            req = urllib.request.Request(url, data=req_data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                status = resp.status
+                body = resp.read().decode("utf-8")
+                logger.info("[FPLChallengeClient: LIVE] Challenge lineup transmitted (HTTP %d)", status)
+                # Cache the new picks in simulated state as well
+                self._simulated_teams[entry_id] = {
+                    "entry": entry_id,
+                    "picks": list(picks),
+                    "transfers": {"limit": 999, "made": len(picks), "bank": 0},
+                    "chips": payload.get("chip"),
+                    "last_updated": time.time(),
+                }
+                return {"status_code": status, "result": body, "picks_count": len(picks), "entry_id": entry_id}
+        except urllib.error.HTTPError as he:
+            logger.error("[FPLChallengeClient: LIVE] HTTP Error %d: %s", he.code, he.reason)
+            return {"status_code": he.code, "error": str(he.reason), "result": "error"}
+        except Exception as e:
+            logger.error("[FPLChallengeClient: LIVE] Submission failed: %s", e)
+            return {"status_code": 500, "error": str(e), "result": "error"}
+

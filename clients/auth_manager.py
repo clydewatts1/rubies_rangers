@@ -88,8 +88,23 @@ class AuthManager:
         })
 
     # ----------------------------------------------------------------------
-    # Core Public Methods
+    # Core Public Properties & Methods
     # ----------------------------------------------------------------------
+
+    @property
+    def is_authenticated(self) -> bool:
+        """Returns True if the active session is authenticated and unexpired."""
+        session = self.get_active_session()
+        return bool(session and session.is_authenticated)
+
+    @property
+    def current_user_name(self) -> Optional[str]:
+        """Returns formatted manager display name if authenticated, else None."""
+        s = self.get_active_session()
+        if s and s.is_authenticated and s.first_name:
+            entry_part = f" (Entry ID: {s.entry_id})" if s.entry_id else ""
+            return f"{s.first_name} {s.last_name}{entry_part}"
+        return None
 
     def get_active_session(self, force_refresh: bool = False) -> AuthSessionInfo:
         """
@@ -100,15 +115,31 @@ class AuthManager:
             if not self._active_session.is_expired():
                 return self._active_session
 
-        # 1. Try restoring from cache file
-        if not force_refresh:
-            cached = self._load_session_cache()
-            if cached and not cached.is_expired():
-                # Verify token alive
-                verified = self._verify_and_populate(cached.auth_token, cached.auth_source)
-                if verified.is_authenticated:
-                    self._active_session = verified
-                    return verified
+        # 1. Try restoring from cache file (.fpl_auth_session.json)
+        cached = self._load_session_cache()
+        if cached and cached.is_authenticated and not cached.is_expired():
+            if not force_refresh:
+                self._active_session = cached
+                logger.info(
+                    "[AuthManager] Restored active authenticated session: Manager=%s %s (Entry ID: %s, Bank: £%.1fm, FT: %d, Source: %s)",
+                    cached.first_name, cached.last_name, cached.entry_id, cached.bank, cached.free_transfers, cached.auth_source
+                )
+                return cached
+            else:
+                # Force refresh: if browser-synced, refresh public team data without destroying auth state
+                if cached.auth_source == "BROWSER_SYNC":
+                    refreshed = self._refresh_public_profile(cached)
+                    self._save_session_cache(refreshed)
+                    self._active_session = refreshed
+                    logger.info("[AuthManager] Browser-synced profile refreshed for Entry ID %s (%s %s)",
+                                refreshed.entry_id, refreshed.first_name, refreshed.last_name)
+                    return refreshed
+                elif cached.auth_token:
+                    verified = self._verify_and_populate(cached.auth_token, cached.auth_source)
+                    if verified.is_authenticated:
+                        self._save_session_cache(verified)
+                        self._active_session = verified
+                        return verified
 
         # 2. Try credentials from environment / .env
         email = os.environ.get("FPL_EMAIL")
@@ -147,6 +178,7 @@ class AuthManager:
             error_message="No active credentials found in .env or browser session."
         )
         self._active_session = unauth
+        logger.info("[AuthManager] No authenticated session found; operating in offline mode.")
         return unauth
 
     def authenticate_with_credentials(
@@ -236,6 +268,87 @@ class AuthManager:
             logger.info("[AuthManager] Browser cookie synchronized successfully for Entry ID %s", session_info.entry_id)
         return session_info
 
+    def sync_browser_profile(
+        self,
+        entry_id: int,
+        first_name: str,
+        last_name: str,
+        team_name: str = "Rubies Rangers",
+        bank: float = 3.7,
+        free_transfers: int = 1,
+        cookie: str = "",
+        source: str = "BROWSER_SYNC"
+    ) -> AuthSessionInfo:
+        """
+        Directly saves verified profile and team parameters retrieved by the authenticated browser tab.
+        """
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(days=14)
+        session_info = AuthSessionInfo(
+            auth_token=cookie,
+            cookie_header=f"pl_profile={cookie}" if cookie else "",
+            entry_id=entry_id,
+            first_name=first_name,
+            last_name=last_name,
+            team_name=team_name,
+            bank=round(bank, 1),
+            free_transfers=free_transfers,
+            is_authenticated=True,
+            expires_at=expires_at,
+            auth_source=source,
+            error_message=None,
+            last_verified_at=now
+        )
+        self._save_session_cache(session_info)
+        self._active_session = session_info
+        logger.info("[AuthManager] Browser profile synchronized successfully for %s %s (Entry ID %s, Bank: £%.1fm, FT: %d)",
+                    first_name, last_name, entry_id, bank, free_transfers)
+
+        # Also synchronize bank balance to ProfileManager
+        try:
+            from analytics.profile_manager import ProfileManager
+            p_mgr = ProfileManager()
+            for prof in p_mgr.list_profiles():
+                if prof.fpl_entry_id == entry_id or prof.profile_id == "rubies_rangers":
+                    prof.bank_balance = round(bank, 1)
+                    p_mgr.save_profile(prof)
+                    logger.info("[AuthManager] Updated profile %s bank balance to £%.1fm", prof.profile_id, bank)
+        except Exception as pe:
+            logger.debug("[AuthManager] Could not update profile manager bank balance: %s", pe)
+
+        return session_info
+
+    def _refresh_public_profile(self, session: AuthSessionInfo) -> AuthSessionInfo:
+        """Refreshes public team details for an existing authenticated session."""
+        if not session.entry_id:
+            return session
+        try:
+            resp = requests.get(f"https://fantasy.premierleague.com/api/entry/{session.entry_id}/", timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                first_name = data.get("player_first_name") or session.first_name
+                last_name = data.get("player_last_name") or session.last_name
+                team_name = data.get("name") or session.team_name
+                now = datetime.now(timezone.utc)
+                return AuthSessionInfo(
+                    auth_token=session.auth_token,
+                    cookie_header=session.cookie_header,
+                    entry_id=session.entry_id,
+                    first_name=first_name,
+                    last_name=last_name,
+                    team_name=team_name,
+                    bank=session.bank,
+                    free_transfers=session.free_transfers,
+                    is_authenticated=True,
+                    expires_at=now + timedelta(days=14),
+                    auth_source=session.auth_source,
+                    error_message=None,
+                    last_verified_at=now
+                )
+        except Exception as e:
+            logger.warning("[AuthManager] Failed to refresh public entry data: %s", e)
+        return session
+
     def refresh_session(self) -> AuthSessionInfo:
         """Forces a fresh re-authentication or re-verification."""
         return self.get_active_session(force_refresh=True)
@@ -270,8 +383,11 @@ class AuthManager:
                 return self._create_error_session(f"/api/me/ returned HTTP {me_resp.status_code} (Token expired or unauthorized)")
 
             me_data = me_resp.json()
-            player = me_data.get("player", {})
+            player = me_data.get("player") or {}
             entry_id = player.get("entry")
+            if not entry_id:
+                return self._create_error_session("Session not authenticated: /api/me/ returned no active player profile.")
+
             first_name = player.get("first_name", "Manager")
             last_name = player.get("last_name", "")
 

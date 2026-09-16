@@ -4,6 +4,8 @@ An enterprise-grade quantitative analytics, predictive modeling, and optimizatio
 
 This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Market Implied Probabilities**, **Understat Shot Quality Process Metrics**, **Open-Meteo High-Resolution Stadium Weather Telemetry**, and **Stochastic Monte Carlo Simulations** (up to 10,000 parallel gameweek scenarios) to evaluate transfers, lineups, captaincy choices, and mini-league rival strategies.
 
+> 📈 **Featured Strategy Treatise:** For an in-depth institutional analysis of how quantitative hedge fund methodologies apply to Fantasy Premier League, read [**The Quant Manager's Manifesto: Approaching Fantasy Football as a Quantitative Hedge Fund**](docs/fantasy_football_as_a_hedge_fund_manager.md) — detailing Modern Portfolio Theory (MPT), factor risk models, real options pricing, and adversarial mini-league game theory.
+
 ---
 
 ## Table of Contents
@@ -69,14 +71,14 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
 13. [REST API Documentation & cURL Examples](#rest-api-documentation--curl-examples)
 14. [CLI Command Cheat Sheet](#cli-command-cheat-sheet)
 15. [Repository Architecture](#repository-architecture)
-16. [Brainstorm & Design Documents](#brainstorm--design-documents)
+16. [Strategic Whitepapers & Design Documents](#strategic-whitepapers--design-documents)
 17. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop)
 
 ---
 
 ## Core Moneyball Philosophy
 
-The strategic governance of Rubies Rangers is strictly codified in [`AGENTS.md`](AGENTS.md):
+The strategic governance of Rubies Rangers is strictly codified in [`AGENTS.md`](AGENTS.md) and comprehensively explored from first principles in [**Approaching Fantasy Football as a Quantitative Hedge Fund Manager**](docs/fantasy_football_as_a_hedge_fund_manager.md):
 
 1. **Underlying Expected Metrics Over Past Hype:**
    Prioritize true expected performance indicators (`expected_goals_per_90`, `expected_assists_per_90`, `NPxG_90`, and `expected_goal_involvements_per_90`). Evaluate process over outcome; never chase unsustainable finishing streaks or lucky historical spikes.
@@ -1454,12 +1456,13 @@ rubies_rangers/
 
 ---
 
-## Brainstorm & Design Documents
+## Strategic Whitepapers & Design Documents
 
-The following design specifications document future architectural directions. They are maintained in `docs/brainstorm/` and serve as formal blueprints when the time comes to implement each subsystem.
+The following design specifications and quantitative whitepapers document the mathematical architecture and strategic directions of Rubies Rangers.
 
 | Document | Status | Description |
 | :--- | :--- | :--- |
+| [`fantasy_football_as_a_hedge_fund_manager.md`](docs/fantasy_football_as_a_hedge_fund_manager.md) | COMPREHENSIVE WHITEPAPER | Institutional playbook on approaching Fantasy Football as a quantitative hedge fund: Modern Portfolio Theory (MPT), factor risk models, real options pricing, and adversarial mini-league game theory. |
 | [`additional_metrics.md`](docs/brainstorm/additional_metrics.md) | IMPLEMENTED | 7 high-alpha forward predictive metrics ($G - xG$, Box Touch Ratio, Talisman Share, $\text{BCM}$, $xG_{\text{obox}}$, Defensive Disruption, Implied Market Odds). |
 | [`two_stage_optimization_measures_inclusion_exclusion.md`](docs/brainstorm/two_stage_optimization_measures_inclusion_exclusion.md) | IMPLEMENTED | Exhaustive 42-measure evaluation whitepaper detailing inclusion/exclusion status and mathematical rationales for Stage 1 Screening and Stage 2 Monte Carlo Simulation. |
 | [`autonomous_execution_pipeline.md`](docs/brainstorm/autonomous_execution_pipeline.md) | IMPLEMENTED | Formal Coloured Petri Net (CPN) architecture for autonomous FPL API execution with Kleene 3-valued ($K_3$) transition guards, deadline-safe disambiguation, and session keepalive. |

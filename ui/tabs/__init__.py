@@ -21,6 +21,7 @@ from ui.tabs.tab_autonomous_cpn import render_tab_autonomous_cpn
 from ui.tabs.tab_weather import render_tab_weather
 from ui.tabs.tab_challenge_optimizer import render_tab_challenge_optimizer
 from ui.tabs.tab_challenge_rolling import render_tab_challenge_rolling
+from ui.tabs.tab_challenge_cpn import render_tab_challenge_cpn
 from ui.tabs.tab_strategic_macro import render_tab_strategic_macro
 from ui.tabs.tab_strategic_solver import render_tab_strategic_solver
 from ui.tabs.tab_strategic_balance_sheet import render_tab_strategic_balance_sheet
@@ -48,6 +49,7 @@ __all__ = [
     "render_tab_weather",
     "render_tab_challenge_optimizer",
     "render_tab_challenge_rolling",
+    "render_tab_challenge_cpn",
     "render_tab_strategic_macro",
     "render_tab_strategic_solver",
     "render_tab_strategic_balance_sheet",

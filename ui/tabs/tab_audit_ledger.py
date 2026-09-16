@@ -96,11 +96,11 @@ def render_tab_audit_ledger(df: pd.DataFrame, current_squad: list[str], active_p
 
         with c_act3:
             st.markdown("**🌱 Reset / Re-Seed Baseline Data**")
-            st.caption("Re-evaluates Gameweeks 1-4 standard historical baselines.")
-            if st.button("Re-Seed Historical Baselines", key="btn_reseed_baselines", use_container_width=True):
-                with st.spinner("Re-seeding GW1-4 historical baselines..."):
-                    ledger.seed_historical_gameweeks(up_to_gw=4)
-                    st.success("✅ Baseline history re-seeded!")
+            st.caption("Re-evaluates GW1-4 with dynamic fixture-adjusted model projections.")
+            if st.button("⚡ Force Re-Seed (Dynamic Model)", key="btn_reseed_baselines", use_container_width=True):
+                with st.spinner("Re-seeding GW1-4 using dynamic XPModel lineup solver..."):
+                    count = ledger.seed_historical_gameweeks(up_to_gw=4, force=True)
+                    st.success(f"✅ Re-seeded {count} gameweeks with dynamic model projections!")
                     st.rerun()
 
     # -------------------------------------------------------------

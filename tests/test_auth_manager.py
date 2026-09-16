@@ -225,3 +225,34 @@ def test_api_auth_refresh_endpoint(mock_refresh):
     assert response.status_code == 200
     data = response.json()
     assert data["is_authenticated"] is True
+
+
+def test_sync_browser_profile_and_cache_restore(tmp_path):
+    """Verify that browser profile sync persists and restores cleanly without re-verification error."""
+    auth_mgr = AuthManager()
+    session = auth_mgr.sync_browser_profile(
+        entry_id=6173410,
+        first_name="Clyde",
+        last_name="Watts",
+        team_name="Rubies Rangers",
+        bank=1.2,
+        free_transfers=2,
+        cookie="",
+        source="BROWSER_SYNC"
+    )
+    assert session.is_authenticated is True
+    assert session.bank == 1.2
+    assert session.free_transfers == 2
+
+    # Clear active in-memory singleton session to simulate new process
+    auth_mgr._active_session = None
+
+    restored = auth_mgr.get_active_session()
+    assert restored.is_authenticated is True
+    assert restored.entry_id == 6173410
+    assert restored.first_name == "Clyde"
+    assert restored.last_name == "Watts"
+    assert restored.bank == 1.2
+    assert restored.free_transfers == 2
+    assert restored.auth_source == "BROWSER_SYNC"
+

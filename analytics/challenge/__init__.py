@@ -17,6 +17,15 @@ from analytics.challenge.rule_extractor import (
 from analytics.challenge.scoring_adapter import ChallengeScoringAdapter
 from analytics.challenge.optimizer import ChallengeOptimizer
 from analytics.challenge.two_stage_optimizer import ChallengeTwoStageOptimizer
+from analytics.challenge.picker import (
+    ChallengePicker,
+    ChallengePickerConfig,
+    ChallengePickerResult,
+)
+from analytics.challenge.model_validator import (
+    ChallengeModelValidator,
+    ModelValidationReport,
+)
 
 __all__ = [
     "ChallengeRuleSet",
@@ -29,4 +38,9 @@ __all__ = [
     "ChallengeScoringAdapter",
     "ChallengeOptimizer",
     "ChallengeTwoStageOptimizer",
+    "ChallengePicker",
+    "ChallengePickerConfig",
+    "ChallengePickerResult",
+    "ChallengeModelValidator",
+    "ModelValidationReport",
 ]

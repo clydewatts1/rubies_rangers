@@ -482,15 +482,16 @@ class DecisionAuditLedger:
             calibration_diagnosis=diagnosis
         )
 
-    def seed_historical_gameweeks(self, up_to_gw: int = 4) -> int:
+    def seed_historical_gameweeks(self, up_to_gw: int = 4, force: bool = False) -> int:
         """
-        Auto-seeds historical completed gameweeks from live API / cached data
-        if the ledger is empty, giving the user immediate out-of-the-box visibility.
+        Auto-seeds historical completed gameweeks using dynamic fixture-adjusted
+        XPModel projections, and reconciles against live match ground truth.
+        If force=True, re-evaluates and overwrites existing historical records.
         """
         seeded_count = 0
         current_season = "2024-25"
 
-        # Default standard baseline squad for Gameweeks 1-4
+        # Baseline squad definitions used as robust fallback if dynamic solver is offline
         default_squad_names = [
             ("Roefs", "GKP", "SUN", 4.5, 4.0),
             ("Pedro Porro", "DEF", "TOT", 5.5, 5.0),
@@ -513,37 +514,83 @@ class DecisionAuditLedger:
 
         for gw in range(1, up_to_gw + 1):
             key = self._make_key(current_season, gw)
-            if key in self._snapshots and self._snapshots[key].is_reconciled:
+            if not force and key in self._snapshots and self._snapshots[key].is_reconciled:
                 continue
 
-            starters = [
-                {
-                    "web_name": name,
-                    "position_name": pos,
-                    "club_short": club,
-                    "now_cost": cost,
-                    "projected_xp": xp,
-                    "xP": xp
-                }
-                for name, pos, club, cost, xp in default_squad_names
-            ]
-            bench = [
-                {
-                    "web_name": name,
-                    "position_name": pos,
-                    "club_short": club,
-                    "now_cost": cost,
-                    "projected_xp": xp,
-                    "xP": xp
-                }
-                for name, pos, club, cost, xp in bench_names
-            ]
+            dynamic_success = False
+            starters = []
+            bench = []
+            cap_name = ""
+            vc_name = ""
+            formation = "4-4-2"
+            starting_xp = 0.0
+            effective_xp = 0.0
 
-            cap_name = "Isak" if gw in [1, 2] else "Foden"
-            vc_name = "Ødegaard"
-            starting_xp = sum(s["projected_xp"] for s in starters)
-            cap_xp = next(s["projected_xp"] for s in starters if s["web_name"] == cap_name)
-            effective_xp = starting_xp + cap_xp
+            try:
+                from analytics.xp_model import XPModel
+                xp_mod = XPModel(gameweek=gw, fpl_client=self.client)
+                lineup_res = xp_mod.optimize_lineup()
+
+                starters_df = lineup_res["starting_xi"]
+                bench_df = lineup_res["bench"]
+
+                starters = []
+                for s in starters_df.to_dict(orient="records"):
+                    s_rec = dict(s)
+                    xp_val = float(s_rec.get("xP", s_rec.get("projected_xp", 0.0)))
+                    s_rec["projected_xp"] = xp_val
+                    s_rec["xP"] = xp_val
+                    starters.append(s_rec)
+
+                bench = []
+                for b in bench_df.to_dict(orient="records"):
+                    b_rec = dict(b)
+                    xp_val = float(b_rec.get("xP", b_rec.get("projected_xp", 0.0)))
+                    b_rec["projected_xp"] = xp_val
+                    b_rec["xP"] = xp_val
+                    bench.append(b_rec)
+
+                cap_name = lineup_res["captain"]["web_name"]
+                vc_name = lineup_res["vice_captain"]["web_name"]
+                formation = lineup_res["formation"]
+                starting_xp = float(lineup_res["base_starting_xp"])
+                effective_xp = float(lineup_res["effective_total_xp"])
+                dynamic_success = True
+                logger.info("Dynamic XPModel optimization succeeded for GW%d: formation=%s, cap=%s, eff_xp=%.1f",
+                            gw, formation, cap_name, effective_xp)
+            except Exception as e:
+                logger.warning("Dynamic XPModel unavailable for GW%d (%s); falling back to baseline squad", gw, e)
+                dynamic_success = False
+
+            if not dynamic_success:
+                starters = [
+                    {
+                        "web_name": name,
+                        "position_name": pos,
+                        "club_short": club,
+                        "now_cost": cost,
+                        "projected_xp": xp,
+                        "xP": xp
+                    }
+                    for name, pos, club, cost, xp in default_squad_names
+                ]
+                bench = [
+                    {
+                        "web_name": name,
+                        "position_name": pos,
+                        "club_short": club,
+                        "now_cost": cost,
+                        "projected_xp": xp,
+                        "xP": xp
+                    }
+                    for name, pos, club, cost, xp in bench_names
+                ]
+                cap_name = "Isak" if gw in [1, 2] else "Foden"
+                vc_name = "Ødegaard"
+                formation = "4-4-2"
+                starting_xp = sum(s["projected_xp"] for s in starters)
+                cap_xp = next(s["projected_xp"] for s in starters if s["web_name"] == cap_name)
+                effective_xp = starting_xp + cap_xp
 
             self.snapshot_suggestion(
                 gw=gw,
@@ -552,7 +599,7 @@ class DecisionAuditLedger:
                 bench=bench,
                 captain_name=cap_name,
                 vice_captain_name=vc_name,
-                formation="4-4-2",
+                formation=formation,
                 projected_starting_xp=starting_xp,
                 projected_effective_xp=effective_xp,
                 profile_name="Rubies Rangers",

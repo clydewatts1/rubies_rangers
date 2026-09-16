@@ -237,3 +237,19 @@ class TestDecisionAuditLedger:
         assert "MID" in metrics.positional_bias
         assert "FWD" in metrics.positional_bias
         assert metrics.captaincy_accuracy_pct >= 0.0
+
+    def test_seed_historical_gameweeks_force(self, tmp_ledger_path, mock_fpl_client):
+        ledger = DecisionAuditLedger(ledger_file=tmp_ledger_path, client=mock_fpl_client)
+
+        # Initial seed
+        count1 = ledger.seed_historical_gameweeks(up_to_gw=2)
+        assert count1 == 2
+
+        # Calling without force should be idempotent (skip existing)
+        count2 = ledger.seed_historical_gameweeks(up_to_gw=2, force=False)
+        assert count2 == 0
+
+        # Calling with force should re-seed both
+        count3 = ledger.seed_historical_gameweeks(up_to_gw=2, force=True)
+        assert count3 == 2
+

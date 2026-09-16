@@ -9,6 +9,7 @@ Includes dynamic rule presets, 6-a-side pitch visualizer, and 1-click Challenge 
 
 from __future__ import annotations
 
+import asyncio
 from typing import List, Optional, Dict, Any
 import pandas as pd
 import numpy as np
@@ -30,7 +31,11 @@ from analytics.challenge.rule_extractor import (
     build_custom_challenge_rule_set,
 )
 from analytics.challenge.two_stage_optimizer import ChallengeTwoStageOptimizer
+from analytics.challenge.picker import ChallengePicker, ChallengePickerConfig, ChallengePickerResult
+from automation.challenge_cpn.engine import ChallengeCPNEngine
+from automation.challenge_cpn.diagnostics import ChallengeCPNDiagnosticJournal
 from clients.fpl_challenge_client import FPLChallengeClient
+from clients.auth_manager import AuthManager
 from analytics.profile_manager import ProfileManager, slugify_name
 from analytics.profile_contracts import ManagerProfile, ProfileType
 
@@ -75,6 +80,7 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
 
         # Resolve initial base ChallengeRuleSet from preset or API
         base_rule_set: ChallengeRuleSet
+        active_preset_key: Optional[str] = None
         if selected_label == "🌐 Live Challenge API (Auto-Fetch)":
             with st.spinner("Connecting to official FPL Challenge API..."):
                 try:
@@ -92,6 +98,7 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
         else:
             p_idx = preset_labels.index(selected_label)
             p_key = preset_names[p_idx]
+            active_preset_key = p_key
             base_rule_set = presets[p_key]
 
         # --------------------------------------------------------------
@@ -263,7 +270,137 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
             available_only = st.checkbox("Available Starters Only", value=True, key="challenge_avail_only")
 
     # ------------------------------------------------------------------
-    # 3. Execution Action Button
+    # 2.5 Autonomous Challenge CPN Pipeline & Saga Diagnostics HUD
+    # ------------------------------------------------------------------
+    with st.expander("⚡ Autonomous Challenge CPN Pipeline & Saga Diagnostics HUD", expanded=False):
+        st.markdown(r"""
+        **Autonomous Coloured Petri Net (CPN) Engine with Verification & Saga Retry Protocol:**
+        - **Formal Net**: $\mathcal{N} = (P, T, A, \Sigma, G, E, M_0)$ orchestrates rules extraction, market ingestion, squad optimization, config validation, and submission.
+        - **Model Validation Engine**: Validates decisions against `config.yaml` (`tuned` profile) to flag parameter drift or constraint anomalies.
+        - **Saga Processing**: Automated submission with live API state verification and exponential backoff retry loop.
+        """)
+
+        cpn_c1, cpn_c2, cpn_c3, cpn_c4 = st.columns([1.5, 1.5, 1.2, 1.2])
+        with cpn_c1:
+            cpn_mode = st.radio(
+                "CPN Execution Mode:",
+                options=["Dry-Run (Safe Drill)", "Live Submit (Official API)"],
+                index=0,
+                key="challenge_cpn_mode_radio",
+                help="Dry-run tests the entire CPN flow and simulated Saga state without modifying your live FPL account."
+            )
+            is_dry_run = (cpn_mode == "Dry-Run (Safe Drill)")
+        with cpn_c2:
+            cpn_archetype = st.selectbox(
+                "Target Archetype:",
+                options=["max_ev", "safe_floor", "gpp_upside"],
+                format_func=lambda x: {"max_ev": "👑 Max EV (Balanced)", "safe_floor": "🛡️ Safe Floor (High P10)", "gpp_upside": "🚀 GPP Upside (P99)"}[x],
+                key="challenge_cpn_archetype_select"
+            )
+        with cpn_c3:
+            cpn_retries = st.number_input("Max Saga Retries", min_value=1, max_value=5, value=3, step=1, key="challenge_cpn_retries")
+        with cpn_c4:
+            cpn_sims = st.selectbox("Monte Carlo Draws", options=[500, 1000, 2500], index=1, key="challenge_cpn_sims")
+
+        auth_mgr = AuthManager()
+        session_info = auth_mgr.get_active_session()
+        is_authenticated = session_info.is_authenticated
+        user_display = (
+            f"{session_info.first_name} {session_info.last_name} (Entry ID: {session_info.entry_id})"
+            if is_authenticated and session_info.first_name
+            else "Clyde Watts (Entry ID: 6173410)"
+        )
+
+        if not is_dry_run:
+            if is_authenticated:
+                st.info(f"🔑 Live Submission Target: **{user_display}** (Active Session Token Verified)")
+            else:
+                st.warning("⚠️ No active FPL session found. Please authenticate in Profile Settings or use Dry-Run mode.")
+
+        btn_run_cpn = st.button(
+            "⚡ Launch Challenge CPN Pipeline",
+            type="secondary",
+            use_container_width=True,
+            key="btn_run_challenge_cpn_pipeline"
+        )
+
+        if btn_run_cpn:
+            with st.spinner("Executing Autonomous Challenge CPN Pipeline with Saga Verification..."):
+                try:
+                    journal = ChallengeCPNDiagnosticJournal()
+                    engine = ChallengeCPNEngine(
+                        journal=journal,
+                        dry_run=is_dry_run
+                    )
+                    auth_headers = None
+                    resolved_entry = session_info.entry_id or 6173410
+                    if not is_dry_run and is_authenticated:
+                        auth_headers = {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RubiesRangersChallenge/1.0",
+                            "Cookie": session_info.cookie_header
+                        }
+                        if session_info.auth_token.startswith("eyJ") and ";" not in session_info.auth_token:
+                            auth_headers["Authorization"] = f"Bearer {session_info.auth_token}"
+
+                    cpn_receipt = asyncio.run(engine.run_pipeline(
+                        gameweek=active_rule_set.gameweek,
+                        entry_id=resolved_entry,
+                        players_df=df,
+                        preset_key=active_preset_key,
+                        archetype=cpn_archetype,
+                        n_simulations=int(cpn_sims),
+                        max_retries=int(cpn_retries),
+                        lock_players=lock_players,
+                        exclude_players=exclude_players,
+                        available_only=available_only,
+                        auth_headers=auth_headers
+                    ))
+                    st.session_state["last_challenge_cpn_receipt"] = cpn_receipt
+                    st.session_state["last_challenge_cpn_engine"] = engine
+                    st.toast("Challenge CPN execution complete!", icon="✅")
+                except Exception as e:
+                    st.error(f"Challenge CPN Pipeline execution error: {e}")
+
+        # Show CPN execution results if available
+        last_cpn_receipt = st.session_state.get("last_challenge_cpn_receipt")
+        last_cpn_engine: Optional[ChallengeCPNEngine] = st.session_state.get("last_challenge_cpn_engine")
+
+        if last_cpn_receipt:
+            st.markdown("---")
+            st.markdown("##### 📋 CPN Pipeline Execution Results & Saga Verification")
+            res_c1, res_c2, res_c3, res_c4 = st.columns(4)
+            rec = last_cpn_receipt.get("receipt", {}) if isinstance(last_cpn_receipt, dict) else {}
+            plan = last_cpn_receipt.get("plan", {}) if isinstance(last_cpn_receipt, dict) else {}
+            is_success = last_cpn_receipt.get("success", False) if isinstance(last_cpn_receipt, dict) else False
+
+            res_c1.metric("Saga Status", "VERIFIED (CONFIRMED)" if is_success else "FAILED", f"GW{rec.get('gameweek', active_rule_set.gameweek)}")
+            res_c2.metric("Captain / VC", f"{plan.get('captain', 'N/A')} (C)", f"{plan.get('vice_captain', 'N/A')} (VC)")
+            res_c3.metric("Squad", f"{len(plan.get('squad', []))} Players", f"Archetype: {plan.get('archetype', '').upper()}")
+            res_c4.metric("Verification Attempts", f"{rec.get('attempts_required', 1)} / {cpn_retries}", f"{last_cpn_receipt.get('duration_ms', 0):.1f} ms")
+
+            # Model Validation Report Display
+            if last_cpn_engine and last_cpn_engine.last_validation_report:
+                val_rep = last_cpn_engine.last_validation_report
+                st.markdown("##### 🔍 Model Validation Report (Config Settings vs Model State)")
+                v_col1, v_col2 = st.columns([1, 2])
+                with v_col1:
+                    if val_rep.is_valid:
+                        st.success("✅ **ALL MODEL CHECKS PASSED**\nNo constraint violations or parameter drift detected.")
+                    else:
+                        st.error(f"❌ **MODEL VALIDATION FAILED ({len(val_rep.errors)} Errors)**")
+                with v_col2:
+                    st.json(val_rep.summary_dict)
+
+            # CPN Diagnostics Journal View
+            st.markdown("##### 📜 Recent CPN Journal Telemetry")
+            journal = ChallengeCPNDiagnosticJournal()
+            recent_logs = journal.tail(15)
+            if recent_logs:
+                log_df = pd.DataFrame(recent_logs)[["timestamp", "event_type", "transition", "status", "message", "latency_ms"]]
+                st.dataframe(log_df, use_container_width=True, hide_index=True)
+
+    # ------------------------------------------------------------------
+    # 3. Execution Action Button (Interactive Studio Solver)
     # ------------------------------------------------------------------
     run_btn = st.button(
         "🚀 Run Challenge Two-Stage Tournament (Screen & Simulate)",
@@ -276,18 +413,21 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
         with st.spinner(f"Solving Stage 1 MILP & simulating {sim_count:,} Monte Carlo tournament draws..."):
             client = FPLChallengeClient()
             fixtures = client.get_fixtures(active_rule_set.gameweek)
-            engine = ChallengeTwoStageOptimizer(
-                players_df=df,
-                rule_set=active_rule_set,
-                fixtures=fixtures
-            )
-            report = engine.run_tournament(
+            picker_cfg = ChallengePickerConfig(
+                archetype="max_ev",
                 n_simulations=sim_count,
                 lock_players=lock_players if lock_players else None,
                 exclude_players=exclude_players if exclude_players else None,
-                available_only=available_only
+                available_only=available_only,
             )
-            st.session_state["challenge_tournament_report"] = report
+            picker_result = ChallengePicker.pick_challenge_squad(
+                players_df=df,
+                rule_set=active_rule_set,
+                fixtures=fixtures,
+                config=picker_cfg,
+            )
+            st.session_state["challenge_tournament_report"] = picker_result.tournament_report
+            st.session_state["challenge_picker_result"] = picker_result
 
     report: Optional[ChallengeTournamentReport] = st.session_state.get("challenge_tournament_report")
 

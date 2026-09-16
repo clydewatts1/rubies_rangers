@@ -1018,20 +1018,45 @@ def render_tab_autonomous_cpn(df: pd.DataFrame | None = None, current_squad: lis
 
     with auth_col2:
         if st.button("🔄 Refresh FPL Session", use_container_width=True, key="fpl_refresh_auth_btn"):
+            logger.info("[CPN Tab] '🔄 Refresh FPL Session' clicked by user; refreshing session...")
             with st.spinner("Re-verifying FPL session..."):
                 auth_mgr.refresh_session()
                 st.rerun()
 
-    with st.expander("⚡ 1-Click Chrome Sync Bookmarklet & Manual Cookie Ingestion", expanded=False):
+    with st.expander("⚡ 1-Click Chrome Sync Bookmarklet & Manual Cookie Ingestion", expanded=not session_info.is_authenticated):
         st.markdown(
             """
-            **Drag or save this Javascript snippet as a Chrome Bookmark:**
-            ```javascript
-            javascript:(async()=>{await fetch('http://localhost:8000/api/auth/sync_browser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookie:document.cookie})});alert('Rubies Rangers Authenticated!');})()
-            ```
-            *When on `fantasy.premierleague.com`, click the bookmark to instantly sync your live session to Rubies Rangers with 0 password typing.*
+            ### 🔄 How to Sync Your Live FPL Account
+
+            **Method 1: 1-Click Chrome Bookmarklet (Recommended)**
+            1. Press **`Ctrl + Shift + B`** in Chrome to show your top Bookmarks Bar.
+            2. Right-click the Bookmarks Bar $\rightarrow$ click **Add Page...** (or Add Bookmark).
+            3. **Name**: `⚡ Sync Rubies Rangers`
+            4. **URL**: Copy and paste the snippet below:
             """
         )
+        st.code(
+            """javascript:(async()=>{try{const m=await(await fetch('/api/me/')).json();if(!m||!m.player){alert('❌ Please log into fantasy.premierleague.com first.');return;}let b=0.0,ft=1;try{const t=await(await fetch(`/api/my-team/${m.player.entry}/`)).json();if(t.transfers){b=t.transfers.bank/10.0;ft=t.transfers.limit;}}catch(e){}const r=await fetch('http://localhost:8000/api/auth/sync_browser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({entry_id:m.player.entry,first_name:m.player.first_name,last_name:m.player.last_name,bank:b,free_transfers:ft,cookie:document.cookie})});const d=await r.json();if(d.is_authenticated){alert(`✅ Synced with Rubies Rangers!\nManager: ${d.first_name} ${d.last_name}\nTeam ID: ${d.entry_id}\nBank: £${d.bank}m\nFree Transfers: ${d.free_transfers}`);}else{alert('❌ Sync failed: '+d.error_message);}}catch(e){alert('❌ Could not connect to API on localhost:8000. Make sure launch_api.bat is running.');}})()""",
+            language="javascript"
+        )
+        st.markdown(
+            """
+            5. Go to [fantasy.premierleague.com](https://fantasy.premierleague.com/) (logged into your team).
+            6. Click `⚡ Sync Rubies Rangers` on your top Bookmarks Bar to sync with 0 password typing!
+
+            ---
+            **Method 2: Instant DevTools Console Sync (No bookmark needed)**
+            1. On [fantasy.premierleague.com](https://fantasy.premierleague.com/) (logged in), press **`F12`** $\rightarrow$ click the **Console** tab.
+            2. ⚠️ **Chrome Security Notice:** Chrome blocks pasting code into the Console by default. To unlock it:
+               - Type **`allow pasting`** into the console and press **Enter**.
+            3. Now copy and paste the snippet below, then press **Enter**:
+            """
+        )
+        st.code(
+            """(async()=>{try{const m=await(await fetch('/api/me/')).json();if(!m||!m.player){alert('❌ Please log into fantasy.premierleague.com first.');return;}let b=0.0,ft=1;try{const t=await(await fetch(`/api/my-team/${m.player.entry}/`)).json();if(t.transfers){b=t.transfers.bank/10.0;ft=t.transfers.limit;}}catch(e){}const r=await fetch('http://localhost:8000/api/auth/sync_browser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({entry_id:m.player.entry,first_name:m.player.first_name,last_name:m.player.last_name,bank:b,free_transfers:ft,cookie:document.cookie})});const d=await r.json();if(d.is_authenticated){alert(`✅ Synced with Rubies Rangers!\nManager: ${d.first_name} ${d.last_name}\nTeam ID: ${d.entry_id}\nBank: £${d.bank}m\nFree Transfers: ${d.free_transfers}`);}else{alert('❌ Sync failed: '+d.error_message);}}catch(e){alert('❌ Could not connect to API on localhost:8000. Make sure launch_api.bat is running.');}})()""",
+            language="javascript"
+        )
+        st.markdown("---")
         paste_cookie = st.text_input("Or paste raw cookie string / pl_profile token here:", key="manual_cookie_input")
         if st.button("📥 Apply Pasted Cookie", key="apply_pasted_cookie_btn"):
             if paste_cookie:

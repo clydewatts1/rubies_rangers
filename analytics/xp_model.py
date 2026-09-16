@@ -46,11 +46,16 @@ GW4_MATCH_ODDS = get_system_config("gw4_match_odds") or {
 
 
 class XPModel:
-    def __init__(self, gameweek: Optional[int] = None):
-        self.fpl_client = FPLClient()
-        self.tac_client = TacticalClient()
+    def __init__(
+        self,
+        gameweek: Optional[int] = None,
+        fpl_client: Optional[Any] = None,
+        tac_client: Optional[Any] = None,
+    ):
+        self.fpl_client = fpl_client if fpl_client is not None else FPLClient()
+        self.tac_client = tac_client if tac_client is not None else TacticalClient()
         self.weather_engine = WeatherEngine(fpl_client=self.fpl_client)
-        self.gameweek = gameweek or self.fpl_client.get_current_gameweek() or 4
+        self.gameweek = gameweek or getattr(self.fpl_client, "get_current_gameweek", lambda: 4)() or 4
         self._build_team_odds_map(gameweek=self.gameweek)
 
     def _build_team_odds_map(self, gameweek: Optional[int] = None):
@@ -96,13 +101,18 @@ class XPModel:
                 }
             return
 
-        # For future gameweeks, dynamically build from upcoming fixtures
+        # For historical or future gameweeks, dynamically build from fixtures
         try:
-            fixtures = self.fpl_client.get_fixtures_data()
             boot = self.fpl_client.get_bootstrap_data()
             id_to_short = {t["id"]: t["short_name"] for t in boot.get("teams", [])}
 
-            gw_fixtures = [f for f in fixtures if f.get("event") == target_gw]
+            gw_fixtures = []
+            if hasattr(self.fpl_client, "get_gameweek_fixtures"):
+                gw_fixtures = self.fpl_client.get_gameweek_fixtures(gameweek=target_gw)
+            if not gw_fixtures and hasattr(self.fpl_client, "get_fixtures_data"):
+                fixtures = self.fpl_client.get_fixtures_data()
+                gw_fixtures = [f for f in fixtures if f.get("event") == target_gw]
+
             if gw_fixtures:
                 xp_cfg = get_params("xp_model")
                 dyn_cfg = xp_cfg.get("dynamic_fdr", {})
