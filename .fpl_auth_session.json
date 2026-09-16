@@ -8,8 +8,8 @@
   "bank": 1.2,
   "free_transfers": 2,
   "is_authenticated": true,
-  "expires_at": "2026-09-30T07:44:15.887033+00:00",
+  "expires_at": "2026-09-30T08:01:34.222839+00:00",
   "auth_source": "BROWSER_SYNC",
-  "last_verified_at": "2026-09-16T07:44:15.887033+00:00",
+  "last_verified_at": "2026-09-16T08:01:34.222839+00:00",
   "error_message": null
 }
