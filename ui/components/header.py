@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import List, Dict, Optional
 import streamlit as st
+from ui.styles import render_html
 
 
 def render_terminal_header(
@@ -58,4 +59,4 @@ def render_terminal_header(
         </p>
     </div>
     """
-    st.markdown(header_html, unsafe_allow_html=True)
+    render_html(header_html)

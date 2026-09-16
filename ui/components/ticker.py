@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Optional, Any
 import streamlit as st
+from ui.styles import render_html
 
 
 def render_portfolio_ticker(
@@ -94,4 +95,4 @@ def render_portfolio_ticker(
         </div>
     </div>
     """
-    st.markdown(ticker_html, unsafe_allow_html=True)
+    render_html(ticker_html)
