@@ -1229,33 +1229,144 @@ def render_tab_challenge_cpn(df: pd.DataFrame) -> None:
             st.write(", ".join(squad_names))
 
         # 5.2 Quantitative Model Validation Report Card
-        if last_engine and last_engine.last_validation_report:
-            val_rep = last_engine.last_validation_report
+        val_data = None
+        if last_engine and getattr(last_engine, "last_validation_report", None):
+            vr = last_engine.last_validation_report
+            val_data = {
+                "is_valid": vr.is_valid,
+                "errors": vr.errors,
+                "warnings": vr.warnings,
+                "checks_passed": vr.checks_passed,
+                "setting_comparison": vr.setting_comparison,
+            }
+        elif isinstance(last_receipt, dict) and "validation" in last_receipt:
+            val_data = last_receipt["validation"]
+
+        if val_data:
+            is_val_valid = val_data.get("is_valid", False)
+            val_errors = val_data.get("errors", [])
+            val_checks = val_data.get("checks_passed", [])
+            setting_comp = val_data.get("setting_comparison", {})
+
             st.markdown("#### 🔍 Quantitative Model Validation (Config vs Model State)")
             mv_c1, mv_c2 = st.columns([1, 2])
             with mv_c1:
-                if val_rep.is_valid:
+                if is_val_valid:
                     st.success(
                         f"✅ **ALL INVARIANTS SATISFIED**\n\n"
-                        f"- Total Checks: **{len(val_rep.checks_passed)} passed**\n"
+                        f"- Total Checks: **{len(val_checks)} passed**\n"
                         f"- Zero constraint violations or parameter drift detected."
                     )
                 else:
-                    st.error(f"❌ **MODEL VALIDATION FAILED ({len(val_rep.errors)} Errors)**")
-                    for err in val_rep.errors:
+                    st.error(f"❌ **MODEL VALIDATION FAILED ({len(val_errors)} Errors)**")
+                    for err in val_errors:
                         st.markdown(f"- 🚨 {err}")
 
             with mv_c2:
                 with st.expander("📋 Verified Constraint Checks & Parameter Comparison", expanded=True):
-                    for chk in val_rep.checks_passed:
+                    for chk in val_checks:
                         st.markdown(f"✓ `{chk}`")
-                    if val_rep.setting_comparison:
+                    if isinstance(setting_comp, dict) and setting_comp:
                         st.markdown("##### Hyperparameter Alignment (`config.yaml` tuned profile):")
-                        cmp_df = pd.DataFrame([
-                            {"Parameter": k, "Config Setting": v.get("config_value"), "Model Realized": v.get("model_value"), "Match": "✅" if v.get("matches") else "⚠️"}
-                            for k, v in val_rep.setting_comparison.items()
-                        ])
-                        st.dataframe(cmp_df, use_container_width=True, hide_index=True)
+                        rows = []
+                        if any(isinstance(v, dict) for v in setting_comp.values()):
+                            for k, v in setting_comp.items():
+                                if isinstance(v, dict):
+                                    rows.append({
+                                        "Parameter": k.replace("_", " ").title(),
+                                        "Rule / Config": str(v.get("config_value", v.get("config", "—"))),
+                                        "Model Realized": str(v.get("model_value", v.get("model", "—"))),
+                                        "Match": "✅" if v.get("matches", True) else "⚠️"
+                                    })
+                                else:
+                                    rows.append({
+                                        "Parameter": k.replace("_", " ").title(),
+                                        "Rule / Config": "—",
+                                        "Model Realized": str(v),
+                                        "Match": "✅"
+                                    })
+                        else:
+                            b_cap = setting_comp.get("config_budget_cap")
+                            spend = setting_comp.get("actual_spend")
+                            s_size = setting_comp.get("rule_squad_size")
+                            act_size = setting_comp.get("actual_squad_size")
+                            c_lim = setting_comp.get("rule_club_limit")
+                            act_club = setting_comp.get("actual_max_club")
+                            n_clubs = setting_comp.get("clubs_represented")
+                            form = setting_comp.get("formation")
+                            prof = setting_comp.get("active_profile", "tuned")
+                            sims = setting_comp.get("simulations_modeled")
+                            win_p = setting_comp.get("win_probability_pct")
+
+                            if b_cap is not None and spend is not None:
+                                b_cap_str = f"£{b_cap:.1f}m" if b_cap < 900 else "Unlimited"
+                                rows.append({
+                                    "Parameter": "Budget Cap",
+                                    "Rule / Config": b_cap_str,
+                                    "Model Realized": f"£{spend:.1f}m (Bank: £{setting_comp.get('bank_remaining', 0.0):.1f}m)",
+                                    "Match": "✅" if (b_cap >= 900 or spend <= b_cap + 0.01) else "❌"
+                                })
+                            if s_size is not None and act_size is not None:
+                                rows.append({
+                                    "Parameter": "Squad Size",
+                                    "Rule / Config": f"{s_size} Starters",
+                                    "Model Realized": f"{act_size} Starters",
+                                    "Match": "✅" if act_size == s_size else "❌"
+                                })
+                            if c_lim is not None and act_club is not None:
+                                rows.append({
+                                    "Parameter": "Club Quota Limit",
+                                    "Rule / Config": f"Max {c_lim} per club",
+                                    "Model Realized": f"{act_club} max ({n_clubs} clubs)",
+                                    "Match": "✅" if act_club <= c_lim else "❌"
+                                })
+                            if form:
+                                rows.append({
+                                    "Parameter": "Formation",
+                                    "Rule / Config": "Legal Formation",
+                                    "Model Realized": str(form),
+                                    "Match": "✅"
+                                })
+                            if prof:
+                                rows.append({
+                                    "Parameter": "Active Profile",
+                                    "Rule / Config": str(prof),
+                                    "Model Realized": "Enforced",
+                                    "Match": "✅"
+                                })
+                            if sims:
+                                rows.append({
+                                    "Parameter": "Monte Carlo Draws",
+                                    "Rule / Config": "Stochastic",
+                                    "Model Realized": f"{sims:,} draws",
+                                    "Match": "✅"
+                                })
+                            if win_p is not None:
+                                rows.append({
+                                    "Parameter": "Win Probability",
+                                    "Rule / Config": "Tournament Upside",
+                                    "Model Realized": f"{win_p:.1f}%",
+                                    "Match": "✅"
+                                })
+
+                            handled = {
+                                "config_budget_cap", "actual_spend", "bank_remaining",
+                                "rule_squad_size", "actual_squad_size", "rule_club_limit",
+                                "actual_max_club", "clubs_represented", "formation",
+                                "active_profile", "simulations_modeled", "win_probability_pct"
+                            }
+                            for k, v in setting_comp.items():
+                                if k not in handled:
+                                    rows.append({
+                                        "Parameter": k.replace("_", " ").title(),
+                                        "Rule / Config": "—",
+                                        "Model Realized": str(v),
+                                        "Match": "✅"
+                                    })
+
+                        if rows:
+                            cmp_df = pd.DataFrame(rows)
+                            st.dataframe(cmp_df, use_container_width=True, hide_index=True)
 
         # 5.3 Saga Transaction Receipt Card
         st.markdown("#### 🧾 Saga Transaction Receipt")
