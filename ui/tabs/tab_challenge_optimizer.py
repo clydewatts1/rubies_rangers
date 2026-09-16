@@ -396,8 +396,30 @@ def render_tab_challenge_optimizer(df: pd.DataFrame) -> None:
             journal = ChallengeCPNDiagnosticJournal()
             recent_logs = journal.tail(15)
             if recent_logs:
-                log_df = pd.DataFrame(recent_logs)[["timestamp", "event_type", "transition", "status", "message", "latency_ms"]]
-                st.dataframe(log_df, use_container_width=True, hide_index=True)
+                records_for_display = []
+                for e in reversed(recent_logs):
+                    r_type = e.get("record_type", e.get("event_type", "event"))
+                    d = e.get("data", {})
+                    ts = e.get("timestamp_utc", e.get("timestamp", ""))
+                    if isinstance(d, dict):
+                        if r_type == "transition_firing":
+                            detail = f"Transition: {d.get('transition')} ({d.get('status')}) [{d.get('duration_ms', d.get('latency_ms', 0))}ms]"
+                        elif r_type == "saga_step":
+                            detail = f"Saga: {d.get('action')} - Attempt {d.get('attempt')}/{d.get('max_retries')} ({d.get('status')})"
+                        elif r_type == "model_validation":
+                            detail = f"Model Val: Valid={d.get('is_valid')} (Errors={d.get('error_count')}, Warnings={d.get('warning_count')})"
+                        elif "message" in d:
+                            detail = str(d.get("message"))
+                        else:
+                            detail = str(d)[:100]
+                    else:
+                        detail = str(d)[:100]
+                    records_for_display.append({
+                        "Timestamp (UTC)": ts,
+                        "Type": r_type,
+                        "Detail": detail
+                    })
+                st.dataframe(pd.DataFrame(records_for_display), use_container_width=True, hide_index=True)
 
     # ------------------------------------------------------------------
     # 3. Execution Action Button (Interactive Studio Solver)
