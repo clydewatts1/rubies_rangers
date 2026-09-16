@@ -257,3 +257,71 @@ def test_cpn_saga_retry_loop_recovery(sample_players_df, tmp_path):
     assert "MISMATCH" in statuses
     assert "VERIFIED" in statuses
     assert statuses.count("SUBMITTED") == 2, "Both initial submit and retry submit must be recorded"
+
+
+def test_challenge_cpn_topology_and_inspector(sample_players_df):
+    """
+    Verifies the CPN Topology and Interactive Inspector specifications:
+    - Formal specification of |T|=7 transitions and |P|=11 places.
+    - Telemetry snapshot generation before and after execution.
+    - HTML/SVG workbench rendering with all node IDs and interactive JS inspector.
+    """
+    from automation.challenge_cpn.engine import (
+        CHALLENGE_TRANSITION_SPECS,
+        CHALLENGE_PLACE_SPECS,
+    )
+    from ui.tabs.tab_challenge_cpn import (
+        _get_default_challenge_snapshot,
+        _build_challenge_workbench_html,
+    )
+
+    # 1. Spec integrity
+    assert len(CHALLENGE_TRANSITION_SPECS) == 7
+    assert len(CHALLENGE_PLACE_SPECS) == 11
+
+    for t_id, spec in CHALLENGE_TRANSITION_SPECS.items():
+        assert "display_title" in spec
+        assert "subnet" in spec
+        assert "consumed_places" in spec
+        assert "emitted_places" in spec
+        assert "guard_formula" in spec
+        assert "retry_policy" in spec
+
+    for p_id, spec in CHALLENGE_PLACE_SPECS.items():
+        assert "display_title" in spec
+        assert "color" in spec
+        assert "role" in spec
+        assert "capacity" in spec
+
+    # 2. Standby Snapshot & Workbench rendering
+    default_snap = _get_default_challenge_snapshot()
+    assert len(default_snap["place_counts"]) == 11
+    assert len(default_snap["transition_stats"]) == 7
+
+    standby_html = _build_challenge_workbench_html(default_snap)
+    assert "CHALLENGE CPN SPEC:" in standby_html
+    assert "node_T_RUN_CHALLENGE_PICKER" in standby_html
+    assert "node_P_CHALLENGE_CONFIRMED" in standby_html
+    assert "selectNode" in standby_html
+    assert "renderTransitionInspector" in standby_html
+    assert "renderPlaceInspector" in standby_html
+
+    # 3. Post-execution Snapshot
+    engine = ChallengeCPNEngine(dry_run=True)
+    result = asyncio.run(engine.run_pipeline(
+        players_df=sample_players_df,
+        preset_key="gw5_one_player_per_club",
+        archetype="max_ev",
+        n_simulations=300,
+        max_retries=1,
+        verification_delay_seconds=0.01
+    ))
+    assert result["success"] is True
+    assert "snapshot" in result
+    active_snap = result["snapshot"]
+    assert active_snap["transition_stats"]["T_RUN_CHALLENGE_PICKER"]["status"] == "ALIVE_FIRED"
+    assert active_snap["transition_stats"]["T_SAGA_VERIFY"]["status"] == "ALIVE_FIRED"
+
+    active_html = _build_challenge_workbench_html(active_snap)
+    assert "ALIVE / FIRED" in active_html
+    assert "node_P_CHALLENGE_CONFIRMED" in active_html
