@@ -1,7 +1,10 @@
 """
-Reusable Streamlit UI Presentation Components
-Pitch grids, player cards, badge renderers, and statistical cards.
+ui/components/cards.py
+Reusable Streamlit UI Presentation Cards & Badges.
+Includes candidate cards, FDR badges, and Pareto comparison cards.
 """
+
+from __future__ import annotations
 
 from typing import Dict, List, Any, Optional
 import streamlit as st
@@ -30,7 +33,7 @@ def render_candidate_card(
     net_gain: float,
     badge_label: str = "RECOMMENDED",
     badge_color: str = "green"
-):
+) -> None:
     """Renders a high-contrast comparison card for a Pareto candidate squad."""
     badge_cls = f"badge-step-{badge_color}"
     tin_str = ", ".join(transfers_in) if transfers_in else "None"
