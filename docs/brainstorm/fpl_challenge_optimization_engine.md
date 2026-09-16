@@ -1,3 +1,14 @@
+---
+type: Brainstorm
+title: "[#004] FPL Challenge Quantitative Optimization Engine"
+description: "Mathematical formulation and candidate screening for dynamic weekly FPL Challenge tournament formats."
+tags: [brainstorm, challenge, optimization, milp, knapsack]
+status: Legacy
+sources: []
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # Brainstorm: FPL Challenge Quantitative Optimization Engine
 ## Dynamic-Constraint Modeling, Single-Period Solvers & Rolling Deadline Execution
 

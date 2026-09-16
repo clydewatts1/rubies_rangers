@@ -1,3 +1,14 @@
+---
+type: Architecture
+title: "The Quant Manager's Manifesto: Approaching Fantasy Football as a Quantitative Hedge Fund"
+description: "Quantitative strategy whitepaper applying Modern Portfolio Theory, Multi-Factor Alpha, Real Options, and Adversarial Game Theory to 38-period FPL optimization."
+tags: [architecture, strategy, moneyball, portfolio, optimization, monte-carlo]
+status: Active
+sources: []
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # The Quant Manager's Manifesto: Approaching Fantasy Football as a Quantitative Hedge Fund
 ## Modern Portfolio Theory, Multi-Factor Alpha, Real Options Valuation, and Adversarial Game Theory Applied to 38-Period Fantasy Premier League Optimization
 

@@ -1,3 +1,14 @@
+---
+type: Brainstorm
+title: "[#012] Two-Stage Optimization: Measure Inclusion & Exclusion Criteria"
+description: "Feature selection and mathematical weighting for Multi-Objective MILP and Monte Carlo Tournament stages."
+tags: [brainstorm, optimization, milp, monte-carlo, tactics]
+status: Legacy
+sources: []
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # Two-Stage Optimization Architecture: Measure Inclusion & Exclusion Specification
 
 **Rubies Rangers — Advanced Quantitative Optimization Engine**  

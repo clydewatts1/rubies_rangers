@@ -1,0 +1,54 @@
+version: "1.0"
+namespace: "urn:air:clydewatts1:rubies_rangers"
+context: "https://agenticresourcediscovery.org/context/v1"
+
+tiers:
+  - name: docs
+    path: docs
+    type: text/markdown
+    description: "Federated ARD manifest cataloging internal lifecycle documentation: issues, brainstorms, designs, plans, tasks, and playbooks."
+  - name: analytics
+    path: analytics
+    type: text/x-python
+    description: "Federated ARD manifest cataloging quantitative optimization, Monte Carlo simulation, and Moneyball scoring models."
+  - name: automation
+    path: automation
+    type: text/x-python
+    description: "Federated ARD manifest cataloging Timed Coloured Petri Net (CPN) autonomous managers, Saga transaction coordinators, and background runners."
+  - name: clients
+    path: clients
+    type: text/x-python
+    description: "Federated ARD manifest cataloging official FPL clients, Understat, Weather radar, authentication, and transfer execution services."
+  - name: ui
+    path: ui
+    type: text/x-python
+    description: "Federated ARD manifest cataloging Streamlit Quant Trading Desks, telemetry tickers, and presentation components."
+  - name: tests
+    path: tests
+    type: text/x-python
+    description: "Federated ARD manifest cataloging unit, property, and benchmark test suites."
+  - name: tools
+    path: docs/tools
+    type: text/markdown
+    description: "Federated ARD manifest cataloging standalone developer and diagnostic tools."
+
+ignore_dirs:
+  - .git
+  - .venv
+  - venv
+  - node_modules
+  - bin
+  - archive
+  - __pycache__
+  - logs
+  - .hypothesis
+  - .pytest_cache
+
+scoring:
+  exact_title_boost: 60.0
+  exact_url_boost: 50.0
+  tag_match_boost: 40.0
+  query_match_boost: 30.0
+  fuzzy_threshold: 0.75
+
+watch_debounce: 500ms

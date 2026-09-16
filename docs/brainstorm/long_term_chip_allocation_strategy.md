@@ -1,3 +1,14 @@
+---
+type: Brainstorm
+title: "[#005] Long-Term Chip Allocation Strategy & Optimal Stochastic Timing"
+description: "Dynamic programming and Bellman optimality for timing Free Hit, Wildcard, Bench Boost, and Triple Captain chips."
+tags: [brainstorm, chips, strategy, optimization, monte-carlo]
+status: Legacy
+sources: []
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # Brainstorm: Long-Term Chip Allocation Strategy & Optimal Stopping Engine
 ## Multi-Period Dynamic Programming & Real Options Theory for FPL Chips
 

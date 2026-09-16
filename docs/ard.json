@@ -1,0 +1,300 @@
+{
+  "resources": [
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:fantasy-football-as-a-hedge-fund-manager",
+      "displayName": "The Quant Manager's Manifesto: Approaching Fantasy Football as a Quantitative Hedge Fund",
+      "type": "text/markdown",
+      "conceptType": "Architecture",
+      "tags": [
+        "architecture",
+        "strategy",
+        "moneyball",
+        "portfolio",
+        "optimization",
+        "monte-carlo"
+      ],
+      "sources": [],
+      "url": "docs/fantasy_football_as_a_hedge_fund_manager.md",
+      "description": "Quantitative strategy whitepaper applying Modern Portfolio Theory, Multi-Factor Alpha, Real Options, and Adversarial Game Theory to 38-period FPL optimization.",
+      "representativeQueries": [
+        "Where is the The Quant Manager's Manifesto: Approaching Fantasy Football as a Quantitative Hedge Fund architecture?",
+        "Show me architecture, strategy architectures."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:additional-metrics",
+      "displayName": "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "tactics",
+        "weather",
+        "moneyball",
+        "odds"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/additional_metrics.md",
+      "description": "Advanced feature engineering and leading predictive metrics across weather, tactics, and Moneyball alpha.",
+      "representativeQueries": [
+        "Where is the [#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics brainstorm?",
+        "Show me brainstorm, tactics brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:autonomous-execution-pipeline",
+      "displayName": "[#002] Autonomous Execution Pipeline & Robotic Manager",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "cpn",
+        "saga",
+        "automation",
+        "runner"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/autonomous_execution_pipeline.md",
+      "description": "Timed Coloured Petri Net (TCPN) autonomous robotic manager architecture with Saga submission loops.",
+      "representativeQueries": [
+        "Where is the [#002] Autonomous Execution Pipeline & Robotic Manager brainstorm?",
+        "Show me brainstorm, cpn brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:codebase-modularization-roadmap",
+      "displayName": "[#003] Codebase Modularization & Two-Stage Architectural Decoupling",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "architecture",
+        "process",
+        "refactor"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/codebase_modularization_roadmap.md",
+      "description": "Modular refactor decomposing app.py into domain packages: analytics, clients, ui, and automation.",
+      "representativeQueries": [
+        "Where is the [#003] Codebase Modularization & Two-Stage Architectural Decoupling brainstorm?",
+        "Show me brainstorm, architecture brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:fpl-challenge-optimization-engine",
+      "displayName": "[#004] FPL Challenge Quantitative Optimization Engine",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "challenge",
+        "optimization",
+        "milp",
+        "knapsack"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/fpl_challenge_optimization_engine.md",
+      "description": "Mathematical formulation and candidate screening for dynamic weekly FPL Challenge tournament formats.",
+      "representativeQueries": [
+        "Where is the [#004] FPL Challenge Quantitative Optimization Engine brainstorm?",
+        "Show me brainstorm, challenge brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:long-term-chip-allocation-strategy",
+      "displayName": "[#005] Long-Term Chip Allocation Strategy & Optimal Stochastic Timing",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "chips",
+        "strategy",
+        "optimization",
+        "monte-carlo"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/long_term_chip_allocation_strategy.md",
+      "description": "Dynamic programming and Bellman optimality for timing Free Hit, Wildcard, Bench Boost, and Triple Captain chips.",
+      "representativeQueries": [
+        "Where is the [#005] Long-Term Chip Allocation Strategy & Optimal Stochastic Timing brainstorm?",
+        "Show me brainstorm, chips brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:macro-match-jitter-covariance",
+      "displayName": "[#006] Macro Match-State Jitter & Teammate Covariance Modeling",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "monte-carlo",
+        "optimization",
+        "tactics"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/macro_match_jitter_covariance.md",
+      "description": "Full covariance matrix simulation modeling match-state blowouts, game script correlation, and variance.",
+      "representativeQueries": [
+        "Where is the [#006] Macro Match-State Jitter & Teammate Covariance Modeling brainstorm?",
+        "Show me brainstorm, monte-carlo brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:modularization",
+      "displayName": "[#007] Modularization Pointer & Architecture Index",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "architecture",
+        "process"
+      ],
+      "sources": [
+        "docs/brainstorm/codebase_modularization_roadmap.md"
+      ],
+      "url": "docs/brainstorm/modularization.md",
+      "description": "Canonical redirect and architecture index for domain modularization.",
+      "representativeQueries": [
+        "Where is the [#007] Modularization Pointer & Architecture Index brainstorm?",
+        "Show me brainstorm, architecture brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:multi-user-team-sandbox-architecture",
+      "displayName": "[#008] Multi-User, Multi-Team & Pre-Season Sandbox Architecture",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "portfolio",
+        "strategy",
+        "architecture"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/multi_user_team_sandbox_architecture.md",
+      "description": "Multi-profile sandbox architecture supporting isolated managerial portfolios and test rosters.",
+      "representativeQueries": [
+        "Where is the [#008] Multi-User, Multi-Team & Pre-Season Sandbox Architecture brainstorm?",
+        "Show me brainstorm, portfolio brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:shane-human-metrics",
+      "displayName": "[#009] Shane's Human Domain Metrics & Tacit Knowledge Formalization",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "scout",
+        "tactics",
+        "moneyball"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/shane_human_metrics.md",
+      "description": "Translating subjective domain scouting heuristics into formal quantitative signals.",
+      "representativeQueries": [
+        "Where is the [#009] Shane's Human Domain Metrics & Tacit Knowledge Formalization brainstorm?",
+        "Show me brainstorm, scout brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:strategic-framework-phase-0",
+      "displayName": "[#010] Strategic Framework Phase 0 - Foundational Data & Portfolio Ingestion",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "portfolio",
+        "transfers",
+        "strategy"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/strategic_framework_phase_0.md",
+      "description": "Multi-gameweek transfer planning, bank optimization, and rolling horizon setup.",
+      "representativeQueries": [
+        "Where is the [#010] Strategic Framework Phase 0 - Foundational Data & Portfolio Ingestion brainstorm?",
+        "Show me brainstorm, portfolio brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:strategic-portfolio-asset-management",
+      "displayName": "[#011] Macro-Strategic Portfolio & Asset Management Framework",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "portfolio",
+        "balance-sheet",
+        "strategy",
+        "transfers"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/strategic_portfolio_asset_management.md",
+      "description": "Managing FPL squads as dynamic investment portfolios with cash buffers and capital preservation.",
+      "representativeQueries": [
+        "Where is the [#011] Macro-Strategic Portfolio & Asset Management Framework brainstorm?",
+        "Show me brainstorm, portfolio brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:two-stage-optimization-measures-inclusion-exclusion",
+      "displayName": "[#012] Two-Stage Optimization: Measure Inclusion & Exclusion Criteria",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "optimization",
+        "milp",
+        "monte-carlo",
+        "tactics"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/two_stage_optimization_measures_inclusion_exclusion.md",
+      "description": "Feature selection and mathematical weighting for Multi-Objective MILP and Monte Carlo Tournament stages.",
+      "representativeQueries": [
+        "Where is the [#012] Two-Stage Optimization: Measure Inclusion & Exclusion Criteria brainstorm?",
+        "Show me brainstorm, optimization brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:two-stage-screen-and-simulate",
+      "displayName": "[#013] Two-Stage 'Screen & Simulate' Optimization Architecture",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "optimization",
+        "milp",
+        "monte-carlo",
+        "transfers"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/two_stage_screen_and_simulate.md",
+      "description": "Chained MILP Stage 1 screening knapsack with Stage 2 2,500-draw Monte Carlo tournament.",
+      "representativeQueries": [
+        "Where is the [#013] Two-Stage 'Screen & Simulate' Optimization Architecture brainstorm?",
+        "Show me brainstorm, optimization brainstorms."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:venue-home-away-impact",
+      "displayName": "[#014] Team & Positional Venue Impact (Home vs. Away) Modeling",
+      "type": "text/markdown",
+      "conceptType": "Brainstorm",
+      "tags": [
+        "brainstorm",
+        "venue",
+        "tactics",
+        "fdr",
+        "odds"
+      ],
+      "sources": [],
+      "url": "docs/brainstorm/venue_home_away_impact.md",
+      "description": "Quantifying pitch dimensions, home venue bias, crowd noise, and venue FDR multipliers.",
+      "representativeQueries": [
+        "Where is the [#014] Team & Positional Venue Impact (Home vs. Away) Modeling brainstorm?",
+        "Show me brainstorm, venue brainstorms."
+      ]
+    }
+  ]
+}

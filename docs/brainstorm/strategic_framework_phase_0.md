@@ -1,3 +1,14 @@
+---
+type: Brainstorm
+title: "[#010] Strategic Framework Phase 0 - Foundational Data & Portfolio Ingestion"
+description: "Multi-gameweek transfer planning, bank optimization, and rolling horizon setup."
+tags: [brainstorm, portfolio, transfers, strategy]
+status: Legacy
+sources: []
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # Brainstorm: Strategic Framework Phase 0 — Foundational Data Pipelines, Multi-Horizon Metrics & Domain Contracts
 ## The Data Engineering, Generative Metrics & Immutable Contract Layer for Multi-Period Optimization
 

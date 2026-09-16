@@ -1,3 +1,14 @@
+---
+type: Brainstorm
+title: "[#009] Shane's Human Domain Metrics & Tacit Knowledge Formalization"
+description: "Translating subjective domain scouting heuristics into formal quantitative signals."
+tags: [brainstorm, scout, tactics, moneyball]
+status: Legacy
+sources: []
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # Brainstorm: Shane's Human Domain Metrics & Tacit Knowledge Feed
 ## The Qualitative-to-Quantitative Bridge for Rubies Rangers
 
