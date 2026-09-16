@@ -121,8 +121,28 @@ def render_tab_transfers(df: pd.DataFrame, opt, current_squad, bank_balance: flo
                 """)
     
     st.markdown("---")
-    st.subheader(f"💡 Recommended {num_transfers} Transfer(s) ({objective.upper()})")
-    
+    st.subheader("💡 Squad Rebalancing & Order Routing Deck")
+    deck_c1, deck_c2, deck_c3 = st.columns([1, 2, 1])
+    with deck_c1:
+        num_transfers = st.slider("Transfers to Route", 1, 4, num_transfers, key="tab_transfers_count_slider")
+    with deck_c2:
+        objective = st.selectbox(
+            "Optimization Metric",
+            ["fdr_moneyball", "forward_moneyball", "setpiece_moneyball", "moneyball", "points", "form"],
+            format_func=lambda x: {
+                "fdr_moneyball": "Fixture-Adjusted Moneyball (xGI & FDR)",
+                "forward_moneyball": "Forward Alpha (Talisman Share & Disruption)",
+                "setpiece_moneyball": "Set-Piece & Dead-Ball Moneyball (xG/xA Boost)",
+                "moneyball": "Base Moneyball Score (xGI / Expected Return)",
+                "points": "Total Points",
+                "form": "Current Form"
+            }[x],
+            index=0,
+            key="tab_transfers_obj_select"
+        )
+    with deck_c3:
+        bank_balance = st.number_input("Available Bank (£m)", min_value=0.0, max_value=25.0, value=float(bank_balance), step=0.1, key="tab_transfers_bank_input")
+
     if st.button("🚀 Calculate Optimal Transfers", type="primary"):
         with st.spinner("Solving integer program..."):
             res = opt.optimize_transfers(

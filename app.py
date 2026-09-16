@@ -22,6 +22,7 @@ from analytics.profile_manager import ProfileManager
 from analytics.profile_contracts import ProfileType, ManagerProfile
 from trackers.league import LeagueTracker
 from config_manager import get_system_config, get_active_profile, set_active_profile, get_config
+from ui.components import render_portfolio_ticker
 from ui.tabs import (
     render_tab_two_stage,
     render_tab_domain_intel,
@@ -375,111 +376,130 @@ with st.sidebar:
 
     st.markdown("---")
 
-# 5. Workflow Dispatcher
-mode = st.sidebar.selectbox("Workflow", [
-    # --- Fantasy Mode Workflows (Classic FPL) ---
-    "📋 Suggestion & Outcome Audit Ledger",
-    "🏟️ Fantasy: Matchday Center & Live Gameweek Scoreboard",
-    "🌊 Fantasy: Macro Fixture Radar & Wave Scanner",
-    "♟️ Fantasy: 5-GW Strategic Transfer Chessboard",
-    "💰 Fantasy: Dynamic Balance Sheet & Real Options Engine",
-    "⚔️ Fantasy: Two-Stage Tournament (Screen & Simulate)",
-    "🔄 Fantasy: Modify Current Team (Transfers)",
-    "🎴 Fantasy: Long-Term Chip Strategy & Season Roadmap",
-    "🏆 Fantasy: Mini-League Scout & Rival Spy",
-    "🛡️ Fantasy: Monte Carlo Lineup & Substitution Strategist",
-    "🎲 Fantasy: Monte Carlo Transfer Simulator",
-    "✨ Fantasy: Draft New Optimal 15-Man Squad",
-    "📈 Fantasy: Market Velocity & Price Predictor",
-    "🤖 Fantasy: Autonomous CPN Robotic Manager",
-    "🎰 Fantasy: Bookmaker Odds & Expected Points (xP)",
-    "📅 Fantasy: Fixture Difficulty (FDR) Ticker",
-    "🎯 Fantasy: Set-Piece & Penalty Hierarchy",
-    "🏟️ Fantasy: Venue Impact & Home/Away Analysis",
-    "🔍 Fantasy: Player Explorer",
+# -------------------------------------------------------------
+# 5. Quant Trading Desk Navigation (2-Tier Hierarchical Router)
+# -------------------------------------------------------------
+DESKS: dict[str, list[str]] = {
+    "📈 Portfolio & Balance Sheet": [
+        "🏟️ Portfolio Holdings & Matchday Live",
+        "🔄 Squad Rebalancing (Transfers & Hits)",
+        "♟️ 5-GW Strategic Chessboard",
+        "💰 Dynamic Balance Sheet & Options",
+        "🎴 Chip Execution Roadmap",
+        "🏆 Mini-League Scout & Rival Spy",
+    ],
+    "⚔️ Quantitative Solvers": [
+        "⚔️ Two-Stage Tournament (Screen & Sim)",
+        "🛡️ Lineup & Substitution Strategist",
+        "🎲 Monte Carlo Transfer Simulator",
+        "✨ Draft Optimal 15-Man Squad",
+        "🌊 Macro Fixture Radar & Wave Scanner",
+        "🎯 FPL Challenge: Studio & Solver",
+        "⏱️ FPL Challenge: Rolling Lock Tracker",
+    ],
+    "🤖 Autonomous Operations (CPN)": [
+        "🤖 Fantasy CPN Robotic Manager",
+        "🎯 Challenge CPN Autonomous Runner",
+        "📋 Suggestion & Outcome Audit Ledger",
+    ],
+    "📡 Alpha Signals & Intelligence": [
+        "🎰 Bookmaker Odds & Implied xP",
+        "⚽ Tactical Process & Shot Quality",
+        "🌤️ Weather Radar & Environmental Intel",
+        "📈 Market Velocity & Price Predictor",
+        "📅 Fixture Difficulty (FDR) Ticker",
+        "🎯 Set-Piece & Penalty Hierarchy",
+        "🏟️ Venue Impact & Home/Away Analysis",
+        "🧠 Shane's Domain Intel Desk",
+        "🔍 Player Explorer & Factor Radar",
+    ],
+}
 
-    # --- Challenge Mode Workflows (FPL Challenge) ---
-    "🎯 Challenge: Two-Stage Tournament (Screen & Simulate)",
-    "🎯 Challenge: Matchday Center & Rolling Lock Tracker",
-    "🤖 Challenge: Autonomous CPN Robotic Manager",
+st.sidebar.markdown("### 🏛️ Operational Trading Desks")
+selected_desk = st.sidebar.radio(
+    "Select Desk:",
+    options=list(DESKS.keys()),
+    index=0,
+    key="quant_nav_desk_selector"
+)
 
-    # --- Tactical & Environmental Intelligence ---
-    "🌤️ Weather Radar & Environmental Intelligence",
-    "🧠 Shane's Domain Intel Desk",
-    "⚽ Tactical Process & Shot Quality",
-    "📊 Match-by-Match Trend Engine",
-])
+st.sidebar.markdown("---")
+available_views = DESKS[selected_desk]
+selected_view = st.sidebar.radio(
+    "Active Desk View:",
+    options=available_views,
+    index=0,
+    key=f"quant_nav_view_{selected_desk}"
+)
 
-# Shared knobs
+# Shared bank balance
 bank_balance = float(get_system_config("default_bank") or 3.7)
 
-# Dispatch to modular tab renderers
-if "Audit Ledger" in mode or "Suggestion & Outcome" in mode:
-    render_tab_audit_ledger(df, current_squad, active_profile.display_name)
-elif "Matchday Center" in mode and "Challenge" not in mode:
+# Persistent Top Portfolio Ticker Tape
+render_portfolio_ticker(
+    session_info=session_info,
+    active_profile_name=active_profile.display_name,
+    gameweek=5,
+    bank_balance=bank_balance
+)
+
+# -------------------------------------------------------------
+# 6. Dispatch to Modular Tab Renderers
+# -------------------------------------------------------------
+# 📈 Portfolio & Balance Sheet Desk
+if selected_view == "🏟️ Portfolio Holdings & Matchday Live":
     render_tab_matchday(df, current_squad, active_profile.display_name)
-elif "Macro Fixture Radar" in mode:
-    render_tab_strategic_macro(df, current_squad)
-elif "Strategic Transfer Chessboard" in mode:
+elif selected_view == "🔄 Squad Rebalancing (Transfers & Hits)":
+    render_tab_transfers(df, opt, current_squad, bank_balance=bank_balance)
+elif selected_view == "♟️ 5-GW Strategic Chessboard":
     render_tab_strategic_solver(df, current_squad)
-elif "Dynamic Balance Sheet" in mode:
+elif selected_view == "💰 Dynamic Balance Sheet & Options":
     render_tab_strategic_balance_sheet(df, current_squad)
-elif "Challenge: Two-Stage Tournament" in mode:
-    render_tab_challenge_optimizer(df)
-elif "Challenge: Matchday Center" in mode:
-    render_tab_challenge_rolling(df)
-elif "Challenge: Autonomous CPN" in mode:
-    render_tab_challenge_cpn(df)
-elif "Weather Radar" in mode:
-    render_tab_weather(df, current_squad)
-elif "Two-Stage Tournament" in mode:
-    render_tab_two_stage(df, current_squad, bank=bank_balance)
-elif "Chip Strategy" in mode:
+elif selected_view == "🎴 Chip Execution Roadmap":
     render_tab_chip_strategy()
-elif "Autonomous CPN" in mode:
-    render_tab_autonomous_cpn(df, current_squad)
-elif "Shane's Domain Intel" in mode:
-    render_tab_domain_intel(df, current_squad)
-elif "Modify Current Team" in mode:
-    num_transfers = st.sidebar.slider("Number of Transfers", 1, 4, 1, key="mod_transfers_count")
-    objective = st.sidebar.selectbox("Optimization Metric", ["fdr_moneyball", "forward_moneyball", "setpiece_moneyball", "moneyball", "points", "form"], format_func=lambda x: {
-        "fdr_moneyball": "Fixture-Adjusted Moneyball (xGI & FDR)",
-        "forward_moneyball": "Forward Alpha (Talisman Share & Disruption)",
-        "setpiece_moneyball": "Set-Piece & Dead-Ball Moneyball (xG/xA Boost)",
-        "moneyball": "Base Moneyball Score (xGI / Expected Return)",
-        "points": "Total Points",
-        "form": "Current Form"
-    }[x], key="mod_transfers_obj")
-    bank_slider = st.sidebar.slider("Bank Balance (£m)", 0.0, 15.0, bank_balance, 0.1, key="mod_transfers_bank")
-    render_tab_transfers(df, opt, current_squad, bank_balance=bank_slider, num_transfers=num_transfers, objective=objective)
-elif "Mini-League" in mode:
+elif selected_view == "🏆 Mini-League Scout & Rival Spy":
     render_tab_leagues(df)
-elif "Monte Carlo Lineup" in mode:
+
+# ⚔️ Quantitative Solvers Desk
+elif selected_view == "⚔️ Two-Stage Tournament (Screen & Sim)":
+    render_tab_two_stage(df, current_squad, bank=bank_balance)
+elif selected_view == "🛡️ Lineup & Substitution Strategist":
     render_tab_montecarlo_lineup(df, current_squad)
-elif "Bookmaker Odds" in mode:
-    render_tab_odds_xp()
-elif "Monte Carlo Transfer" in mode:
+elif selected_view == "🎲 Monte Carlo Transfer Simulator":
     render_tab_montecarlo_transfers(df, current_squad, bank_balance=bank_balance)
-elif "Tactical Process" in mode:
+elif selected_view == "✨ Draft Optimal 15-Man Squad":
+    render_tab_draft(df, opt, current_squad=current_squad)
+elif selected_view == "🌊 Macro Fixture Radar & Wave Scanner":
+    render_tab_strategic_macro(df, current_squad)
+elif selected_view == "🎯 FPL Challenge: Studio & Solver":
+    render_tab_challenge_optimizer(df)
+elif selected_view == "⏱️ FPL Challenge: Rolling Lock Tracker":
+    render_tab_challenge_rolling(df)
+
+# 🤖 Autonomous Operations (CPN) Desk
+elif selected_view == "🤖 Fantasy CPN Robotic Manager":
+    render_tab_autonomous_cpn(df, current_squad)
+elif selected_view == "🎯 Challenge CPN Autonomous Runner":
+    render_tab_challenge_cpn(df)
+elif selected_view == "📋 Suggestion & Outcome Audit Ledger":
+    render_tab_audit_ledger(df, current_squad, active_profile.display_name)
+
+# 📡 Alpha Signals & Intelligence Desk
+elif selected_view == "🎰 Bookmaker Odds & Implied xP":
+    render_tab_odds_xp()
+elif selected_view == "⚽ Tactical Process & Shot Quality":
     render_tab_tactical(df)
-elif "Trend Engine" in mode:
-    render_tab_trends(df, current_squad)
-elif "Market Velocity" in mode:
+elif selected_view == "🌤️ Weather Radar & Environmental Intel":
+    render_tab_weather(df, current_squad)
+elif selected_view == "📈 Market Velocity & Price Predictor":
     render_tab_market(df, current_squad)
-elif "Fixture Difficulty" in mode:
+elif selected_view == "📅 Fixture Difficulty (FDR) Ticker":
     render_tab_fixtures(df, current_squad)
-elif "Set-Piece" in mode:
+elif selected_view == "🎯 Set-Piece & Penalty Hierarchy":
     render_tab_setpieces(df)
-elif "Venue Impact" in mode:
+elif selected_view == "🏟️ Venue Impact & Home/Away Analysis":
     render_tab_venue(df, current_squad=current_squad)
-elif "Draft New Optimal" in mode:
-    objective = st.sidebar.selectbox("Optimization Metric (Quick Solve)", ["fdr_moneyball", "setpiece_moneyball", "moneyball", "points", "form"], format_func=lambda x: {
-        "fdr_moneyball": "Fixture-Adjusted Moneyball (xGI & FDR)",
-        "setpiece_moneyball": "Set-Piece & Dead-Ball Moneyball (xG/xA Boost)",
-        "moneyball": "Base Moneyball Score (xGI / Expected Return)",
-        "points": "Total Points",
-        "form": "Current Form"
-    }[x], key="sidebar_draft_obj")
-    render_tab_draft(df, opt, current_squad=current_squad, objective=objective)
+elif selected_view == "🧠 Shane's Domain Intel Desk":
+    render_tab_domain_intel(df, current_squad)
 else:
     render_tab_explorer(df)

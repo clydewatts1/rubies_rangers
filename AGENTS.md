@@ -22,6 +22,12 @@ All development and automated decision-making in this repository are governed by
    - **Performance & Types**: Enforces strict type annotations, frozen `@dataclass` contracts, PEP 8 compliance, vectorization (`pandas`/`numpy`), and prohibits slow row iteration (`.iterrows()`).
    - **Defensive Engineering**: Requires graceful config fallbacks, structured logging, mathematical docstrings, and deterministic random seed configuration.
 
+3. **[UI/UX & Dashboard Engineering Standards](.agents/rules/ui_ux_standards.md)**:
+   - **The Quant Trading Desk**: High-contrast financial terminal dark mode (`#0b0f19`/`#111827`/`#1f2937`) with persistent Portfolio Ticker (AUM, Cash-in-Bank, FT call options).
+   - **Two-Tier Hierarchical Navigation**: Partitions workflows into 5 Operational Trading Desks (Portfolio, Solvers, Challenge, Autonomous CPN, Alpha Signals) to eliminate 27-item flat selectbox clutter.
+   - **Canonical 4-Zone Page Anatomy**: Strict structure across all views (Terminal Header -> KPI Telemetry Strip -> In-Page Strategy Deck -> Dual-Aspect Data Inspector).
+   - **Componentized Presentation**: Eliminates inline HTML sprawl via atomic primitives in `ui/components/`; prohibits sidebar widget bleed.
+
 ---
 
 ## Architectural Hierarchy
@@ -34,5 +40,6 @@ rubies_rangers/
 └── .agents/
     └── rules/
         ├── moneyball_strategy.md            # FPL Team Selection & Analytical Rules
-        └── python_standards.md              # Python & Vectorization Coding Standards
+        ├── python_standards.md              # Python & Vectorization Coding Standards
+        └── ui_ux_standards.md               # UI/UX Quant Trading Desk Dashboard Standards
 ```
