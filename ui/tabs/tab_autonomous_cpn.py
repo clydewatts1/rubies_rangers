@@ -10,11 +10,14 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 import glob
 import json
+import logging
 import os
 from typing import Any
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+
+logger = logging.getLogger("rubies_rangers.ui.autonomous_cpn")
 
 from automation.cpn import (
     CPNEngine,
