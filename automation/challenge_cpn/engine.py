@@ -58,6 +58,26 @@ class ChallengeCPNEngine:
         self._last_validation: Optional[Color_ChallengeValidation] = None
         self._last_receipt: Optional[Color_ChallengeReceipt] = None
 
+    @property
+    def last_plan(self) -> Optional[Color_ChallengePlan]:
+        """Returns the most recent solved challenge plan token."""
+        return self._last_plan
+
+    @property
+    def last_validation(self) -> Optional[Color_ChallengeValidation]:
+        """Returns the most recent model validation token."""
+        return self._last_validation
+
+    @property
+    def last_validation_report(self) -> Optional[Any]:
+        """Returns the underlying ModelValidationReport if validation occurred."""
+        return self._last_validation.report if self._last_validation else None
+
+    @property
+    def last_receipt(self) -> Optional[Color_ChallengeReceipt]:
+        """Returns the terminal Saga execution receipt token."""
+        return self._last_receipt
+
     async def run_pipeline(
         self,
         gameweek: int = 5,
