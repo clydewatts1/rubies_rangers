@@ -382,9 +382,9 @@ with st.sidebar:
 DESKS: dict[str, list[str]] = {
     "📈 Portfolio & Balance Sheet": [
         "🏟️ Portfolio Holdings & Matchday Live",
+        "🔄 Squad Rebalancing (Transfers & Hits)",
         "♟️ 5-GW Strategic Chessboard",
         "💰 Dynamic Balance Sheet & Options",
-        "🔄 Squad Rebalancing (Transfers & Hits)",
         "🎴 Chip Execution Roadmap",
         "🏆 Mini-League Scout & Rival Spy",
     ],
@@ -394,11 +394,8 @@ DESKS: dict[str, list[str]] = {
         "🎲 Monte Carlo Transfer Simulator",
         "✨ Draft Optimal 15-Man Squad",
         "🌊 Macro Fixture Radar & Wave Scanner",
-    ],
-    "🎯 FPL Challenge Tournaments": [
-        "🎯 Two-Stage Tournament Solver",
-        "⏱️ Rolling Lock & Matchday Tracker",
-        "🤖 Autonomous Challenge CPN",
+        "🎯 FPL Challenge: Studio & Solver",
+        "⏱️ FPL Challenge: Rolling Lock Tracker",
     ],
     "🤖 Autonomous Operations (CPN)": [
         "🤖 Fantasy CPN Robotic Manager",
@@ -432,7 +429,7 @@ selected_view = st.sidebar.radio(
     "Active Desk View:",
     options=available_views,
     index=0,
-    key="quant_nav_view_selector"
+    key=f"quant_nav_view_{selected_desk}"
 )
 
 # Shared bank balance
@@ -452,12 +449,12 @@ render_portfolio_ticker(
 # 📈 Portfolio & Balance Sheet Desk
 if selected_view == "🏟️ Portfolio Holdings & Matchday Live":
     render_tab_matchday(df, current_squad, active_profile.display_name)
+elif selected_view == "🔄 Squad Rebalancing (Transfers & Hits)":
+    render_tab_transfers(df, opt, current_squad, bank_balance=bank_balance)
 elif selected_view == "♟️ 5-GW Strategic Chessboard":
     render_tab_strategic_solver(df, current_squad)
 elif selected_view == "💰 Dynamic Balance Sheet & Options":
     render_tab_strategic_balance_sheet(df, current_squad)
-elif selected_view == "🔄 Squad Rebalancing (Transfers & Hits)":
-    render_tab_transfers(df, opt, current_squad, bank_balance=bank_balance)
 elif selected_view == "🎴 Chip Execution Roadmap":
     render_tab_chip_strategy()
 elif selected_view == "🏆 Mini-League Scout & Rival Spy":
@@ -474,14 +471,10 @@ elif selected_view == "✨ Draft Optimal 15-Man Squad":
     render_tab_draft(df, opt, current_squad=current_squad)
 elif selected_view == "🌊 Macro Fixture Radar & Wave Scanner":
     render_tab_strategic_macro(df, current_squad)
-
-# 🎯 FPL Challenge Tournament Desk
-elif selected_view == "🎯 Two-Stage Tournament Solver":
+elif selected_view == "🎯 FPL Challenge: Studio & Solver":
     render_tab_challenge_optimizer(df)
-elif selected_view == "⏱️ Rolling Lock & Matchday Tracker":
+elif selected_view == "⏱️ FPL Challenge: Rolling Lock Tracker":
     render_tab_challenge_rolling(df)
-elif selected_view == "🤖 Autonomous Challenge CPN":
-    render_tab_challenge_cpn(df)
 
 # 🤖 Autonomous Operations (CPN) Desk
 elif selected_view == "🤖 Fantasy CPN Robotic Manager":

@@ -33,37 +33,36 @@ To eliminate decision fatigue and avoid navigation bloat, workflows are strictly
 ```
 
 1. **📈 Desk 1: Portfolio & Balance Sheet Desk**
-   - *Portfolio Holdings & Tactical Pitch Deck*
+   - *Portfolio Holdings & Matchday Live*
+   - *Squad Rebalancing (Transfers & Hits)*
    - *5-GW Strategic Transfer Chessboard*
    - *Dynamic Balance Sheet (Team Value J-Curve & Real Options)*
-   - *Squad Rebalancing & Transfer Execution*
    - *Chip Execution Roadmap & Dynamic Pricing*
    - *Mini-League Scout & Rival Portfolio Spy*
 
-2. **⚔️ Desk 2: Quantitative Solvers & Optimization Desk**
+2. **⚔️ Desk 2: Quantitative Solvers & Simulation Desk**
    - *Two-Stage MILP Knapsack Solver (Screen & Simulate)*
-   - *10,000-Path Monte Carlo Simulation Deck*
-   - *Tail-Risk & Sharpe Ratio Optimizer ($P_{10}/P_{50}/P_{99}$)*
+   - *Lineup & Substitution Strategist*
+   - *10,000-Path Monte Carlo Transfer Simulator*
    - *15-Man Optimal Squad Draft Architecture*
+   - *Macro Fixture Radar & Wave Scanner*
+   - *FPL Challenge Studio & Two-Stage Solver*
+   - *FPL Challenge Rolling Lock & Matchday Tracker*
 
-3. **🎯 Desk 3: FPL Challenge Tournament Desk**
-   - *Weekly Challenge Two-Stage Solver (Archetype Selection)*
-   - *Rolling Deadline & Matchday Lock Tracker*
-   - *Autonomous Challenge CPN Pipeline*
-
-4. **🤖 Desk 4: Autonomous Operations & CPN Desk**
+3. **🤖 Desk 3: Autonomous Operations Center (CPN)**
    - *Fantasy Coloured Petri Net (CPN) Robotic Manager*
    - *Challenge Coloured Petri Net (CPN) Autonomous Runner*
-   - *Self-Healing Saga Verification & Retry Inspector*
    - *Suggestion & Outcome Audit Ledger*
 
-5. **📡 Desk 5: Alpha Signals & Market Intelligence**
+4. **📡 Desk 4: Alpha Signals & Market Intelligence Desk**
    - *Bookmaker Poisson Odds & Implied xP*
-   - *Understat Shot Quality & Tactical Process*
-   - *Match-by-Match Trend Engine*
+   - *Tactical Process & Shot Quality*
    - *Weather Radar & Aerodynamic Intelligence*
-   - *Venue Impact & Home/Away Analysis*
+   - *Market Velocity & Price Predictor*
+   - *Fixture Difficulty (FDR) Ticker*
    - *Set-Piece & Penalty Hierarchy*
+   - *Venue Impact & Home/Away Analysis*
+   - *Shane's Domain Intel Desk*
    - *Player Explorer & Factor Radar*
 
 ---
