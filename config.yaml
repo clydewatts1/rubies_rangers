@@ -6,15 +6,15 @@ system:
   - Verbruggen
   - Pedro Porro
   - Senesi
-  - "Gu\xE9hi"
+  - Guéhi
   - Robinson
   - Thiaw
   - Foden
-  - "\xD8degaard"
+  - Ødegaard
   - Mbeumo
   - Cherki
   - Rogers
-  - "Jo\xE3o Pedro"
+  - João Pedro
   - Isak
   - Solanke
   default_bank: 3.7
@@ -362,7 +362,7 @@ heuristic:
   two_stage_optimizer:
     default_sims: 2500
     risk_profile: balanced
-    pareto_objectives:
+    pareto_objectives: &id001
     - label: balanced
       metric: fdr_moneyball
       enabled: true
@@ -682,70 +682,7 @@ tuned:
   two_stage_optimizer:
     default_sims: 2500
     risk_profile: balanced
-    pareto_objectives:
-    - label: balanced
-      metric: fdr_moneyball
-      enabled: true
-      tier: core
-      description: Fixture Difficulty Rating & venue-adjusted base Moneyball efficiency
-    - label: forward_alpha
-      metric: forward_moneyball
-      enabled: true
-      tier: core
-      description: 'High-alpha tactical metrics: Talisman Share, Finishing Skill &
-        Pressing Disruption'
-    - label: weather_resilience
-      metric: weather_moneyball
-      enabled: true
-      tier: core
-      description: Pitch-level wind shear, precipitation dampening & turnaround rest
-        fatigue
-    - label: mean_reversion
-      metric: mean_reversion_score
-      enabled: true
-      tier: core
-      description: Big Chances Missed (BCM) and (xG - G)+ buy-low mean-reversion breakout
-    - label: high_attack
-      metric: xgi
-      enabled: true
-      tier: core
-      description: Pure underlying expected goal involvements per 90 (shot creation
-        + threat)
-    - label: defensive_solidity
-      metric: defensive_contribution_per_90
-      enabled: true
-      tier: contextual
-      description: High floor defensive actions (tackles, recoveries, clearances)
-        & clean sheet security
-    - label: odds_implied_xp
-      metric: xp
-      enabled: true
-      tier: contextual
-      description: Consensus liquid betting market implied clean sheet and anytime
-        goal probabilities
-    - label: cost_efficiency
-      metric: ppm
-      enabled: true
-      tier: contextual
-      description: Points Per Million (PPM) & budget surplus generation for future
-        flexibility
-    - label: low_block_threat
-      metric: outside_box_xg
-      enabled: true
-      tier: contextual
-      description: Perimeter snipers breaking compact low blocks & FPL Challenge outside-box
-        bonus
-    - label: setpiece_focus
-      metric: setpiece_moneyball
-      enabled: true
-      tier: contextual
-      description: Penalties, direct free kicks & corner duties for high dead-ball
-        floor
-    - label: momentum
-      metric: form
-      enabled: true
-      tier: contextual
-      description: Short-term 30-day streak tracking
+    pareto_objectives: *id001
   strategic:
     horizon:
       lookahead_gws: 8

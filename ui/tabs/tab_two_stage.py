@@ -16,10 +16,16 @@ from analytics.optimizer import FPLOptimizer
 from analytics.montecarlo import MonteCarloEngine
 from analytics.two_stage_optimizer import TwoStageOptimizer
 from ui.styles import render_html
+from clients.auth_manager import AuthManager
+from clients.fpl_transfer_service import execute_two_stage_transfer
 
 
 def render_tab_two_stage(df: pd.DataFrame, current_squad: List[str], bank: float = 3.7):
     """Render Two-Stage Screen & Simulate Tournament view with complete graphical suite."""
+    auth_mgr = AuthManager()
+    session_info = auth_mgr.get_active_session()
+    is_authenticated = session_info.is_authenticated
+
     st.title("⚔️ Two-Stage Optimization Tournament (Screen & Simulate)")
     st.markdown(r"""
     **Moneyball Chained Architecture:**
@@ -308,6 +314,63 @@ def render_tab_two_stage(df: pd.DataFrame, current_squad: List[str], bank: float
                 </div>
             </div>
             """)
+
+            # Direct Online Transfer Execution Popover
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+            plan_label = badge_title.split(":")[1].strip() if ":" in badge_title else badge_title
+            with st.popover(f"⚡ Apply to FPL Team", use_container_width=True):
+                st.markdown(f"#### ⚡ Apply {plan_label}")
+                st.markdown(
+                    f"**Proposed Operations:**\n"
+                    f"- 🔻 **SELL OUT:** `{opt_eval.out_player}` (£{opt_eval.out_cost:.1f}m)\n"
+                    f"- 🔺 **BUY IN:** `{opt_eval.in_player}` (£{opt_eval.in_cost:.1f}m)\n"
+                    f"- 💰 **Bank Left:** `£{opt_eval.bank_remaining:.1f}m`"
+                )
+
+                if hit_pen > 0:
+                    st.warning(f"⚠️ **Point Hit:** This move exceeds free transfers and incurs a **-{hit_pen} pts** deduction.")
+                else:
+                    st.success("✅ **Free Move:** Zero point deduction will be incurred.")
+
+                opt_exec_mode = st.radio(
+                    "Execution Mode:",
+                    options=["Dry-Run (Safe Simulation)", "Live Submit (Official FPL API)"],
+                    index=0,
+                    key=f"two_stage_exec_mode_{badge_title}"
+                )
+                is_dry = (opt_exec_mode == "Dry-Run (Safe Simulation)")
+
+                if not is_dry:
+                    if is_authenticated:
+                        st.info(f"🟢 Live target: **{session_info.first_name} {session_info.last_name}** (Entry {session_info.entry_id})")
+                    else:
+                        st.error("🚨 **No active authenticated session found!** Switch to Dry-Run or authenticate in Settings.")
+
+                btn_confirm = st.button(
+                    f"🚀 Confirm & Transmit {'(Dry-Run)' if is_dry else '(LIVE)'}",
+                    type="primary" if not is_dry else "secondary",
+                    disabled=(not is_dry and not is_authenticated),
+                    key=f"two_stage_confirm_btn_{badge_title}",
+                    use_container_width=True
+                )
+
+                if btn_confirm:
+                    with st.spinner(f"Processing transfer {'(Simulation)' if is_dry else 'to official FPL'}..."):
+                        t_out = opt_eval.candidate.transfers_out or [opt_eval.out_player]
+                        t_in = opt_eval.candidate.transfers_in or [opt_eval.in_player]
+                        res = execute_two_stage_transfer(
+                            candidate_out=t_out,
+                            candidate_in=t_in,
+                            df=df,
+                            dry_run=is_dry
+                        )
+                        if res.get("success"):
+                            st.success(res.get("message"))
+                            st.toast("Transfer request successfully processed!", icon="✅")
+                            if not is_dry:
+                                st.balloons()
+                        else:
+                            st.error(res.get("message"))
 
     st.markdown("---")
 
