@@ -42,9 +42,12 @@ from config_manager import get_system_config
 def _get_default_challenge_snapshot() -> dict[str, Any]:
     """Generates default initial snapshot with complete specs for interactive inspection."""
     place_keys = list(CHALLENGE_PLACE_SPECS.keys())
+    # In initial marking M0, P_CHALLENGE_IDLE has 1 token and downstream places have 0
+    place_counts = {p: (1 if p == "P_CHALLENGE_IDLE" else 0) for p in place_keys}
+    marking_vector = [1 if p == "P_CHALLENGE_IDLE" else 0 for p in place_keys]
     return {
-        "place_counts": {p: 0 for p in place_keys},
-        "marking_vector": [0] * len(place_keys),
+        "place_counts": place_counts,
+        "marking_vector": marking_vector,
         "transition_stats": {
             t: {"status": "STANDBY", "fire_count": 0, "mean_latency_ms": 0.0, "last_latency_ms": 0.0}
             for t in CHALLENGE_TRANSITION_SPECS
@@ -105,6 +108,17 @@ def _build_challenge_workbench_html(snapshot: dict[str, Any]) -> str:
         if cnt > 0 or (spec.get("is_read_arc") and cnt is not False and cnt != 0):
             return "place-node place-has-token"
         return "place-node"
+
+    def _p_dot(p_name: str, cx: int, cy: int, color: str = "#38bdf8", r: int = 6) -> str:
+        cnt = p_counts.get(p_name, 0)
+        spec = CHALLENGE_PLACE_SPECS.get(p_name, {})
+        has_token = bool(cnt > 0 or (spec.get("is_read_arc") and cnt is not False and cnt != 0))
+        if p_name == "P_CHALLENGE_CONFIRMED" and is_confirmed:
+            has_token = True
+            color = "#4ade80"
+        if has_token:
+            return f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{color}" />'
+        return ""
 
     # Badges for transitions
     b_rules, c_rules = _t_badge("T_FETCH_CHALLENGE_RULES")
@@ -535,71 +549,78 @@ def _build_challenge_workbench_html(snapshot: dict[str, Any]) -> str:
                 <!-- P_CHALLENGE_IDLE -->
                 <g class="{_p_cls("P_CHALLENGE_IDLE")}" id="node_P_CHALLENGE_IDLE" onclick="selectNode('P_CHALLENGE_IDLE')">
                     <circle class="place-outer" cx="55" cy="95" r="15" />
+                    {_p_dot("P_CHALLENGE_IDLE", 55, 95)}
                     <text class="place-label" x="55" y="125">P_IDLE</text>
                 </g>
 
                 <!-- P_CHALLENGE_RULES_READY -->
                 <g class="{_p_cls("P_CHALLENGE_RULES_READY")}" id="node_P_CHALLENGE_RULES_READY" onclick="selectNode('P_CHALLENGE_RULES_READY')">
                     <circle class="place-outer" cx="170" cy="170" r="16" />
-                    <circle cx="170" cy="170" r="6" fill="#38bdf8" />
+                    {_p_dot("P_CHALLENGE_RULES_READY", 170, 170)}
                     <text class="place-label" x="170" y="202">P_RULES_READY</text>
                 </g>
 
                 <!-- P_CHALLENGE_MARKET_READY -->
                 <g class="{_p_cls("P_CHALLENGE_MARKET_READY")}" id="node_P_CHALLENGE_MARKET_READY" onclick="selectNode('P_CHALLENGE_MARKET_READY')">
                     <circle class="place-outer" cx="170" cy="330" r="16" />
-                    <circle cx="170" cy="330" r="6" fill="#38bdf8" />
+                    {_p_dot("P_CHALLENGE_MARKET_READY", 170, 330)}
                     <text class="place-label" x="170" y="362">P_MARKET_READY</text>
                 </g>
 
                 <!-- P_CHALLENGE_CURRENT_TEAM -->
                 <g class="{_p_cls("P_CHALLENGE_CURRENT_TEAM")}" id="node_P_CHALLENGE_CURRENT_TEAM" onclick="selectNode('P_CHALLENGE_CURRENT_TEAM')">
                     <circle class="place-outer" cx="170" cy="490" r="16" />
-                    <circle cx="170" cy="490" r="6" fill="#38bdf8" />
+                    {_p_dot("P_CHALLENGE_CURRENT_TEAM", 170, 490)}
                     <text class="place-label" x="170" y="522">P_CURRENT_TEAM</text>
                 </g>
 
                 <!-- P_CHALLENGE_OPTIMIZED -->
                 <g class="{_p_cls("P_CHALLENGE_OPTIMIZED")}" id="node_P_CHALLENGE_OPTIMIZED" onclick="selectNode('P_CHALLENGE_OPTIMIZED')">
                     <circle class="place-outer" cx="475" cy="302" r="16" />
+                    {_p_dot("P_CHALLENGE_OPTIMIZED", 475, 302)}
                     <text class="place-label" x="475" y="334">P_OPTIMIZED</text>
                 </g>
 
                 <!-- P_CHALLENGE_VALIDATED -->
                 <g class="{_p_cls("P_CHALLENGE_VALIDATED")}" id="node_P_CHALLENGE_VALIDATED" onclick="selectNode('P_CHALLENGE_VALIDATED')">
                     <circle class="place-outer" cx="627" cy="170" r="16" />
+                    {_p_dot("P_CHALLENGE_VALIDATED", 627, 170)}
                     <text class="place-label" x="627" y="202">P_VALIDATED</text>
                 </g>
 
                 <!-- P_CHALLENGE_ALERTS -->
                 <g class="{_p_cls("P_CHALLENGE_ALERTS")}" id="node_P_CHALLENGE_ALERTS" onclick="selectNode('P_CHALLENGE_ALERTS')">
                     <circle class="place-outer" cx="627" cy="460" r="16" />
+                    {_p_dot("P_CHALLENGE_ALERTS", 627, 460, color="#ef4444")}
                     <text class="place-label" x="627" y="492">P_ALERTS</text>
                 </g>
 
                 <!-- P_CHALLENGE_SUBMITTING -->
                 <g class="{_p_cls("P_CHALLENGE_SUBMITTING")}" id="node_P_CHALLENGE_SUBMITTING" onclick="selectNode('P_CHALLENGE_SUBMITTING')">
                     <circle class="place-outer" cx="855" cy="302" r="16" />
+                    {_p_dot("P_CHALLENGE_SUBMITTING", 855, 302, color="#f59e0b")}
                     <text class="place-label" x="855" y="334">P_SUBMITTING</text>
                 </g>
 
                 <!-- P_CHALLENGE_VERIFYING -->
                 <g class="{_p_cls("P_CHALLENGE_VERIFYING")}" id="node_P_CHALLENGE_VERIFYING" onclick="selectNode('P_CHALLENGE_VERIFYING')">
                     <circle class="place-outer" cx="975" cy="170" r="16" />
+                    {_p_dot("P_CHALLENGE_VERIFYING", 975, 170)}
                     <text class="place-label" x="975" y="202">P_VERIFYING</text>
                 </g>
 
                 <!-- P_CHALLENGE_CONFIRMED -->
                 <g class="{_p_cls("P_CHALLENGE_CONFIRMED")}" id="node_P_CHALLENGE_CONFIRMED" onclick="selectNode('P_CHALLENGE_CONFIRMED')">
                     <circle class="place-outer" cx="975" cy="420" r="19" />
-                    <circle cx="975" cy="420" r="13" fill="none" stroke="#4ade80" stroke-width="1.5" />
-                    <circle cx="975" cy="420" r="6" fill="#4ade80" />
-                    <text class="place-label" x="975" y="456" fill="#4ade80" font-weight="700">P_CONFIRMED</text>
+                    {f'<circle cx="975" cy="420" r="13" fill="none" stroke="#4ade80" stroke-width="1.5" />' if is_confirmed else ''}
+                    {_p_dot("P_CHALLENGE_CONFIRMED", 975, 420, color="#4ade80")}
+                    <text class="place-label" x="975" y="456" fill="{"#4ade80" if is_confirmed else "#cbd5e1"}" font-weight="{"700" if is_confirmed else "500"}">P_CONFIRMED</text>
                 </g>
 
                 <!-- P_CHALLENGE_COMPENSATION -->
                 <g class="{_p_cls("P_CHALLENGE_COMPENSATION")}" id="node_P_CHALLENGE_COMPENSATION" onclick="selectNode('P_CHALLENGE_COMPENSATION')">
                     <circle class="place-outer" cx="975" cy="525" r="16" />
+                    {_p_dot("P_CHALLENGE_COMPENSATION", 975, 525, color="#ef4444")}
                     <text class="place-label" x="975" y="557">P_COMPENSATION</text>
                 </g>
 
@@ -874,7 +895,7 @@ def _build_challenge_workbench_html(snapshot: dict[str, Any]) -> str:
     }} else if (snapshotData && snapshotData.last_plan_id) {{
         selectNode("P_CHALLENGE_OPTIMIZED");
     }} else {{
-        selectNode("T_RUN_CHALLENGE_PICKER");
+        selectNode("P_CHALLENGE_IDLE");
     }}
 </script>
 
@@ -1086,16 +1107,31 @@ def render_tab_challenge_cpn(df: pd.DataFrame) -> None:
             else:
                 st.error("🚨 **No active authenticated FPL session found!** Switch to Dry-Run mode or authenticate in Settings.")
 
-    btn_fire_cpn = st.button(
-        "⚡ Launch Autonomous Challenge CPN Cycle",
-        type="primary",
-        use_container_width=True,
-        key="btn_fire_challenge_cpn_main"
-    )
+        btn_fire_cpn = st.button(
+            "⚡ Launch Autonomous Challenge CPN Cycle",
+            type="primary",
+            use_container_width=True,
+            key="btn_fire_challenge_cpn_main"
+        )
+
+    with run_col2:
+        btn_reset_cpn = st.button(
+            "🔄 Reset Marking M₀",
+            type="secondary",
+            use_container_width=True,
+            key="btn_reset_challenge_cpn"
+        )
+
+    if btn_reset_cpn:
+        st.session_state.pop("ch_cpn_last_receipt", None)
+        st.session_state.pop("ch_cpn_last_engine", None)
+        st.toast("CPN state reset to initial marking M₀.", icon="🔄")
+        st.rerun()
 
     if btn_fire_cpn:
-        with st.spinner("🤖 Orchestrating Kurt Jensen Challenge CPN transitions & Saga loop..."):
+        with st.status("🤖 Executing Autonomous Challenge CPN Cycle...", expanded=True) as status_box:
             try:
+                st.write("📡 **Transition 1:** Ingesting weekly rules, market FDR matrix, and current manager squad...")
                 journal = ChallengeCPNDiagnosticJournal()
                 engine = ChallengeCPNEngine(
                     journal=journal,
@@ -1112,7 +1148,7 @@ def render_tab_challenge_cpn(df: pd.DataFrame) -> None:
                     if session_info.auth_token.startswith("eyJ") and ";" not in session_info.auth_token:
                         auth_headers["Authorization"] = f"Bearer {session_info.auth_token}"
 
-                t0 = datetime.now(timezone.utc)
+                st.write(f"⚙️ **Transition 2:** Two-Stage Stochastic Optimization ({n_sims} Monte Carlo draws across candidate rosters)...")
                 receipt = asyncio.run(engine.run_pipeline(
                     gameweek=int(gameweek),
                     entry_id=resolved_entry,
@@ -1126,10 +1162,17 @@ def render_tab_challenge_cpn(df: pd.DataFrame) -> None:
                     available_only=available_only,
                     auth_headers=auth_headers
                 ))
+                st.write("🛡️ **Transition 3:** Validating physical rules, formation quotas, and hyperparameter drift invariants...")
+                st.write("⚡ **Transition 4:** Closed-loop Saga verification & audit receipt reconciliation...")
+
+                status_box.update(label="✅ Autonomous Challenge CPN Cycle Completed & Reconciled!", state="complete", expanded=False)
+
                 st.session_state["ch_cpn_last_receipt"] = receipt
                 st.session_state["ch_cpn_last_engine"] = engine
                 st.toast("Autonomous Challenge CPN cycle complete!", icon="✅")
+                st.rerun()
             except Exception as e:
+                status_box.update(label=f"❌ Challenge CPN Pipeline Error: {e}", state="error", expanded=True)
                 st.error(f"❌ Challenge CPN Pipeline Error: {e}")
 
     # ------------------------------------------------------------------
