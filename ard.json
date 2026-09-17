@@ -702,6 +702,85 @@
         "Where is the [#018] Port and Adapt OKF/ARD Engineering Lifecycle Skills for Python issue?",
         "Show me issue, tooling issues."
       ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:scripts:ard-builder",
+      "displayName": "Agentic Resource Discovery (ARD) Builder",
+      "type": "text/x-python",
+      "conceptType": "Tool",
+      "tags": [
+        "registry",
+        "discovery",
+        "python",
+        "tooling"
+      ],
+      "sources": [],
+      "url": "scripts/ard_builder.py",
+      "description": "Automatically builds federated ARD manifests by scanning OKF frontmatter in docs, analytics, automation, clients, ui, and tests.",
+      "representativeQueries": [
+        "Where is the Agentic Resource Discovery (ARD) Builder tool?",
+        "Show me registry, discovery tools."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:scripts:ard-search",
+      "displayName": "Agentic Resource Discovery (ARD) Search CLI",
+      "type": "text/x-python",
+      "conceptType": "Tool",
+      "tags": [
+        "discovery",
+        "registry",
+        "python",
+        "cli",
+        "tooling"
+      ],
+      "sources": [],
+      "url": "scripts/ard_search.py",
+      "description": "Fast keyword, tag, and query search across federated ARD manifests for instant zero-crawl component discovery.",
+      "representativeQueries": [
+        "Where is the Agentic Resource Discovery (ARD) Search CLI tool?",
+        "Show me discovery, registry tools."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:scripts:backfill-okf",
+      "displayName": "OKF Frontmatter Backfill Utility",
+      "type": "text/x-python",
+      "conceptType": "Tool",
+      "tags": [
+        "tooling",
+        "discovery",
+        "python",
+        "cli"
+      ],
+      "sources": [],
+      "url": "scripts/backfill_okf.py",
+      "description": "Script to retroactively add OKF frontmatter to legacy markdown documents in docs/.",
+      "representativeQueries": [
+        "Where is the OKF Frontmatter Backfill Utility tool?",
+        "Show me tooling, discovery tools."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:scripts:issue-status",
+      "displayName": "Issue Lifecycle Status & CPN Marking Inspector",
+      "type": "text/x-python",
+      "conceptType": "Tool",
+      "tags": [
+        "discovery",
+        "registry",
+        "python",
+        "cli",
+        "tooling",
+        "cpn"
+      ],
+      "sources": [],
+      "url": "scripts/issue_status.py",
+      "description": "Zero-code metadata inspector that queries ARD manifests and OKF frontmatter to determine the exact lifecycle stage, CPN marking, and next eligible transitions for issues.",
+      "representativeQueries": [
+        "Where is the Issue Lifecycle Status & CPN Marking Inspector tool?",
+        "Show me discovery, registry tools."
+      ]
     }
   ]
 }

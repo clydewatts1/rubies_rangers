@@ -58,7 +58,8 @@ rubies_rangers/
 │   └── tools/                               # Tooling & ARD Reference
 ├── scripts/                                 # ARD Builder & Search CLI
 │   ├── ard_builder.py                       # Manifest generator & indexer
-│   └── ard_search.py                        # Zero-crawl keyword/tag search
+│   ├── ard_search.py                        # Zero-crawl keyword/tag search
+│   └── issue_status.py                      # Zero-code CPN marking & issue state inspector
 └── .agents/
     ├── rules/                               # Behavioral Standards & Principles
     │   ├── moneyball_strategy.md            # FPL Team Selection & Analytical Rules
@@ -73,6 +74,7 @@ rubies_rangers/
         ├── plan-to-task/                    # Stage 5: Micro-task harness compiler
         ├── design-to-task/                  # Composite: spec-to-plan + plan-to-task
         ├── playbook-facilitator/            # Stage 6: Operational reality playbook
+        ├── issue-status-tracker/            # CPN marking & issue lifecycle state inspector
         ├── doc-frontmatter-generator/       # Markdown OKF frontmatter validator
         ├── code-frontmatter-generator/      # Python docstring OKF validator
         ├── review-audit-architecture/       # Domain layering auditor

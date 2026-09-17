@@ -31,6 +31,10 @@ tiers:
     path: docs/tools
     type: text/markdown
     description: "Federated ARD manifest cataloging standalone developer and diagnostic tools."
+  - name: scripts
+    path: scripts
+    type: text/x-python
+    description: "Federated ARD manifest cataloging developer CLI utilities, ARD indexers, and lifecycle status observers."
 
 ignore_dirs:
   - .git

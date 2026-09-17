@@ -198,7 +198,18 @@ def main():
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    targets = ["docs", "analytics", "automation", "clients", "ui", "tests"]
+    
+    ard_yaml = repo_root / "ard.yaml"
+    targets = []
+    if ard_yaml.exists():
+        try:
+            with open(ard_yaml, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f)
+                targets = [tier["path"] for tier in cfg.get("tiers", []) if "path" in tier]
+        except Exception:
+            pass
+    if not targets:
+        targets = ["docs", "analytics", "automation", "clients", "ui", "tests", "scripts"]
 
     all_resources = []
 

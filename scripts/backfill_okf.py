@@ -1,5 +1,15 @@
 """
-Script to retroactively add OKF frontmatter to existing markdown documents in docs/.
+---
+type: Tool
+title: "OKF Frontmatter Backfill Utility"
+description: "Script to retroactively add OKF frontmatter to legacy markdown documents in docs/."
+tags: [tooling, discovery, python, cli]
+status: Active
+sources: []
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:antigravity"
+---
 """
 
 import os

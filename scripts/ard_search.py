@@ -24,7 +24,7 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-DEFAULT_TIERS = ["docs", "analytics", "automation", "clients", "ui", "tests"]
+DEFAULT_TIERS = ["docs", "analytics", "automation", "clients", "ui", "tests", "scripts"]
 
 
 def find_repo_root() -> Path:
