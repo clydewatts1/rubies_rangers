@@ -40,22 +40,41 @@ Instead of letting the AI write code whenever it wants, our lifecycle treats sof
 
 Every feature, solver, or refactor moves through 6 structured stations:
 
-```
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│   Station 1     │       │   Station 2     │       │   Station 3     │
-│   THE TICKET    │ ────> │ THE WHITEBOARD  │ ────> │  THE BLUEPRINT  │
-│  (iss_*.md)     │       │  (brn_*.md)     │       │  (des_*.md)     │
-└─────────────────┘       └─────────────────┘       └────────┬────────┘
-                                                             │
-                                                             ▼ 🛑 [Human Approval Tollgate]
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│   Station 6     │       │   Station 5     │       │   Station 4     │
-│  USER MANUAL    │ <──── │  ASSEMBLY LINE  │ <──── │  PROJECT PLAN   │
-│  (plb_*.md)     │       │  (tsk_*.md)     │       │  (pln_*.md)     │
-└─────────────────┘       └────────┬────────┘       └────────▲────────┘
-                                   │                         │
-                                   └───> [Test Fails] ───────┘
-                                         (Self-Healing Loop)
+```mermaid
+flowchart TD
+    subgraph Phase1 ["Phase I: Problem Definition & Architecture"]
+        S1["<b>Station 1: The Ticket</b><br/><code>Issue (iss_*.md)</code><br/><i>User Problem, Goals & Acceptance Criteria</i>"]
+        S2["<b>Station 2: The Whiteboard</b><br/><code>Brainstorm (brn_*.md)</code><br/><i>Socratic Sparring & Trade-off Analysis</i>"]
+        S3["<b>Station 3: The Blueprint</b><br/><code>Design Spec (des_*.md)</code><br/><i>Data Contracts, Interfaces & Architecture</i>"]
+    end
+
+    Gate1{{"🛑 <b>Human Tollgate 1</b><br/>Architecture & Scope Approval"}}
+
+    subgraph Phase2 ["Phase II: Execution & Operational Delivery"]
+        S4["<b>Station 4: Project Plan</b><br/><code>Implementation Plan (pln_*.md)</code><br/><i>Phases, Dependencies & Rollback Plan</i>"]
+        Gate2{{"🛑 <b>Human Tollgate 2</b><br/>Plan Sign-off & Diff Budgets"}}
+        S5["<b>Station 5: The Assembly Line</b><br/><code>Tasks (tsk_*.md)</code><br/><i>Bounded Micro-Tasks (&le; 80 lines diff)</i>"]
+        TestPass{"<b>Automated Quality Gate</b><br/><code>pytest / go test (exit code 0)</code>"}
+        S6["<b>Station 6: Operational Playbook</b><br/><code>Playbook (plb_*.md)</code><br/><i>Deployed Reality, Config & Troubleshooting</i>"]
+    end
+
+    S1 -->|Clarify Scope| S2
+    S2 -->|Consolidate Options| S3
+    S3 --> Gate1
+    Gate1 -->|Approved| S4
+    S4 --> Gate2
+    Gate2 -->|Approved| S5
+    S5 --> TestPass
+    TestPass -->|Pass| S6
+    TestPass -.->|Fail / Bug Found<br/><i>Self-Healing Rework Loop</i>| S5
+
+    classDef station fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef gate fill:#7c2d12,stroke:#f97316,stroke-width:2px,color:#fef08a;
+    classDef pass fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#d1fae5;
+
+    class S1,S2,S3,S4,S5,S6 station;
+    class Gate1,Gate2 gate;
+    class TestPass pass;
 ```
 
 ### Station 1: The Ticket (`Issue` — `docs/issues/iss_*.md`)
@@ -103,22 +122,68 @@ In technical papers, we call this a **Coloured Petri Net (CPN)**. If you are not
 | **Guards / Semaphores** | Passport control / Customs inspection | The checkpoint where a human or an automated test must stamp approval before the bag moves. |
 | **Feedback Cycles** | Conveyor belt reroute for oversized bags | The self-healing loop that sends failing code back to be repaired before proceeding. |
 
+```mermaid
+flowchart TD
+    Bag["🧳 <b>Feature Ticket / Work Package</b><br/><i>(Colored Token: Track A, B, or C)</i>"]
+    
+    subgraph Airport ["The Automated Baggage Sorting Network"]
+        CheckIn["<b>Luggage Drop / Ingestion</b><br/><code>P_ISSUE_READY</code>"]
+        Sort1["<b>Sorting & Planning Hub</b><br/><code>P_BRAINSTORM_POOL & P_DESIGN_READY</code>"]
+        Passport{{"🛑 <b>Passport & Customs Control</b><br/><i>Human Review Semaphore</i>"}}
+        Assembly["<b>Baggage Loading Belt</b><br/><code>P_TASK_QUEUE</code><br/><i>Micro-Tasks &le; 80 lines</i>"]
+        Scanner{"<b>Automated Security Scanner</b><br/><i>pytest / go test pass?</i>"}
+        Rework["<b>Inspection & Repair Bay</b><br/><code>P_REWORK</code><br/><i>Self-Healing Retry</i>"]
+        Flight["✈️ <b>Final Destination Flight</b><br/><code>P_COMMITTED_PLAYBOOK</code><br/><i>Deployed in Operational Reality</i>"]
+    end
+
+    Bag --> CheckIn
+    CheckIn --> Sort1
+    Sort1 --> Passport
+    Passport -->|Approved Stamp| Assembly
+    Assembly --> Scanner
+    Scanner -->|Pass (exit 0)| Flight
+    Scanner -.->|Alarm / Defect Found| Rework
+    Rework -.->|Fix Applied| Assembly
+
+    classDef bin fill:#1e293b,stroke:#38bdf8,stroke-width:1.5px,color:#f8fafc;
+    classDef check fill:#7c2d12,stroke:#f97316,stroke-width:1.5px,color:#fef08a;
+    classDef dest fill:#064e3b,stroke:#10b981,stroke-width:1.5px,color:#d1fae5;
+    classDef item fill:#312e81,stroke:#a5b4fc,stroke-width:2px,color:#e0e7ff;
+
+    class CheckIn,Sort1,Assembly,Rework bin;
+    class Passport,Scanner check;
+    class Flight dest;
+    class Bag item;
+```
+
 ### The 3 Execution Lanes (Tracks)
 
 We do not force every single change through all 6 stations. Work is classified into 3 priority lanes:
 
-```
-Track A (Deep Architecture — All 6 Stations):
-[Issue] ──> [Brainstorm] ──> [Design] ──> [Plan] ──> [Tasks] ──> [Playbook]
-Used for: Complex algorithms, Monte Carlo engines, brand new financial trading desks.
+```mermaid
+flowchart TD
+    subgraph TrackA ["Track A: Deep Architecture (6 Stations) — Novel Solvers & Core Models"]
+        direction LR
+        A1["Station 1<br/><b>Issue</b>"] --> A2["Station 2<br/><b>Brainstorm</b>"] --> A3["Station 3<br/><b>Design</b>"] --> A4["Station 4<br/><b>Plan</b>"] --> A5["Station 5<br/><b>Tasks</b>"] --> A6["Station 6<br/><b>Playbook</b>"]
+    end
 
-Track B (Fast-Track Feature — 4 Stations):
-[Issue] ───────────────> [Design] ───────────────> [Tasks] ──> [Playbook]
-Used for: Straightforward features, new API endpoints, routine UI forms (skips Brainstorm & Plan).
+    subgraph TrackB ["Track B: Fast-Track Feature (4 Stations) — Standard UI & APIs"]
+        direction LR
+        B1["Station 1<br/><b>Issue</b>"] --> B3["Station 3<br/><b>Design</b>"] --> B5["Station 5<br/><b>Tasks</b>"] --> B6["Station 6<br/><b>Playbook</b>"]
+    end
 
-Track C (Express Hotfix — 2 Stations):
-[Issue] ─────────────────────────────────────────> [Code & Automated Test]
-Used for: Urgent 1-line bug fixes, configuration updates, typo corrections.
+    subgraph TrackC ["Track C: Express Hotfix (2 Stations) — Urgent 1-Line Fixes"]
+        direction LR
+        C1["Station 1<br/><b>Issue</b>"] --> C5["Station 5<br/><b>Code & Verify</b>"]
+    end
+
+    classDef trackA fill:#1e1b4b,stroke:#818cf8,stroke-width:1.5px,color:#e0e7ff;
+    classDef trackB fill:#0f3b38,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1;
+    classDef trackC fill:#3b1828,stroke:#f43f5e,stroke-width:1.5px,color:#ffe4e6;
+
+    class A1,A2,A3,A4,A5,A6 trackA;
+    class B1,B3,B5,B6 trackB;
+    class C1,C5 trackC;
 ```
 
 ---
