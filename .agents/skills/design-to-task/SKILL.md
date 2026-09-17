@@ -1,31 +1,31 @@
 ---
 name: design-to-task
-description: Composite pipeline skill that converts a Stage 3 Technical Design document directly into both an authoritative Implementation Plan (pln_<ID>_<slug>.md) and an execution-ready task harness (tsk_<ID>_<slug>.md) in a single unified workflow.
+description: Composite pipeline skill in the Agentic CPN that chains Transition T_SPEC_TO_PLAN (P_DESIGN_READY -> P_PLAN_READY) and Transition T_PLAN_TO_TASK (P_PLAN_READY -> P_TASK_QUEUE) to produce both an authoritative Plan and execution-ready Task harness in a unified workflow.
 ---
 
 # design-to-task
 
 ## Purpose
-`design-to-task` is an end-to-end composite pipeline orchestrator bridging Stage 3 (Design) to execution readiness. It converts a technical design specification (`docs/design/des_<ID>_<slug>.md`) into both:
-1. An authoritative **Implementation Plan** (`docs/plans/pln_<ID>_<slug>.md`) via `spec-to-plan`.
-2. A machine-executable **Task Harness** (`docs/tasks/tsk_<ID>_<slug>.md`) via `plan-to-task`.
+`design-to-task` is an end-to-end composite pipeline orchestrator in the **Agentic Coloured Petri Net (CPN)** bridging design specification to execution readiness. It chains two consecutive net transitions:
+1. **Transition $T_{\text{SPEC\_TO\_PLAN}}$**: Generates an authoritative **Implementation Plan** (`docs/plans/pln_<ID>_<slug>.md`) in $P_{\text{PLAN\_READY}}$ via `spec-to-plan`.
+2. **Transition $T_{\text{PLAN\_TO\_TASK}}$**: Compiles a machine-executable **Task Harness** (`docs/tasks/tsk_<ID>_<slug>.md`) into $P_{\text{TASK\_QUEUE}}$ via `plan-to-task`.
 
 ```
-Stage 3 Design Document (docs/design/des_*.md)
+Place P_DESIGN_READY (docs/design/des_*.md)
                      │
                      ▼
-       [Phase 1: spec-to-plan]
+       [Transition T_SPEC_TO_PLAN]
        Lead Systems Architect: Scope, Invariants, Budgets, Contracts
                      │
                      ▼
-       docs/plans/pln_<ID>_<slug>.md
+Place P_PLAN_READY (docs/plans/pln_<ID>_<slug>.md)
                      │
                      ▼
-       [Phase 2: plan-to-task]
+       [Transition T_PLAN_TO_TASK]
        Task Compiler: Tight Harness, Micro-Tasks (<80 lines), Rollbacks
                      │
                      ▼
-       docs/tasks/tsk_<ID>_<slug>.md
+Place P_TASK_QUEUE (docs/tasks/tsk_<ID>_<slug>.md)
 ```
 
 ## When to Activate

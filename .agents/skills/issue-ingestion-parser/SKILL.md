@@ -1,17 +1,17 @@
 ---
 name: issue-ingestion-parser
-description: Parses unstructured inputs—whether raw ideas, bug reports, algorithmic proposals, or architectural design needs—into structured, OKF-compliant Issue documents in the docs/issues/ directory. Establishes the absolute root of the provenance DAG with a unique sequential tracking ID.
+description: Acts as Transition T_INGEST in the Agentic Coloured Petri Net (CPN), parsing raw concepts from P_BACKLOG into structured, OKF-compliant Issue tokens in P_ISSUE_READY. Establishes the genesis node of the artifact provenance trace with a unique sequential tracking ID.
 ---
 
 # issue-ingestion-parser
 
 ## Purpose
-This skill operates at Stage 1 (Issue) of the development lifecycle. Its primary job is to act as a translation layer between unstructured human requests (ideas, bugs, features, solver improvements, design changes) and the deterministic, OKF-governed Rubies Rangers repository.
+This skill fires as **Transition $T_{\text{INGEST}}$** in the **Agentic Coloured Petri Net (CPN)**. Its primary job is to act as a stateful translation layer between raw human input in $P_{\text{BACKLOG}}$ (ideas, bugs, features, solver improvements) and the deterministic, OKF-governed Rubies Rangers repository, depositing a strongly-typed `IssueToken` into $P_{\text{ISSUE\_READY}}$.
 
-By assigning a Unique Tracking ID and chaining directly into the OKF and ARD builder skills, it creates a local, zero-latency root node for the repository's Provenance DAG. This ID tracks the initiative through all subsequent phases:
-- **Track A (Deep Architecture)**: Issue $\rightarrow$ Brainstorm $\rightarrow$ Design $\rightarrow$ Plan $\rightarrow$ Tasks $\rightarrow$ Implementation $\rightarrow$ Playbook.
-- **Track B (Fast-Track Feature)**: Issue $\rightarrow$ Design $\rightarrow$ Tasks $\rightarrow$ Implementation $\rightarrow$ Playbook (skips Brainstorm when direction is singular).
-- **Track C (Express Hotfix)**: Issue $\rightarrow$ Implementation $\rightarrow$ Pytest Verification.
+By assigning a Unique Tracking ID and chaining directly into the OKF and ARD builder skills, it establishes the root node for the artifact's immutable provenance trace. The token's `TrackColor` controls its routing across the CPN:
+- **Track A (Deep Architecture)**: Routed to $T_{\text{BRAINSTORM}} \rightarrow P_{\text{BRAINSTORM\_POOL}}$ (full 6-stage lifecycle).
+- **Track B (Fast-Track Feature)**: Bypasses brainstorming, routing directly to $T_{\text{DESIGN}} \rightarrow P_{\text{DESIGN\_READY}}$.
+- **Track C (Express Hotfix)**: Fast-tracks directly to $T_{\text{TASKIFY}} \rightarrow P_{\text{TASK\_QUEUE}}$.
 
 ## When to Activate
 - When a human user provides a new idea, feature request, bug report, or abstract goal in the chat prompt.
@@ -36,7 +36,7 @@ Analyze the user's request. **If the prompt is too brief or lacks clear success 
 
 > **Idempotency Check**: Before allocating a new ID, scan `docs/issues/` for any `iss_<next_ID>_*.md` file matching the topic. If one exists, this is a resumed run—reuse the existing file rather than allocating a new ID.
 
-To maintain the Provenance DAG, every track of work gets a sequential, 3-digit integer ID:
+To maintain the CPN Lineage Trace, every track of work gets a sequential, 3-digit integer ID:
 - Read the highest integer in `docs/issues/` or `docs/issues/last_issue_number.md` (defaulting to `001` if empty), increment it by 1, and write the new value back to `docs/issues/last_issue_number.md`.
 - **Filename Format**: `docs/issues/iss_<ID>_<slug>.md` (e.g., `docs/issues/iss_001_transfer_popover.md`)
 - **URN Format**: `urn:air:clydewatts1:rubies_rangers:docs:iss_<ID>_<slug>`
@@ -84,11 +84,12 @@ Present the logged Issue summary and ID to the user.
 ```markdown
 # Issue [#<ID>]: <Title>
 
-## 0. Frontloader (DAG Context)
+## 0. Frontloader (CPN Lifecycle Context)
 > **Metadata for Downstream Skills & Audits**
-> - **Origin**: `greenfield` | `derived from <path/to/artifact>`
-> - **Current Stage**: Stage 1 (Issue)
-> - **DAG Lineage**: Issue → Brainstorm → Design → Plan → Tasks → Implementation → Playbook
+> - **Origin Place**: `P_BACKLOG`
+> - **Current Transition**: `T_ISSUE_INGEST`
+> - **Next Place**: `P_ISSUE_READY`
+> - **CPN Lineage**: Issue [#<ID>] -> [Brainstorm] -> Design -> Plan -> Tasks -> Playbook
 > - **Execution Track**: Track A (Full 6-Stage) | Track B (Fast-Track 4-Stage) | Track C (Express Hotfix)
 > - **Priority**: P0-Critical | P1-High | P2-Medium | P3-Low
 > - **Estimated Complexity**: S | M | L | XL

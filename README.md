@@ -6,7 +6,7 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
 
 > 📈 **Featured Strategy Treatise:** For an in-depth institutional analysis of how quantitative hedge fund methodologies apply to Fantasy Premier League, read [**The Quant Manager's Manifesto: Approaching Fantasy Football as a Quantitative Hedge Fund**](docs/fantasy_football_as_a_hedge_fund_manager.md) — detailing Modern Portfolio Theory (MPT), factor risk models, real options pricing, and adversarial mini-league game theory.
 > 
-> ⚙️ **Engineering Lifecycle & Provenance DAG:** To understand the institutional 6-stage engineering lifecycle governing autonomous coding agents, issue tracking, and sub-millisecond ARD catalog discovery, read [**The Spec-Driven Agentic Lifecycle: 6-Stage Engineering Provenance DAG**](docs/spec_driven_agentic_lifecycle.md).
+> ⚙️ **Agentic Coloured Petri Net (CPN) Lifecycle:** To understand the bipartite discrete-event CPN engine governing autonomous coding agents, human semaphores, and sub-millisecond ARD catalog discovery, read [**The Agentic Coloured Petri Net (CPN) Lifecycle & Lineage Trace**](docs/spec_driven_agentic_lifecycle.md).
 
 ---
 
@@ -1465,7 +1465,7 @@ The following design specifications and quantitative whitepapers document the ma
 | Document | Status | Description |
 | :--- | :--- | :--- |
 | [`fantasy_football_as_a_hedge_fund_manager.md`](docs/fantasy_football_as_a_hedge_fund_manager.md) | COMPREHENSIVE WHITEPAPER | Institutional playbook on approaching Fantasy Football as a quantitative hedge fund: Modern Portfolio Theory (MPT), factor risk models, real options pricing, and adversarial mini-league game theory. |
-| [`spec_driven_agentic_lifecycle.md`](docs/spec_driven_agentic_lifecycle.md) | ARCHITECTURE SPECIFICATION | Comprehensive architectural treatise detailing the 6-stage progressive formalization pipeline (`Issue -> Brainstorm -> Design -> Plan -> Tasks -> Playbook`), Agentic Resource Discovery (ARD), and 14 autonomous agent skills. |
+| [`spec_driven_agentic_lifecycle.md`](docs/spec_driven_agentic_lifecycle.md) | ARCHITECTURE SPECIFICATION | Comprehensive architectural treatise formalizing the engineering lifecycle as an Agentic Coloured Petri Net (CPN) with Places, Transitions, Colored Tokens, Guard predicates, and immutable artifact provenance. |
 | [`additional_metrics.md`](docs/brainstorm/additional_metrics.md) | IMPLEMENTED | 7 high-alpha forward predictive metrics ($G - xG$, Box Touch Ratio, Talisman Share, $\text{BCM}$, $xG_{\text{obox}}$, Defensive Disruption, Implied Market Odds). |
 | [`two_stage_optimization_measures_inclusion_exclusion.md`](docs/brainstorm/two_stage_optimization_measures_inclusion_exclusion.md) | IMPLEMENTED | Exhaustive 42-measure evaluation whitepaper detailing inclusion/exclusion status and mathematical rationales for Stage 1 Screening and Stage 2 Monte Carlo Simulation. |
 | [`autonomous_execution_pipeline.md`](docs/brainstorm/autonomous_execution_pipeline.md) | IMPLEMENTED | Formal Coloured Petri Net (CPN) architecture for autonomous FPL API execution with Kleene 3-valued ($K_3$) transition guards, deadline-safe disambiguation, and session keepalive. |

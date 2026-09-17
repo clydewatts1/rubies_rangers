@@ -1,23 +1,23 @@
 ---
 name: playbook-facilitator
-description: Converts a Stage 3 Technical Design document and the final implemented codebase into an operational Stage 6 Playbook document in docs/playbooks/plb_<ID>_<slug>.md. Bridges theory to reality, summarizing actual architecture, operational commands, troubleshooting, and spec deviations.
+description: Acts as Transition T_PLAYBOOK in the Agentic Coloured Petri Net (CPN). Converts a Stage 3 Technical Design document and verified codebase from P_VERIFICATION into an operational Stage 6 Playbook document in docs/playbooks/plb_<ID>_<slug>.md (P_COMMITTED_PLAYBOOK).
 ---
 
 # playbook-facilitator
 
 ## Purpose
-This skill operates at **Stage 6 (Playbook)** of the development lifecycle. It takes a Stage 3 Technical Design document (`docs/design/des_<ID>_<slug>.md`) and the *actual deployed Python code*, synthesizing them into an operational reality guide in `docs/playbooks/plb_<ID>_<slug>.md`.
+This skill fires as **Transition $T_{\text{PLAYBOOK}}$** in the **Agentic Coloured Petri Net (CPN)** lifecycle. It consumes a verified token from place $P_{\text{VERIFICATION}}$, references the Stage 3 Technical Design document (`docs/design/des_<ID>_<slug>.md`) and the *actual deployed Python code*, synthesizing them into an operational reality guide in `docs/playbooks/plb_<ID>_<slug>.md` and depositing a completed token into place $P_{\text{COMMITTED\_PLAYBOOK}}$.
 
-Because implementations often deviate slightly from original designs (e.g. edge-case handling, parameter tweaks, API response nuances), this skill acts as a technical writer bridging the gap between theory and reality.
+Because implementations often deviate slightly from original designs (e.g. edge-case handling, parameter tweaks, API response nuances), this transition acts as a technical writer bridging the gap between theory and reality.
 
 ## When to Activate
 - When a feature, solver, or refactor has been implemented and tested.
-- When transitioning from implementation to deployment/operations.
+- When transitioning from implementation verification to deployment/operations.
 - When asked to "generate the playbook" or "document how to run and troubleshoot this feature".
 
 ## Operational Constraints (CRITICAL)
 - **Zero-Shell Mandate**: Do not use `run_command` to alter code during playbook drafting (only `python scripts/ard_builder.py` is permitted).
-- **DAG Lineage Rule**: The Playbook document MUST link back to the source Design in its OKF `sources` array: `sources: ["docs/design/des_<ID>_<slug>.md"]`.
+- **CPN Lineage Rule**: The Playbook document MUST link back to the source Design in its OKF `sources` array: `sources: ["docs/design/des_<ID>_<slug>.md"]` to preserve the immutable acyclic provenance trace.
 - **Reality Check Mandate**: Inspect the actual source code (via `view_file` or `grep_search`) to ensure the Playbook reflects the real deployed code, not just aspirational design notes.
 
 ## Execution Steps
@@ -59,12 +59,14 @@ generated:
 
 # Playbook [#<ID>]: <Title>
 
-## 0. Frontloader (DAG Context)
+## 0. Frontloader (CPN Lifecycle Context)
 > **Metadata for Operations & Maintenance**
+> - **Origin Place**: `P_VERIFICATION`
+> - **Current Transition**: `T_PLAYBOOK`
+> - **Next Place**: `P_COMMITTED_PLAYBOOK`
+> - **CPN Lineage**: Issue [#<ID>] -> [Brainstorm] -> Design [des_<ID>] -> [Plan] -> Tasks [tsk_<ID>] -> Code [P_VERIFICATION] -> Playbook [plb_<ID>]
 > - **Origin Design**: [`docs/design/des_<ID>_<slug>.md`](file:///c:/Users/cw171001/OneDrive%20-%20Teradata/Documents/GitHub/rubies_rangers/docs/design/des_<ID>_<slug>.md)
 > - **Origin Issue**: [`docs/issues/iss_<ID>_<slug>.md`](file:///c:/Users/cw171001/OneDrive%20-%20Teradata/Documents/GitHub/rubies_rangers/docs/issues/iss_<ID>_<slug>.md)
-> - **Current Stage**: Stage 6 (Playbook)
-> - **DAG Lineage**: Issue → Brainstorm → Design → Plan → Tasks → Implementation → Playbook
 > - **URN**: urn:air:clydewatts1:rubies_rangers:docs:plb_<ID>_<slug>
 
 ---

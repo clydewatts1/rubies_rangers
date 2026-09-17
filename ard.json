@@ -25,7 +25,7 @@
     },
     {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:spec-driven-agentic-lifecycle",
-      "displayName": "The Spec-Driven Agentic Lifecycle: 6-Stage Engineering Provenance DAG",
+      "displayName": "The Agentic Coloured Petri Net (CPN) Lifecycle & Lineage Trace",
       "type": "text/markdown",
       "conceptType": "Architecture",
       "tags": [
@@ -34,13 +34,14 @@
         "tooling",
         "registry",
         "discovery",
-        "python"
+        "python",
+        "cpn"
       ],
       "sources": [],
       "url": "docs/spec_driven_agentic_lifecycle.md",
-      "description": "Comprehensive architectural treatise detailing the 6-stage progressive formalization pipeline (Issue -> Brainstorm -> Design -> Plan -> Tasks -> Playbook) and zero-crawl Agentic Resource Discovery (ARD).",
+      "description": "Comprehensive mathematical and operational treatise formulating the software development lifecycle as an Agentic Coloured Petri Net (CPN) with typed places, skill transitions, colored tokens, guard predicates, and immutable provenance traces.",
       "representativeQueries": [
-        "Where is the The Spec-Driven Agentic Lifecycle: 6-Stage Engineering Provenance DAG architecture?",
+        "Where is the The Agentic Coloured Petri Net (CPN) Lifecycle & Lineage Trace architecture?",
         "Show me architecture, process architectures."
       ]
     },

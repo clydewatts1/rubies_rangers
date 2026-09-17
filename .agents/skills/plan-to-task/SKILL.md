@@ -1,12 +1,12 @@
 ---
 name: plan-to-task
-description: Compiles a Stage 4 Implementation Plan (pln_<ID>_<slug>.md) into a machine-executable, highly granular micro-task harness in docs/tasks/tsk_<ID>_<slug>.md. Decomposes work into tight micro-tasks (<80 lines of diff) with binary pass/fail verification commands.
+description: Acts as Transition T_PLAN_TO_TASK in the Agentic Coloured Petri Net (CPN), consuming a Plan token from P_PLAN_READY (and P_HUMAN_SEMAPHORE) and generating a machine-executable Task token harness in P_TASK_QUEUE (<80 lines diff per task).
 ---
 
 # plan-to-task
 
 ## Purpose
-`plan-to-task` operates as the **Task Compiler** bridging Stage 4 (Plan) to implementation. It consumes an authoritative Implementation Plan (`docs/plans/pln_<ID>_<slug>.md`) and generates a machine-executable micro-task harness in `docs/tasks/tsk_<ID>_<slug>.md`.
+`plan-to-task` fires as **Transition $T_{\text{PLAN\_TO\_TASK}}$** in the **Agentic Coloured Petri Net (CPN)**. Guarded by a human `ApprovalToken` in $P_{\text{HUMAN\_SEMAPHORE}}$, it consumes an approved `PlanToken` from $P_{\text{PLAN\_READY}}$ (`docs/plans/pln_<ID>_<slug>.md`) and generates a machine-executable micro-task harness, depositing strongly typed `TaskToken` items into the FIFO queue $P_{\text{TASK\_QUEUE}}$ (`docs/tasks/tsk_<ID>_<slug>.md`).
 
 Each micro-task in the harness is strictly bounded:
 - **Maximum Diff**: $\le 80$ lines of code change per task.
@@ -22,7 +22,7 @@ Each micro-task in the harness is strictly bounded:
 
 ### 1. Analyze Implementation Plan
 - Read the source plan `docs/plans/pln_<ID>_<slug>.md` using `view_file`.
-- Note the Origin Design and Issue to preserve DAG lineage.
+- Note the Origin Design and Issue to preserve unbroken CPN lineage trace.
 
 ### 2. Decompose into Micro-Tasks
 Break each phase of the plan into bite-sized micro-tasks:
@@ -55,11 +55,13 @@ generated:
 
 # Task Harness [#<ID>]: <Title>
 
-## 0. Frontloader (DAG Context)
+## 0. Frontloader (CPN Lifecycle Context)
 > **Metadata for Downstream Execution & Audits**
+> - **Origin Place**: `P_PLAN_READY`
+> - **Current Transition**: `T_PLAN_TO_TASK`
+> - **Next Place**: `P_TASK_QUEUE`
+> - **CPN Lineage**: Issue [#<ID>] -> [Brainstorm] -> Design [des_<ID>] -> Plan [pln_<ID>] -> Tasks [tsk_<ID>] -> Playbook
 > - **Origin Plan**: [`docs/plans/pln_<ID>_<slug>.md`](file:///c:/Users/cw171001/OneDrive%20-%20Teradata/Documents/GitHub/rubies_rangers/docs/plans/pln_<ID>_<slug>.md)
-> - **Current Stage**: Stage 5 (Tasks)
-> - **DAG Lineage**: Issue → Brainstorm → Design → Plan → Tasks → Implementation → Playbook
 > - **URN**: urn:air:clydewatts1:rubies_rangers:docs:tsk_<ID>_<slug>
 
 ---

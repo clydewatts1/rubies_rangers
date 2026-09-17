@@ -1,12 +1,12 @@
 ---
 name: spec-to-plan
-description: Converts a Stage 3 Technical Design Document (des_<ID>_<slug>.md) into an incremental, execution-ready Implementation Plan in docs/plans/pln_<ID>_<slug>.md. Establishes architectural scope, invariants, dependency ordering, file diff specifications, and verification budgets.
+description: Acts as Transition T_SPEC_TO_PLAN in the Agentic Coloured Petri Net (CPN), converting a Design token from P_DESIGN_READY into an authoritative Plan token in P_PLAN_READY. Establishes architectural scope, invariants, diff budgets, and delivery phases.
 ---
 
 # spec-to-plan
 
 ## Purpose
-You are a Lead Systems Architect. Your job is to convert a Stage 3 Technical Design specification (`docs/design/des_<ID>_<slug>.md`) into an authoritative, standardized Implementation Plan in `docs/plans/pln_<ID>_<slug>.md` precise enough that a coding agent can execute it increment by increment with no missing context and zero scope drift.
+You fire as **Transition $T_{\text{SPEC\_TO\_PLAN}}$** in the **Agentic Coloured Petri Net (CPN)**. Your job is to convert a Stage 3 Technical Design token from $P_{\text{DESIGN\_READY}}$ (`docs/design/des_<ID>_<slug>.md`) into an authoritative, standardized Implementation Plan in $P_{\text{PLAN\_READY}}$ (`docs/plans/pln_<ID>_<slug>.md`) precise enough that a coding agent can execute it increment by increment with no missing context and zero scope drift.
 
 This is not a vague todo list. Every task in this plan is in current scope, to be executed sequentially. Anything not currently in scope belongs in the **Out of Scope** section, named explicitly so no one mistakes "not listed" for "forgotten."
 
@@ -54,11 +54,13 @@ generated:
 
 # Implementation Plan [#<ID>]: <Title>
 
-## 0. Frontloader (DAG Context)
+## 0. Frontloader (CPN Lifecycle Context)
 > **Metadata for Downstream Skills & Audits**
+> - **Origin Place**: `P_DESIGN_READY`
+> - **Current Transition**: `T_SPEC_TO_PLAN`
+> - **Next Place**: `P_PLAN_READY`
+> - **CPN Lineage**: Issue [#<ID>] -> [Brainstorm] -> Design [des_<ID>] -> Plan [pln_<ID>] -> Tasks -> Playbook
 > - **Origin Design**: [`docs/design/des_<ID>_<slug>.md`](file:///c:/Users/cw171001/OneDrive%20-%20Teradata/Documents/GitHub/rubies_rangers/docs/design/des_<ID>_<slug>.md)
-> - **Current Stage**: Stage 4 (Plan)
-> - **DAG Lineage**: Issue → Brainstorm → Design → Plan → Tasks → Implementation → Playbook
 > - **Downstream Consumers**: `tsk_<ID>`
 > - **URN**: urn:air:clydewatts1:rubies_rangers:docs:pln_<ID>_<slug>
 

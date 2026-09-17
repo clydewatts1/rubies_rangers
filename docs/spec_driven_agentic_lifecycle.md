@@ -1,17 +1,17 @@
 ---
 type: Architecture
-title: "The Spec-Driven Agentic Lifecycle: 6-Stage Engineering Provenance DAG"
-description: "Comprehensive architectural treatise detailing the 6-stage progressive formalization pipeline (Issue -> Brainstorm -> Design -> Plan -> Tasks -> Playbook) and zero-crawl Agentic Resource Discovery (ARD)."
-tags: [architecture, process, tooling, registry, discovery, python]
+title: "The Agentic Coloured Petri Net (CPN) Lifecycle & Lineage Trace"
+description: "Comprehensive mathematical and operational treatise formulating the software development lifecycle as an Agentic Coloured Petri Net (CPN) with typed places, skill transitions, colored tokens, guard predicates, and immutable provenance traces."
+tags: [architecture, process, tooling, registry, discovery, python, cpn]
 status: Active
 sources: []
 generated:
-  at: "2026-09-17T05:35:00Z"
+  at: "2026-09-17T05:39:00Z"
   by: "agent:antigravity"
 ---
 
-# The Spec-Driven Agentic Lifecycle: 6-Stage Engineering Provenance DAG
-## Deterministic, Document-Driven Agentic Engineering for High-Stakes Quantitative Platforms
+# The Agentic Coloured Petri Net (CPN) Lifecycle & Lineage Trace
+## Formal Bipartite Discrete-Event Execution for Autonomous Agentic Engineering
 
 **Target Audience:** Quantitative Engineers, Autonomous System Architects & Agentic Pair Programmers  
 **Target Subsystems:** `.agents/skills/`, `.agents/rules/`, `docs/`, `scripts/ard_builder.py`, `scripts/ard_search.py`  
@@ -22,243 +22,280 @@ generated:
 
 ---
 
-## Executive Summary & Core Philosophy
+## 0. Executive Summary: The CPN Engine vs. The DAG Trace
 
-Large Language Models (LLMs) and autonomous coding agents exhibit a well-documented failure mode known as the **Context Drift / Hallucination Horizon**: when tasked with leaping directly from an ambiguous human goal to multi-file production code, error rates compound exponentially. Conventional prompt-and-pray development results in leaky abstractions, circular imports, premature in-flight refactoring, and untracked technical debt.
+A persistent misconception in AI-assisted coding is treating software development as a simple Directed Acyclic Graph (DAG) or linear waterfall. While the **artifacts left on disk** (`iss_`, `des_`, `plb_`) form an immutable, acyclic provenance graph, the **actual runtime execution is inherently cyclic, stateful, and concurrent**:
+- A unit test fails $\rightarrow$ code must loop back for rework.
+- Multiple micro-tasks run in parallel $\rightarrow$ fork-join synchronization barriers.
+- A human architect reviews a plan $\rightarrow$ token semaphore waiting for approval.
 
-To achieve institutional durability in **Rubies Rangers**, software development is structured as a **Progressive Formalization Pipeline** governed by an immutable **6-Stage Provenance Directed Acyclic Graph (DAG)**.
+In **Rubies Rangers**, the engineering lifecycle is formally modeled as an **Agentic Coloured Petri Net (CPN)**:
+$$\mathcal{N}_{\text{agentic}} = (P, T, A, \Sigma, G, E, M_0)$$
 
 ```text
-  HIGH ENTROPY (Ambiguous Human Intent)
-         │
-  [Stage 1: Issue (iss_)]       ─── Problem Genesis & Binary Acceptance Criteria
-         │
-  [Stage 2: Brainstorm (brn_)]  ─── Divergent Exploration (2-3 Competing Trade-offs)
-         │
-  [Stage 3: Design (des_)]      ─── Convergent Spec (Formal Math, Contracts & Mermaid)
-         │
-  [Stage 4: Plan (pln_)]        ─── Lead Architect Scoping & Invariant Budgets
-         │
-  [Stage 5: Tasks (tsk_)]       ─── Micro-Task Execution Harness (<80 lines diff)
-         │
-  [Stage 6: Playbook (plb_)]    ─── Operational Reality, Runbooks & Spec Deviations
-         ▼
-  ZERO ENTROPY (Verified Runtime System)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      THE DUALITY OF AGENTIC ENGINEERING                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 1. Dynamic Execution Engine (Coloured Petri Net):                           │
+│    • Stateful discrete-event network with marking M_t                       │
+│    • Handles cyclic rework loops, multi-track token routing, and guards     │
+│    • Agent skills fire as autonomous asynchronous transitions (T_i)         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 2. Static Knowledge Trace (Directed Acyclic Graph):                         │
+│    • Immutable disk artifacts in docs/ with YAML frontmatter lineage        │
+│    • Auditable, zero-crawl ARD discovery across git history                 │
+│    • Every line of production code links back to its genesis Issue          │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-The core insight of this lifecycle is **progressive entropy reduction**: each phase performs exactly one narrow, high-fidelity transformation. The human developer acts as the **Lead Architect / Fund Principal** who enforces stage gates, approves trade-offs, and signs off on plans, while autonomous agent skills handle formalization, contract drafting, and micro-task execution.
 
 ---
 
-## 1. The 6-Stage Engineering Provenance DAG
+## 1. Formal Petri Net Specification
 
-Every initiative in the repository traces a strict, bidirectional lineage anchored by a sequential, 3-digit tracking ID (`<ID>`, e.g., `#015`):
+The Agentic CPN is defined as a 7-tuple:
+$$\mathcal{N} = (P, T, A, \Sigma, G, E, M_0)$$
 
 ```mermaid
-graph LR
-    ISS[Stage 1: Issue<br>iss_ID] --> BRN[Stage 2: Brainstorm<br>brn_ID]
-    BRN --> DES[Stage 3: Design<br>des_ID]
-    DES --> PLN[Stage 4: Plan<br>pln_ID]
-    PLN --> TSK[Stage 5: Tasks<br>tsk_ID]
-    TSK --> IMP[Implementation<br>Code Diffs]
-    IMP --> PLB[Stage 6: Playbook<br>plb_ID]
-```
+graph TD
+    subgraph Places ["Places (State Queues & Semaphores)"]
+        P_BACKLOG([P_BACKLOG])
+        P_ISSUE([P_ISSUE_READY])
+        P_BRN([P_BRAINSTORM_POOL])
+        P_DES([P_DESIGN_READY])
+        P_PLAN([P_PLAN_READY])
+        P_TASKS([P_TASK_QUEUE])
+        P_CODING([P_CODING_IN_FLIGHT])
+        P_VERIFY([P_VERIFICATION])
+        P_REWORK([P_REWORK_LOOP])
+        P_DONE([P_COMMITTED_PLAYBOOK])
+        P_HUMAN([P_HUMAN_SEMAPHORE])
+    end
 
-### Stage 1: Issue (`docs/issues/iss_<ID>_<slug>.md`)
-- **Role:** *The Product Sponsor & Boundary Setter*
-- **Activated Skill:** `issue-ingestion-parser`
-- **Purpose:** Ingests raw ideas, algorithmic proposals, bug reports, or feature requests. Formulates the problem statement, primary objectives, and strictly testable, binary (pass/fail) acceptance criteria.
-- **Rules:** Absolute root of the DAG. Its frontmatter `sources:` array is empty (`[]`). Allocates a sequential ID concurrency-safely via `docs/issues/last_issue_number.md`.
+    subgraph Transitions ["Transitions (Agentic Skills)"]
+        T_INGEST[T_ISSUE_INGEST<br><i>issue-ingestion-parser</i>]
+        T_BRN[T_BRAINSTORM<br><i>brainstorm-facilitator</i>]
+        T_DES[T_DESIGN<br><i>design-facilitator</i>]
+        T_PLN[T_SPEC_TO_PLAN<br><i>spec-to-plan</i>]
+        T_TSK[T_PLAN_TO_TASK<br><i>plan-to-task</i>]
+        T_CODE[T_EXECUTE_TASK<br><i>agent code edit</i>]
+        T_VERIFY[T_RUN_VERIFICATION<br><i>pytest / validator</i>]
+        T_DIAG[T_DIAGNOSE_REWORK<br><i>regression triage</i>]
+        T_PLB[T_PLAYBOOK<br><i>playbook-facilitator</i>]
+    end
 
-### Stage 2: Brainstorm (`docs/brainstorm/brn_<ID>_<slug>.md`)
-- **Role:** *The Research Lab & Divergent Explorer*
-- **Activated Skills:** `brainstorm-facilitator` (single-shot) or `brainstorm-ideate-loop` (interactive Socratic sparring)
-- **Purpose:** Explores 2 to 3 competing mathematical or architectural approaches (e.g., Safe Bet vs. Wildcard vs. Minimalist). Explicitly evaluates failure modes, latency impacts, and trade-offs before any code or technical spec is written.
-- **Stage Gate:** **HARD STOP**. The human must explicitly select the winning design direction before advancing.
+    P_BACKLOG --> T_INGEST
+    T_INGEST --> P_ISSUE
 
-### Stage 3: Design (`docs/design/des_<ID>_<slug>.md`)
-- **Role:** *The Principal Systems Architect*
-- **Activated Skill:** `design-facilitator`
-- **Purpose:** Converts the chosen brainstorm option into a spec-grade technical contract. Specifies:
-  - Exact mathematical formalisms (objective functions, constraints, probability distributions).
-  - Strongly typed `@dataclass` or Pydantic contracts with runtime assertions.
-  - Mermaid state machine and sequence diagrams.
-  - Systematic failure-mode audits and degradation contingency plans.
+    P_ISSUE -->|Track A Token| T_BRN
+    P_ISSUE -->|Track B Token| T_DES
+    P_ISSUE -->|Track C Token| T_TSK
 
-### Stage 4: Implementation Plan (`docs/plans/pln_<ID>_<slug>.md`)
-- **Role:** *The Tech Lead & Delivery Manager*
-- **Activated Skill:** `spec-to-plan`
-- **Purpose:** Decomposes the technical design into an incremental, risk-ordered delivery schedule:
-  - Invariant preservation matrices.
-  - File diff specifications (New, Modify, Delete).
-  - Complexity budgets and rollback triggers.
-- **Stage Gate:** **HARD STOP**. Requires explicit user review and approval via the `implementation_plan.md` artifact.
+    T_BRN --> P_BRN
+    P_BRN --> T_DES
+    P_HUMAN -.->|Approval Token| T_DES
+    T_DES --> P_DES
 
-### Stage 5: Task Harness (`docs/tasks/tsk_<ID>_<slug>.md`)
-- **Role:** *The Deterministic Execution Engine*
-- **Activated Skills:** `plan-to-task` or `design-to-task` (composite)
-- **Purpose:** Translates the implementation plan into machine-executable micro-tasks:
-  - Micro-batches limited to <80 lines of code change per task.
-  - Exact file targets and line anchor references.
-  - Binary pass/fail verification commands (`pytest tests/test_... -v`).
-  - Strict completion checklists `[ ]` $\rightarrow$ `[x]`.
+    P_DES --> T_PLN
+    T_PLN --> P_PLAN
+    P_HUMAN -.->|Approval Token| T_TSK
+    P_PLAN --> T_TSK
 
-### Stage 6: Operational Playbook (`docs/playbooks/plb_<ID>_<slug>.md`)
-- **Role:** *Site Reliability Engineering (SRE) & Operational Reality*
-- **Activated Skill:** `playbook-facilitator`
-- **Purpose:** Bridges theory to reality after code is committed. Documenting:
-  - Runtime commands and CLI flags.
-  - Live configuration profiles in `config.yaml`.
-  - Spec deviations and runtime trade-offs discovered during coding.
-  - Diagnostic failure recovery runbooks and troubleshooting procedures.
+    T_TSK --> P_TASKS
+    P_TASKS --> T_CODE
+    T_CODE --> P_CODING
+    P_CODING --> T_VERIFY
+    T_VERIFY --> P_VERIFY
 
----
+    P_VERIFY -->|Guard: pytest PASS| T_PLB
+    P_VERIFY -->|Guard: pytest FAIL| T_DIAG
+    T_DIAG --> P_REWORK
+    P_REWORK --> T_CODE
 
-## 2. Adaptive Complexity: 3 Execution Tracks
-
-Not every engineering task warrants a full 6-stage lifecycle. Work is categorized into one of three execution tracks based on epistemic uncertainty and risk:
-
-| Track | Name | Stages Traversed | When to Use |
-| :---: | :--- | :--- | :--- |
-| **Track A** | **Deep Architecture** | **6 Stages**<br>`Issue → Brainstorm → Design → Plan → Tasks → Playbook` | Novel quantitative models, stochastic solvers, CPN automation, multi-period optimization, major refactors. |
-| **Track B** | **Fast-Track Feature** | **4 Stages**<br>`Issue → Design → Tasks → Playbook` | Well-understood feature extensions, new UI tabs, API client endpoints, or direct integrations where the design direction is unambiguous. Skips divergent brainstorming. |
-| **Track C** | **Express Hotfix** | **2 Stages**<br>`Issue → Implementation → Pytest Verification` | Urgent bug fixes, broken imports, syntax errors, or schema regressions with an immediate reproducing test case. |
-
----
-
-## 3. Agentic Resource Discovery (ARD) & Zero-Crawl Intelligence
-
-To eliminate expensive filesystem crawls and token-heavy directory searches, the repository implements **Agentic Resource Discovery (ARD)**.
-
-### Federated Catalog Architecture
-ARD operates through federated JSON manifests (`ard.json` and `docs/ard.json`) built by `scripts/ard_builder.py`. It partitions repository assets into specialized tiers:
-
-```text
-rubies_rangers/
-├── ard.yaml               # Master ARD Schema & Tier Registry
-├── ard.json               # Master Manifest (All Tiers)
-├── scripts/
-│   ├── ard_builder.py     # Manifest compiler & indexer
-│   └── ard_search.py      # Sub-millisecond zero-crawl search CLI
-└── docs/
-    └── ard.json           # Documentation Tier Manifest
-```
-
-### Zero-Crawl Search CLI
-Agents and human developers query the manifest instantaneously using `scripts/ard_search.py`:
-
-```bash
-# Query all resources matching 'challenge'
-python scripts/ard_search.py "challenge"
-
-# Query resources matching 'transfer'
-python scripts/ard_search.py "transfer"
-```
-
-**Representative Output:**
-```text
-[Brainstorm] docs/brainstorm/fpl_challenge_optimization_engine.md
-  Title: [#004] FPL Challenge Quantitative Optimization Engine
-  Lineage: docs/issues/iss_004_fpl_challenge_optimization_engine.md
-  Description: Mathematical formulation and candidate screening for dynamic weekly FPL Challenge tournament formats.
-  Tags: [brainstorm, challenge, optimization, milp, knapsack]
-
-[Issue] docs/issues/iss_004_fpl_challenge_optimization_engine.md
-  Title: [#004] FPL Challenge Quantitative Optimization Engine
-  Description: Mathematical formulation and candidate screening for dynamic weekly FPL Challenge tournament formats.
-  Tags: [issue, challenge, optimization, milp, knapsack]
+    T_PLB --> P_DONE
 ```
 
 ---
 
-## 4. Open Knowledge Format (OKF) & Code-as-Knowledge
+## 2. Net Elements: Places, Transitions, Tokens & Guards
 
-Every document and source module in Rubies Rangers adheres to the **Open Knowledge Format (OKF)**, embedding structured metadata directly into file headers.
+### A. Places ($P$) — Queues & Semaphores
+Places act as strongly typed holding buffers. Tokens reside in places until a transition's input guard is satisfied:
 
-### Document Frontmatter (Markdown)
-Every file in `docs/` begins with an OKF YAML header:
-
-```yaml
----
-type: Issue | Brainstorm | Design | Plan | TaskHarness | Playbook | Architecture
-title: "[#015] Autonomous Challenge Coloured Petri Net (CPN) Pipeline"
-description: "Autonomous Challenge CPN architecture with modular picker service, model validator, and Saga retry loop."
-tags: [issue, challenge, cpn, saga, automation, runner]
-status: Active | Closed | Draft | Legacy
-sources: ["docs/issues/iss_015_challenge_cpn_autonomous_runner.md"]
-generated:
-  at: "2026-09-17T05:25:00Z"
-  by: "agent:issue-ingestion-parser"
----
-```
-
-### Code-as-Knowledge Frontmatter (Python Docstrings)
-Python modules embed OKF frontmatter inside their module-level docstrings, linking running code directly to its originating design specification:
-
-```python
-"""
----
-type: Implementation
-title: "Autonomous Challenge CPN Runner"
-description: "Standalone CLI entrypoint for orchestrating autonomous Challenge CPN execution without FastAPI dependencies."
-tags: [automation, challenge, runner, cli]
-status: Active
-sources: ["docs/design/des_015_challenge_cpn_autonomous_runner.md"]
-generated:
-  at: "2026-09-17T05:25:00Z"
-  by: "agent:antigravity"
----
-"""
-from __future__ import annotations
-...
-```
-
-### Validation Tooling
-Compliance is audited via the automated OKF validator:
-```bash
-python .agents/skills/code-frontmatter-generator/scripts/validate_code_okf.py --dir docs
-```
-
----
-
-## 5. Summary of Active Agentic Skills
-
-The lifecycle is automated by 14 specialized skills located in [`.agents/skills/`](file:///c:/Users/cw171001/OneDrive%20-%20Teradata/Documents/GitHub/rubies_rangers/.agents/skills):
-
-| Skill Name | Lifecycle Stage | Primary Responsibility |
+| Place Name | Color Type | Operational Meaning |
 | :--- | :---: | :--- |
-| **`issue-ingestion-parser`** | **Stage 1** | Parses human prompts into `iss_<ID>_<slug>.md`, allocates sequential IDs, sets binary acceptance criteria. |
-| **`brainstorm-facilitator`** | **Stage 2** | Generates single-shot `brn_<ID>_<slug>.md` with 2-3 competing options and trade-off matrices. |
-| **`brainstorm-ideate-loop`** | **Stage 2** | Socratic sparring partner probing wildcards and failure modes before drafting brainstorms. |
-| **`design-facilitator`** | **Stage 3** | Converts brainstorms into `des_<ID>_<slug>.md` with mathematical formalisms, Mermaid diagrams, and typed contracts. |
-| **`spec-to-plan`** | **Stage 4** | Compiles designs into `pln_<ID>_<slug>.md` defining invariants, diff budgets, and dependency ordering. |
-| **`plan-to-task`** | **Stage 5** | Compiles plans into `tsk_<ID>_<slug>.md` with atomic micro-tasks (<80 LOC) and binary verification gates. |
-| **`design-to-task`** | **Stage 4-5** | Composite pipeline chaining `spec-to-plan` + `plan-to-task` into a single fast-track invocation. |
-| **`playbook-facilitator`** | **Stage 6** | Synthesizes committed code and designs into `plb_<ID>_<slug>.md` operational reality runbooks. |
-| **`doc-frontmatter-generator`** | **Governance** | Generates and audits OKF frontmatter across all markdown files. |
-| **`code-frontmatter-generator`** | **Governance** | Embeds and validates OKF frontmatter in Python module docstrings (`validate_code_okf.py`). |
-| **`review-audit-architecture`** | **Quality** | Audits domain layering (`ui/` $\rightarrow$ `automation/` $\rightarrow$ `analytics/` $\rightarrow$ `clients/`) and flags circular imports. |
-| **`review-audit-vectorization`** | **Quality** | Audits NumPy/pandas code against slow `.iterrows()` loops and memory churn. |
-| **`test-design`** | **Testing** | Architects test plans, boundary condition matrices, and synthetic fixtures. |
-| **`test-generation-python`** | **Testing** | Generates high-performance `pytest` test suites, property tests, and async CPN fixtures. |
+| **`P_BACKLOG`** | `IdeaToken` | Raw human concepts, bugs, or algorithmic feature requests awaiting triage. |
+| **`P_ISSUE_READY`** | `IssueToken` | Formally structured issues with sequential ID, URN, and binary acceptance criteria. |
+| **`P_BRAINSTORM_POOL`** | `BrainstormToken` | Competing options and trade-off analyses awaiting architectural selection. |
+| **`P_DESIGN_READY`** | `DesignToken` | Spec-grade contracts, formal math, and typed dataclass specifications. |
+| **`P_PLAN_READY`** | `PlanToken` | Delivery schedules with invariant matrices and diff budgets awaiting user approval. |
+| **`P_TASK_QUEUE`** | `TaskToken` | FIFO queue of decomposed micro-tasks (<80 lines of code change). |
+| **`P_CODING_IN_FLIGHT`**| `CodeDiffToken` | Atomic code edits currently applied in working directory. |
+| **`P_VERIFICATION`** | `VerdictToken` | Code changes awaiting automated test suite evaluation. |
+| **`P_REWORK_LOOP`** | `DiagnosticToken` | Failed test diagnostics routed back for targeted agent code repair. |
+| **`P_COMMITTED_PLAYBOOK`**| `PlaybookToken` | Operational reality documented, ARD re-indexed, and git commit finalized. |
+| **`P_HUMAN_SEMAPHORE`** | `ApprovalToken` | Resource place holding human authorization tokens enforcing critical stage gates. |
 
 ---
 
-## 6. CLI Command Cheat Sheet
+### B. Transitions ($T$) — The Agentic Skills Suite
+Every transition in the CPN is powered by an autonomous agent skill located in [`.agents/skills/`](file:///c:/Users/cw171001/OneDrive%20-%20Teradata/Documents/GitHub/rubies_rangers/.agents/skills):
+
+| Transition | Skill Name | Input Places | Output Places | Firing Responsibility |
+| :--- | :--- | :--- | :--- | :--- |
+| **$T_{\text{INGEST}}$** | `issue-ingestion-parser` | `P_BACKLOG` | `P_ISSUE_READY` | Parses prompt, assigns 3-digit ID, writes `iss_<ID>_<slug>.md`. |
+| **$T_{\text{BRAINSTORM}}$** | `brainstorm-facilitator` | `P_ISSUE_READY` | `P_BRAINSTORM_POOL` | Explores 2-3 competing options, writes `brn_<ID>_<slug>.md`. |
+| **$T_{\text{DESIGN}}$** | `design-facilitator` | `P_BRAINSTORM_POOL`, `P_HUMAN_SEMAPHORE` | `P_DESIGN_READY` | Formalizes chosen option into spec-grade `des_<ID>_<slug>.md`. |
+| **$T_{\text{SPEC\_TO\_PLAN}}$** | `spec-to-plan` | `P_DESIGN_READY` | `P_PLAN_READY` | Establishes diff budgets & invariants in `pln_<ID>_<slug>.md`. |
+| **$T_{\text{PLAN\_TO\_TASK}}$**| `plan-to-task` | `P_PLAN_READY`, `P_HUMAN_SEMAPHORE` | `P_TASK_QUEUE` | Decomposes plan into micro-tasks in `tsk_<ID>_<slug>.md`. |
+| **$T_{\text{EXECUTE\_TASK}}$** | *Agent Coding Tools* | `P_TASK_QUEUE` or `P_REWORK_LOOP` | `P_CODING_IN_FLIGHT` | Applies atomic file modifications using `replace_file_content`. |
+| **$T_{\text{VERIFY}}$** | `test-generation-python` | `P_CODING_IN_FLIGHT` | `P_VERIFICATION` | Executes `pytest`, property tests, and OKF validators. |
+| **$T_{\text{DIAGNOSE}}$** | *Agent Triage* | `P_VERIFICATION` | `P_REWORK_LOOP` | Extracts failure traceback and formulates targeted fix chunk. |
+| **$T_{\text{PLAYBOOK}}$** | `playbook-facilitator` | `P_VERIFICATION` | `P_COMMITTED_PLAYBOOK` | Synthesizes committed code into `plb_<ID>_<slug>.md` & builds ARD. |
+
+---
+
+### C. Color Sets ($\Sigma$) — Strongly Typed Tokens
+Tokens carry rich data structures that dictate net behavior and conditional routing:
+
+```text
+color TrackColor = enum { TRACK_A, TRACK_B, TRACK_C };
+
+color IssueToken = record {
+    id: int,
+    slug: string,
+    track: TrackColor,
+    priority: string,
+    acceptance_criteria: list[string]
+};
+
+color TaskToken = record {
+    issue_id: int,
+    task_index: int,
+    target_file: string,
+    verification_cmd: string
+};
+
+color VerdictToken = record {
+    task_token: TaskToken,
+    passed: bool,
+    exit_code: int,
+    stdout: string,
+    retry_count: int
+};
+
+color ApprovalToken = record {
+    stage: string,
+    approver: string,
+    timestamp_utc: string
+};
+```
+
+---
+
+### D. Guards ($G$) & Cyclic Rework
+
+A transition fires if and only if all input tokens satisfy its guard predicate. This allows the CPN to model what a DAG cannot: **runtime branching, human governance, and self-healing loops**:
+
+1. **The Human Authorization Guard:**
+   $$G(T_{\text{DESIGN}}) = \left[\text{token}_{\text{human}}.\text{stage} == \text{"BRAINSTORM\_SELECT"}\right]$$
+   $$G(T_{\text{PLAN\_TO\_TASK}}) = \left[\text{token}_{\text{human}}.\text{stage} == \text{"PLAN\_APPROVED"}\right]$$
+   Guarantees that agents cannot prematurely write specs or touch code until the human architect deposits an approval token.
+
+2. **The Verification Guard (Forward Progression):**
+   $$G(T_{\text{PLAYBOOK}}) = \left[\text{token}_{\text{verdict}}.\text{passed} == \text{True} \land \text{token}_{\text{verdict}}.\text{exit\_code} == 0\right]$$
+
+3. **The Cyclic Rework Guard (Self-Healing Loop):**
+   $$G(T_{\text{DIAGNOSE}}) = \left[\text{token}_{\text{verdict}}.\text{passed} == \text{False} \land \text{token}_{\text{verdict}}.\text{retry\_count} < 3\right]$$
+   When a unit test fails, the token is not lost; it routes to $P_{\text{REWORK\_LOOP}}$, where the agent refines the code diff and resubmits to $P_{\text{CODING\_IN\_FLIGHT}}$.
+
+---
+
+## 3. Dynamic Multi-Track Routing via Colored Tokens
+
+The net topology is unified; execution speed is controlled by the **`TrackColor`** embedded in the `IssueToken`:
+
+```text
+Track A (Deep Architecture):
+  P_BACKLOG ──> T_INGEST ──> P_ISSUE ──> T_BRN ──> P_BRN ──> T_DES ──> P_DES ──> T_PLN ──> P_PLAN ──> T_TSK ──> P_TASKS ...
+
+Track B (Fast-Track Feature - Skips Brainstorming):
+  P_BACKLOG ──> T_INGEST ──> P_ISSUE ───────────────> T_DES ──> P_DES ─────────────> T_TSK ──> P_TASKS ...
+
+Track C (Express Hotfix - Direct to Task Queue):
+  P_BACKLOG ──> T_INGEST ──> P_ISSUE ──────────────────────────────────────────────> T_TSK ──> P_TASKS ...
+```
+
+- **Track A (6 Stages)**: Evaluates competing options when mathematical/architectural uncertainty is high.
+- **Track B (4 Stages)**: For well-understood features with an obvious singular path (e.g., adding an API endpoint or UI tab). Chained directly via the composite `design-to-task` skill.
+- **Track C (2 Stages)**: For urgent bug fixes with an immediate reproducing pytest assertion.
+
+---
+
+## 4. The Artifact Layer: Immutable Provenance Lineage
+
+While the CPN operates dynamically, every transition leaves a permanent, static footprint on disk in `docs/`:
+
+```text
+docs/
+├── issues/          # Stage 1: iss_<ID>_<slug>.md (Output of T_INGEST)
+├── brainstorm/      # Stage 2: brn_<ID>_<slug>.md (Output of T_BRAINSTORM)
+├── design/          # Stage 3: des_<ID>_<slug>.md (Output of T_DESIGN)
+├── plans/           # Stage 4: pln_<ID>_<slug>.md (Output of T_SPEC_TO_PLAN)
+├── tasks/           # Stage 5: tsk_<ID>_<slug>.md (Output of T_PLAN_TO_TASK)
+├── playbooks/       # Stage 6: plb_<ID>_<slug>.md (Output of T_PLAYBOOK)
+└── ard.json         # Federated ARD Catalog Manifest
+```
+
+### Frontloader Lineage Metadata
+Every markdown document embeds a standardized Frontloader block tracking its position in the CPN lifecycle:
+
+```markdown
+## 0. Frontloader (CPN Lifecycle Context)
+> **Metadata for Downstream Skills & Audits**
+> - **Origin Place**: `P_DESIGN_READY`
+> - **Current Transition**: `T_SPEC_TO_PLAN`
+> - **Next Place**: `P_PLAN_READY`
+> - **CPN Lineage**: Issue [#015] -> Design [des_015] -> Plan [pln_015] -> Tasks [tsk_015]
+> - **Execution Track**: Track B (Fast-Track 4-Stage)
+> - **Priority**: P0-Critical
+> - **URN**: urn:air:clydewatts1:rubies_rangers:docs:pln_015_challenge_cpn
+```
+
+---
+
+## 5. Agentic Resource Discovery (ARD): Sub-Millisecond Zero-Crawl
+
+The repository catalog is compiled by `scripts/ard_builder.py` into federated JSON manifests (`ard.json` and `docs/ard.json`), enabling agents to perform sub-millisecond queries with zero directory crawling:
 
 ```bash
-# 1. Search the repository with zero crawl (sub-millisecond)
-python scripts/ard_search.py "<query>"
-
-# 2. Re-index all ARD manifests after adding documents or modules
-python scripts/ard_builder.py
-
-# 3. Validate OKF frontmatter across documentation
-python .agents/skills/code-frontmatter-generator/scripts/validate_code_okf.py --dir docs
-
-# 4. Validate OKF frontmatter across Python codebase
-python .agents/skills/code-frontmatter-generator/scripts/validate_code_okf.py --root .
-
-# 5. Run full platform regression test suite
-python -m pytest tests/ -v
+# Query the CPN lifecycle and issues instantaneously
+python scripts/ard_search.py "cpn"
+python scripts/ard_search.py "challenge"
 ```
+
+**Output:**
+```text
+[Issue] docs/issues/iss_015_challenge_cpn_autonomous_runner.md
+  Title: [#015] Autonomous Challenge Coloured Petri Net (CPN) Pipeline & Standalone Runner
+  Description: Autonomous Challenge CPN architecture with modular picker service, model validator, Saga retry loop, and zero-FastAPI CLI runner.
+  Tags: [issue, challenge, cpn, saga, automation, runner]
+
+[Architecture] docs/spec_driven_agentic_lifecycle.md
+  Title: The Agentic Coloured Petri Net (CPN) Lifecycle & Lineage Trace
+  Description: Comprehensive mathematical and operational treatise formulating the software development lifecycle as an Agentic Coloured Petri Net (CPN)...
+  Tags: [architecture, process, tooling, registry, discovery, python, cpn]
+```
+
+---
+
+## 6. Summary: DAG vs. CPN Comparison
+
+| Engineering Attribute | Static DAG View | Agentic CPN Model |
+| :--- | :--- | :--- |
+| **Model Classification** | Static, Acyclic Graph ($\mathcal{G} = (V, E)$) | Bipartite Dynamic System ($\mathcal{N} = (P, T, A, \Sigma, G, E, M_0)$) |
+| **Representation of Time** | Past tense (What was built) | Present tense (What is currently firing or waiting) |
+| **Unit Test Failures** | Cannot be modeled without violating acyclic rules | **Native.** Transition routes token to $P_{\text{REWORK\_LOOP}}$ |
+| **Human Governance** | Ambiguous external observer | **Formal Semaphore Place ($P_{\text{HUMAN}}$)** holding approval tokens |
+| **Parallel Tasks** | Static tree branches | **Dynamic Fork-Join** with synchronized barrier places |
+| **Complexity Tracks** | 3 disconnected flowchart diagrams | **Single Net Topology** routed by `TrackColor` token data |
+| **Liveness Guarantees** | None | **Provable $L_1$-Liveness** and formal deadlock prevention |

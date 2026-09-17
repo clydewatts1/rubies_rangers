@@ -28,12 +28,13 @@ All development and automated decision-making in this repository are governed by
    - **Canonical 4-Zone Page Anatomy**: Strict structure across all views (Terminal Header -> KPI Telemetry Strip -> In-Page Strategy Deck -> Dual-Aspect Data Inspector).
    - **Componentized Presentation**: Eliminates inline HTML sprawl via atomic primitives in `ui/components/`; prohibits sidebar widget bleed.
 
-4. **Engineering Lifecycle & Agentic Skills (`.agents/skills/`)**:
-   - **6-Stage Provenance DAG**: Rigorous document lifecycle connecting `docs/issues/` $\rightarrow$ `docs/brainstorm/` $\rightarrow$ `docs/design/` $\rightarrow$ `docs/plans/` $\rightarrow$ `docs/tasks/` $\rightarrow$ `docs/playbooks/`.
-   - **3 Execution Tracks**:
-     - *Track A (Deep Architecture - 6 Stages)*: Issue $\rightarrow$ Brainstorm $\rightarrow$ Design $\rightarrow$ Plan $\rightarrow$ Tasks $\rightarrow$ Implementation $\rightarrow$ Playbook.
-     - *Track B (Fast-Track Feature - 4 Stages)*: Issue $\rightarrow$ Design $\rightarrow$ Tasks $\rightarrow$ Implementation $\rightarrow$ Playbook.
-     - *Track C (Express Hotfix - 2 Stages)*: Issue $\rightarrow$ Implementation $\rightarrow$ Pytest Verification.
+4. **[Engineering Lifecycle & Agentic Skills](docs/spec_driven_agentic_lifecycle.md) (`.agents/skills/`)**:
+   - **Agentic Coloured Petri Net (CPN) Lifecycle**: Formulates the software development lifecycle as a dynamic, bipartite Petri Net $\mathcal{N} = (P, T, A, \Sigma, G, E, M_0)$ with strongly typed Places (buffers/semaphores), Transitions (14 agentic skills), Colored Tokens (payloads/tracks), and Guard predicates (human approval gates, pytest exit codes, and self-healing rework loops).
+   - **Immutable Provenance Trace (Artifact DAG)**: Every committed lifecycle document in `docs/` (`iss_` $\rightarrow$ `brn_` $\rightarrow$ `des_` $\rightarrow$ `pln_` $\rightarrow$ `tsk_` $\rightarrow$ `plb_`) maintains an immutable, acyclic lineage trace via YAML frontmatter `sources: [...]`.
+   - **3 Dynamic Execution Tracks (Color-Routed)**:
+     - *Track A (Deep Architecture - 6 Stages)*: `Issue → Brainstorm → Design → Plan → Tasks → Playbook` for novel solvers, stochastic modeling, and CPN automation.
+     - *Track B (Fast-Track Feature - 4 Stages)*: `Issue → Design → Tasks → Playbook` for unambiguous features and direct integrations.
+     - *Track C (Express Hotfix - 2 Stages)*: `Issue → Implementation → Pytest Verification` for urgent regressions.
    - **Agentic Resource Discovery (ARD)**: Sub-millisecond zero-crawl indexing across federated manifests (`ard.yaml`, `ard.json`, `scripts/ard_search.py`, `scripts/ard_builder.py`).
    - **Code-as-Knowledge (OKF)**: YAML frontmatter embedded in module docstrings (`"""\n---\n...\n---\n"""`) and audited via `python .agents/skills/code-frontmatter-generator/scripts/validate_code_okf.py`.
 

@@ -1,14 +1,14 @@
 ---
 name: brainstorm-facilitator
-description: Takes an Issue document as input and generates a standardized Brainstorm document exploring 2-3 competing mathematical/architectural options with trade-offs. Initializes the Frontloader section for DAG metadata tracking and ensures OKF/ARD compliance.
+description: Acts as Transition T_BRAINSTORM in the Agentic Coloured Petri Net (CPN), taking an Issue token from P_ISSUE_READY and depositing a standardized Brainstorm token into P_BRAINSTORM_POOL exploring 2-3 competing options with trade-offs.
 ---
 
 # brainstorm-facilitator
 
 ## Purpose
-This skill operates at Stage 2 (Brainstorm) of the development lifecycle. It takes a Stage 1 Issue document (`docs/issues/iss_<ID>_<slug>.md`) and generates a standardized Brainstorm document in `docs/brainstorm/brn_<ID>_<slug>.md`.
+This skill fires as **Transition $T_{\text{BRAINSTORM}}$** in the **Agentic Coloured Petri Net (CPN)**. It consumes an `IssueToken` from $P_{\text{ISSUE\_READY}}$ (on Track A) and generates a standardized Brainstorm document in `docs/brainstorm/brn_<ID>_<slug>.md`, depositing a `BrainstormToken` into $P_{\text{BRAINSTORM\_POOL}}$.
 
-It initializes the **Frontloader** section to explicitly track document flow metadata and DAG (Directed Acyclic Graph) lineage, ensuring downstream skills (like Design or Playbook generators) have full context of the origin issue.
+It initializes the **Frontloader** section to explicitly track CPN lifecycle flow and provenance lineage, ensuring downstream transitions (like Design or Playbook generators) maintain unbroken context.
 
 ## Routing Guidance
 The repository has two brainstorm skills:
@@ -21,7 +21,7 @@ Before drafting a brainstorm, evaluate whether the issue genuinely requires mult
 
 ## Operational Constraints (CRITICAL)
 - **Zero-Shell Mandate**: Do not use `run_command` unless explicitly ordered (except for running `python scripts/ard_builder.py`).
-- **DAG Lineage Rule**: The Brainstorm document MUST link back to the source Issue in its OKF `sources` array: `sources: ["docs/issues/iss_<ID>_<slug>.md"]`.
+- **CPN Lineage Rule**: The Brainstorm document MUST link back to the source Issue in its OKF `sources` array: `sources: ["docs/issues/iss_<ID>_<slug>.md"]` to preserve the immutable acyclic provenance trace.
 - **Moneyball Strategy Invariant**: Competing algorithmic options must be evaluated against the core quantitative principles in [`.agents/rules/moneyball_strategy.md`](file:///c:/Users/cw171001/OneDrive%20-%20Teradata/Documents/GitHub/rubies_rangers/.agents/rules/moneyball_strategy.md) (unconstrained optimization, full probability distribution propagation, multi-period dynamic utility).
 
 ## Execution Steps
@@ -69,11 +69,13 @@ generated:
 
 # Brainstorm [#<ID>]: <Title>
 
-## 0. Frontloader (DAG Context)
+## 0. Frontloader (CPN Lifecycle Context)
 > **Metadata for Downstream Skills & Audits**
+> - **Origin Place**: `P_ISSUE_READY`
+> - **Current Transition**: `T_BRAINSTORM`
+> - **Next Place**: `P_BRAINSTORM_POOL`
+> - **CPN Lineage**: Issue [#<ID>] -> Brainstorm [brn_<ID>] -> Design -> Plan -> Tasks -> Playbook
 > - **Origin Issue**: [`docs/issues/iss_<ID>_<slug>.md`](file:///c:/Users/cw171001/OneDrive%20-%20Teradata/Documents/GitHub/rubies_rangers/docs/issues/iss_<ID>_<slug>.md)
-> - **Current Stage**: Stage 2 (Brainstorm)
-> - **DAG Lineage**: Issue → Brainstorm → Design → Plan → Tasks → Implementation → Playbook
 > - **URN**: urn:air:clydewatts1:rubies_rangers:docs:brn_<ID>_<slug>
 
 ## 1. Problem Space & Constraints
