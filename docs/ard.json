@@ -721,6 +721,140 @@
         "Where is the [#018] Port and Adapt OKF/ARD Engineering Lifecycle Skills for Python issue?",
         "Show me issue, tooling issues."
       ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-019-clubelo-dynamic-team-ratings",
+      "displayName": "[#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine",
+      "type": "text/markdown",
+      "conceptType": "Issue",
+      "tags": [
+        "issue",
+        "feature",
+        "clubelo",
+        "ratings",
+        "poisson",
+        "analytics",
+        "client"
+      ],
+      "sources": [],
+      "url": "docs/issues/iss_019_clubelo_dynamic_team_ratings.md",
+      "description": "Integrate ClubElo API to compute objective, daily-updated team strength ratings and bivariate Poisson expected goals for all 38 gameweeks, replacing static match odds.",
+      "representativeQueries": [
+        "Where is the [#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine issue?",
+        "Show me issue, feature issues."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-020-the-odds-api-market-consensus",
+      "displayName": "[#020] The Odds API Client for Live Vig-Removed Market Consensus",
+      "type": "text/markdown",
+      "conceptType": "Issue",
+      "tags": [
+        "issue",
+        "feature",
+        "odds",
+        "market",
+        "client",
+        "analytics",
+        "xp"
+      ],
+      "sources": [],
+      "url": "docs/issues/iss_020_the_odds_api_market_consensus.md",
+      "description": "Lightweight client querying The Odds API free tier on deadline day to convert live bookmaker odds (Over/Under, BTTS, CS) into vig-free goal arrival rates and clean sheet probabilities.",
+      "representativeQueries": [
+        "Where is the [#020] The Odds API Client for Live Vig-Removed Market Consensus issue?",
+        "Show me issue, feature issues."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-021-premier-injuries-automated-intel",
+      "displayName": "[#021] Automated Premier Injuries Scraper for Pre-Deadline Availability Intel",
+      "type": "text/markdown",
+      "conceptType": "Issue",
+      "tags": [
+        "issue",
+        "feature",
+        "injuries",
+        "scraper",
+        "intel",
+        "domain",
+        "availability"
+      ],
+      "sources": [],
+      "url": "docs/issues/iss_021_premier_injuries_automated_intel.md",
+      "description": "Automate ingestion of press conference injury status, diagnosis, and return dates from Premier Injuries into Shane's Domain Intel desk, eliminating manual override latency.",
+      "representativeQueries": [
+        "Where is the [#021] Automated Premier Injuries Scraper for Pre-Deadline Availability Intel issue?",
+        "Show me issue, feature issues."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-022-soccerdata-fbref-advanced-metrics",
+      "displayName": "[#022] FBref / StatsBomb Integration via soccerdata for Goalkeeper PSxG and Attacking SCA/GCA",
+      "type": "text/markdown",
+      "conceptType": "Issue",
+      "tags": [
+        "issue",
+        "feature",
+        "soccerdata",
+        "fbref",
+        "goalkeeper",
+        "psxg",
+        "sca",
+        "tactics"
+      ],
+      "sources": [],
+      "url": "docs/issues/iss_022_soccerdata_fbref_advanced_metrics.md",
+      "description": "Extract Goalkeeper Post-Shot xG (PSxG +/- per 90) and player Shot/Goal Creating Actions (SCA/GCA) via soccerdata to refine BPS bonus prediction and goalkeeper selection.",
+      "representativeQueries": [
+        "Where is the [#022] FBref / StatsBomb Integration via soccerdata for Goalkeeper PSxG and Attacking SCA/GCA issue?",
+        "Show me issue, feature issues."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-023-fotmob-xgot-spatial-positions",
+      "displayName": "[#023] FotMob REST Client for xGOT Finishing Skill & Spatial Pitch Positions",
+      "type": "text/markdown",
+      "conceptType": "Issue",
+      "tags": [
+        "issue",
+        "feature",
+        "fotmob",
+        "xgot",
+        "finishing",
+        "spatial",
+        "lineups",
+        "client"
+      ],
+      "sources": [],
+      "url": "docs/issues/iss_023_fotmob_xgot_spatial_positions.md",
+      "description": "Consume FotMob public endpoints to calculate true finishing skill delta (xGOT - xG), detect out-of-position tactical deployments, and verify pre-kickoff lineups.",
+      "representativeQueries": [
+        "Where is the [#023] FotMob REST Client for xGOT Finishing Skill & Spatial Pitch Positions issue?",
+        "Show me issue, feature issues."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-024-referee-penalty-variance-modeling",
+      "displayName": "[#024] Premier League Referee Historical Analytics & Penalty Tendency Modeling",
+      "type": "text/markdown",
+      "conceptType": "Issue",
+      "tags": [
+        "issue",
+        "feature",
+        "referee",
+        "penalties",
+        "cards",
+        "montecarlo",
+        "xp"
+      ],
+      "sources": [],
+      "url": "docs/issues/iss_024_referee_penalty_variance_modeling.md",
+      "description": "Incorporate referee historical penalty award rates and card accumulation tendencies per 90 into the XP and Monte Carlo models, replacing the static 0.18 penalty assumption.",
+      "representativeQueries": [
+        "Where is the [#024] Premier League Referee Historical Analytics & Penalty Tendency Modeling issue?",
+        "Show me issue, feature issues."
+      ]
     }
   ]
 }
