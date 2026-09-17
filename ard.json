@@ -472,6 +472,33 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:des-023-fotmob-xgot-spatial-positions",
+      "displayName": "[#023] FotMob REST Client for xGOT Finishing Skill & Spatial Pitch Positions - Detailed Design",
+      "type": "text/markdown",
+      "conceptType": "Design",
+      "tags": [
+        "design",
+        "architecture",
+        "python",
+        "fotmob",
+        "xgot",
+        "finishing",
+        "lineups",
+        "spatial",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/issues/iss_023_fotmob_xgot_spatial_positions.md"
+      ],
+      "url": "docs/design/des_023_fotmob_xgot_spatial_positions.md",
+      "description": "Architecture and mathematical specification for consuming FotMob public endpoints, calculating Finishing Skill Delta (xGOT - xG), detecting out-of-position deployments, and verifying pre-kickoff lineups.",
+      "representativeQueries": [
+        "Where is the [#023] FotMob REST Client for xGOT Finishing Skill & Spatial Pitch Positions - Detailed Design design?",
+        "Show me design, architecture designs."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-001-objective-free-predictive-metrics",
       "displayName": "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics",
       "type": "text/markdown",
@@ -1063,6 +1090,32 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:plb-023-fotmob-xgot-spatial-positions",
+      "displayName": "[#023] FotMob REST Client for xGOT Finishing Skill & Spatial Pitch Positions - Operational Playbook",
+      "type": "text/markdown",
+      "conceptType": "Playbook",
+      "tags": [
+        "playbook",
+        "python",
+        "fotmob",
+        "xgot",
+        "finishing",
+        "lineups",
+        "goalkeeper",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_023_fotmob_xgot_spatial_positions.md"
+      ],
+      "url": "docs/playbooks/plb_023_fotmob_xgot_spatial_positions.md",
+      "description": "Operational playbook and architectural store for FotMob Expected Goals on Target (xGOT), finishing skill delta (xGOT - xG), goalkeeper goals prevented, confirmed lineups, and XPModel integration.",
+      "representativeQueries": [
+        "Where is the [#023] FotMob REST Client for xGOT Finishing Skill & Spatial Pitch Positions - Operational Playbook playbook?",
+        "Show me playbook, python playbooks."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-019-clubelo-dynamic-team-ratings",
       "displayName": "[#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Task Harness",
       "type": "text/markdown",
@@ -1162,6 +1215,31 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-023-fotmob-xgot-spatial-positions",
+      "displayName": "[#023] FotMob REST Client for xGOT Finishing Skill - Task Harness",
+      "type": "text/markdown",
+      "conceptType": "TaskHarness",
+      "tags": [
+        "task",
+        "python",
+        "fotmob",
+        "xgot",
+        "finishing",
+        "lineups",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_023_fotmob_xgot_spatial_positions.md"
+      ],
+      "url": "docs/tasks/tsk_023_fotmob_xgot_spatial_positions.md",
+      "description": "Execution task harness for building the FotMob client, xGOT - xG finishing skill calculation, lineup verification, and XPModel integration.",
+      "representativeQueries": [
+        "Where is the [#023] FotMob REST Client for xGOT Finishing Skill - Task Harness taskharness?",
+        "Show me task, python taskharnesss."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:clients:clubelo-client",
       "displayName": "ClubElo Client & Bivariate Poisson Goal Expectancy Engine",
       "type": "text/x-python",
@@ -1207,6 +1285,30 @@
       "representativeQueries": [
         "Where is the FBref / StatsBomb Advanced Metrics Client & BPS/GK Modulator module?",
         "Show me client, fbref modules."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:clients:fotmob-client",
+      "displayName": "FotMob REST Client for xGOT Finishing Skill & Lineups",
+      "type": "text/x-python",
+      "conceptType": "Module",
+      "tags": [
+        "client",
+        "fotmob",
+        "xgot",
+        "finishing",
+        "lineups",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_023_fotmob_xgot_spatial_positions.md"
+      ],
+      "url": "clients/fotmob_client.py",
+      "description": "Extracts Expected Goals on Target (xGOT), Expected Goals (xG), and Goalkeeper Goals Prevented from FotMob to derive true finishing skill deltas and verify pre-kickoff lineups.",
+      "representativeQueries": [
+        "Where is the FotMob REST Client for xGOT Finishing Skill & Lineups module?",
+        "Show me client, fotmob modules."
       ]
     },
     {
@@ -1278,6 +1380,31 @@
       "description": "Unit and integration tests for FBref goalkeeper PSxG modeling, save points, outfield SCA/GCA BPS multipliers, and XPModel integration.",
       "representativeQueries": [
         "Where is the FBref / StatsBomb Advanced Metrics Client & Modulator Tests testsuite?",
+        "Show me test, pytest testsuites."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:tests:test-fotmob-client",
+      "displayName": "FotMob REST Client & Finishing Skill Multiplier Tests",
+      "type": "text/x-python",
+      "conceptType": "TestSuite",
+      "tags": [
+        "test",
+        "pytest",
+        "fotmob",
+        "xgot",
+        "finishing",
+        "lineups",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_023_fotmob_xgot_spatial_positions.md",
+        "clients/fotmob_client.py"
+      ],
+      "url": "tests/test_fotmob_client.py",
+      "description": "Unit and integration tests for FotMob xGOT, finishing skill delta (xGOT - xG), goalkeeper goals prevented, disk caching, and XPModel integration.",
+      "representativeQueries": [
+        "Where is the FotMob REST Client & Finishing Skill Multiplier Tests testsuite?",
         "Show me test, pytest testsuites."
       ]
     },

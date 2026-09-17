@@ -27,6 +27,31 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:tests:test-fotmob-client",
+      "displayName": "FotMob REST Client & Finishing Skill Multiplier Tests",
+      "type": "text/x-python",
+      "conceptType": "TestSuite",
+      "tags": [
+        "test",
+        "pytest",
+        "fotmob",
+        "xgot",
+        "finishing",
+        "lineups",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_023_fotmob_xgot_spatial_positions.md",
+        "clients/fotmob_client.py"
+      ],
+      "url": "tests/test_fotmob_client.py",
+      "description": "Unit and integration tests for FotMob xGOT, finishing skill delta (xGOT - xG), goalkeeper goals prevented, disk caching, and XPModel integration.",
+      "representativeQueries": [
+        "Where is the FotMob REST Client & Finishing Skill Multiplier Tests testsuite?",
+        "Show me test, pytest testsuites."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:tests:test-injury-client",
       "displayName": "Premier League Injury Intelligence Scraper & Intel Engine Tests",
       "type": "text/x-python",

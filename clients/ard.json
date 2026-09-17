@@ -49,6 +49,30 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:clients:fotmob-client",
+      "displayName": "FotMob REST Client for xGOT Finishing Skill & Lineups",
+      "type": "text/x-python",
+      "conceptType": "Module",
+      "tags": [
+        "client",
+        "fotmob",
+        "xgot",
+        "finishing",
+        "lineups",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_023_fotmob_xgot_spatial_positions.md"
+      ],
+      "url": "clients/fotmob_client.py",
+      "description": "Extracts Expected Goals on Target (xGOT), Expected Goals (xG), and Goalkeeper Goals Prevented from FotMob to derive true finishing skill deltas and verify pre-kickoff lineups.",
+      "representativeQueries": [
+        "Where is the FotMob REST Client for xGOT Finishing Skill & Lineups module?",
+        "Show me client, fotmob modules."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:clients:injury-client",
       "displayName": "Premier League Injury Intelligence Scraper & Intel Engine",
       "type": "text/x-python",

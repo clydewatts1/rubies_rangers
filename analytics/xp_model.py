@@ -27,6 +27,11 @@ from clients.fbref_client import (
     compute_goalkeeper_effective_cs_prob,
     compute_outfield_bps_multiplier,
 )
+from clients.fotmob_client import (
+    FotMobClient,
+    FotMobPlayerStats,
+    compute_finishing_multiplier,
+)
 from config_manager import get_system_config, get_params
 from analytics.venue_model import compute_effective_venue_multiplier
 from analytics.weather_engine import WeatherEngine
@@ -64,12 +69,14 @@ class XPModel:
         clubelo_client: Optional[Any] = None,
         odds_client: Optional[Any] = None,
         fbref_client: Optional[Any] = None,
+        fotmob_client: Optional[Any] = None,
     ):
         self.fpl_client = fpl_client if fpl_client is not None else FPLClient()
         self.tac_client = tac_client if tac_client is not None else TacticalClient()
         self.clubelo_client = clubelo_client if clubelo_client is not None else ClubEloClient()
         self.odds_client = odds_client if odds_client is not None else OddsClient()
         self.fbref_client = fbref_client if fbref_client is not None else FBrefClient()
+        self.fotmob_client = fotmob_client if fotmob_client is not None else FotMobClient()
         self.weather_engine = WeatherEngine(fpl_client=self.fpl_client)
         self.gameweek = gameweek or getattr(self.fpl_client, "get_current_gameweek", lambda: 4)() or 4
         self._build_team_odds_map(gameweek=self.gameweek)
@@ -320,9 +327,18 @@ class XPModel:
         pen_award = pen_cfg.get("match_award_chance", 0.18)
         pen_bonus_xg = (pen_conv * pen_award) if pen_duty else 0.0
 
+        player_web_name = player_dict.get("web_name", "").lower()
+        fotmob_stats = self.fotmob_client.get_player_stats(player_web_name) if hasattr(self, "fotmob_client") and self.fotmob_client else None
+
         team_goals_divisor = xp_cfg.get("team_baseline_goals_divisor", 1.35)
         # Match xG = (player NPxG/90 scaled by team goals) + penalty bonus
         match_xg = (npxg_90 * mins_fraction * (team_xg / team_goals_divisor)) + pen_bonus_xg
+
+        # FotMob xGOT Finishing Skill Modulation (xGOT - xG)
+        if fotmob_stats and pos in ["FWD", "MID", "DEF"]:
+            finishing_mult = compute_finishing_multiplier(fotmob_stats.finishing_delta)
+            match_xg *= finishing_mult
+
         p_goal = round(1.0 - math.exp(-match_xg), 3)
 
         # Assist Probability P(Assist)
@@ -343,12 +359,15 @@ class XPModel:
         exp_saves = (team_xgc * gkp_rate * mins_fraction) if pos == "GKP" else 0.0
 
         # Advanced FBref Goalkeeper Shot-Stopping & Save Expectancy
-        player_web_name = player_dict.get("web_name", "").lower()
         fbref_metric = self.fbref_client.get_player_metrics(player_web_name) if hasattr(self, "fbref_client") and self.fbref_client else None
 
-        if pos == "GKP" and isinstance(fbref_metric, GoalkeeperAdvancedMetrics):
-            exp_saves = compute_goalkeeper_expected_saves(team_xgc, fbref_metric.save_pct, mins_fraction)
-            cs_prob = compute_goalkeeper_effective_cs_prob(team_xgc, fbref_metric.psxg_net_per90)
+        if pos == "GKP":
+            if isinstance(fbref_metric, GoalkeeperAdvancedMetrics):
+                exp_saves = compute_goalkeeper_expected_saves(team_xgc, fbref_metric.save_pct, mins_fraction)
+                cs_prob = compute_goalkeeper_effective_cs_prob(team_xgc, fbref_metric.psxg_net_per90)
+            elif fotmob_stats and fotmob_stats.save_pct > 0:
+                exp_saves = compute_goalkeeper_expected_saves(team_xgc, fotmob_stats.save_pct, mins_fraction)
+                cs_prob = compute_goalkeeper_effective_cs_prob(team_xgc, fotmob_stats.goals_prevented / 4.0)
 
         saves_pts = (exp_saves * gkp_ratio)
 
@@ -453,8 +472,11 @@ class XPModel:
         box_shot_pct = float(tac_dict.get("box_shot_pct") or 0.0)
         six_yard_shots = int(tac_dict.get("six_yard_shots") or 0)
 
-        # 3. Finishing Skill Delta (Goals - xG)
-        finishing_delta = float(tac_dict.get("finishing_skill_delta") or 0.0)
+        # 3. Finishing Skill Delta (xGOT - xG from FotMob or Goals - xG fallback)
+        if fotmob_stats:
+            finishing_delta = fotmob_stats.finishing_delta
+        else:
+            finishing_delta = float(tac_dict.get("finishing_skill_delta") or 0.0)
 
         # 4. Big Chances & Mean-Reversion Pressure Score (BCM)
         big_chances = int(tac_dict.get("big_chances") or 0)
@@ -532,6 +554,9 @@ class XPModel:
             "market_p_goal": round(p_goal * 100, 1),
             "market_goal_odds": goal_odds,
             "market_cs_prob": round(cs_prob * 100, 1),
+            "fotmob_finishing_delta": round(finishing_delta, 2),
+            "fotmob_xgot": round(fotmob_stats.xgot, 2) if fotmob_stats else 0.0,
+            "fotmob_xg": round(fotmob_stats.xg, 2) if fotmob_stats else 0.0,
             "xP": round(xp, 2)
         }
 

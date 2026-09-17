@@ -9,6 +9,7 @@ __pycache__/
 .odds_cache.json
 .injury_cache.json
 .fbref_cache.json
+.fotmob_cache.json
 .fpl_elements_cache/
 .understat_shots_cache/
 
