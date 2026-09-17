@@ -1,0 +1,28 @@
+{
+  "resources": [
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:tests:test-odds-client",
+      "displayName": "The Odds API Client & Vig-Removed Market Consensus Tests",
+      "type": "text/x-python",
+      "conceptType": "TestSuite",
+      "tags": [
+        "test",
+        "pytest",
+        "odds",
+        "market",
+        "vig",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_020_the_odds_api_market_consensus.md",
+        "clients/odds_client.py"
+      ],
+      "url": "tests/test_odds_client.py",
+      "description": "Unit and integration tests for odds parsing, vig-removal, numerical inversion, quota governance, and XPModel integration.",
+      "representativeQueries": [
+        "Where is the The Odds API Client & Vig-Removed Market Consensus Tests testsuite?",
+        "Show me test, pytest testsuites."
+      ]
+    }
+  ]
+}

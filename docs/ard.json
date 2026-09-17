@@ -392,6 +392,31 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:des-020-the-odds-api-market-consensus",
+      "displayName": "[#020] The Odds API Client for Live Vig-Removed Market Consensus - Detailed Design",
+      "type": "text/markdown",
+      "conceptType": "Design",
+      "tags": [
+        "design",
+        "architecture",
+        "python",
+        "odds",
+        "market",
+        "client",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/issues/iss_020_the_odds_api_market_consensus.md"
+      ],
+      "url": "docs/design/des_020_the_odds_api_market_consensus.md",
+      "description": "Architecture and mathematical specification for querying The Odds API, removing bookmaker vig, and deriving fair goal arrival rates and clean sheet odds.",
+      "representativeQueries": [
+        "Where is the [#020] The Odds API Client for Live Vig-Removed Market Consensus - Detailed Design design?",
+        "Show me design, architecture designs."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-001-objective-free-predictive-metrics",
       "displayName": "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics",
       "type": "text/markdown",
@@ -906,6 +931,32 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:plb-020-the-odds-api-market-consensus",
+      "displayName": "[#020] The Odds API Client for Live Vig-Removed Market Consensus - Operational Playbook",
+      "type": "text/markdown",
+      "conceptType": "Playbook",
+      "tags": [
+        "playbook",
+        "python",
+        "odds",
+        "market",
+        "vig",
+        "poisson",
+        "analytics",
+        "client",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_020_the_odds_api_market_consensus.md"
+      ],
+      "url": "docs/playbooks/plb_020_the_odds_api_market_consensus.md",
+      "description": "Operational playbook and architectural store for The Odds API client, vig-removal mechanics, numerical Poisson goal derivation, quota governance, and tiered integration into XPModel.",
+      "representativeQueries": [
+        "Where is the [#020] The Odds API Client for Live Vig-Removed Market Consensus - Operational Playbook playbook?",
+        "Show me playbook, python playbooks."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-019-clubelo-dynamic-team-ratings",
       "displayName": "[#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Task Harness",
       "type": "text/markdown",
@@ -926,6 +977,30 @@
       "description": "Execution task harness for building ClubElo client, integrating dynamic Poisson team odds into XPModel and TrajectoryEngine, and validating with pytests.",
       "representativeQueries": [
         "Where is the [#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Task Harness taskharness?",
+        "Show me task, python taskharnesss."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-020-the-odds-api-market-consensus",
+      "displayName": "[#020] The Odds API Client for Live Vig-Removed Market Consensus - Task Harness",
+      "type": "text/markdown",
+      "conceptType": "TaskHarness",
+      "tags": [
+        "task",
+        "python",
+        "odds",
+        "market",
+        "client",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_020_the_odds_api_market_consensus.md"
+      ],
+      "url": "docs/tasks/tsk_020_the_odds_api_market_consensus.md",
+      "description": "Execution task harness for building The Odds API client, vig-removal algorithms, Poisson goal derivation, and tiered integration into XPModel.",
+      "representativeQueries": [
+        "Where is the [#020] The Odds API Client for Live Vig-Removed Market Consensus - Task Harness taskharness?",
         "Show me task, python taskharnesss."
       ]
     }

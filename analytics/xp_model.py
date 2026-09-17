@@ -18,6 +18,7 @@ import pandas as pd
 from clients.fpl_client import FPLClient
 from clients.tactical_client import TacticalClient, normalize_name
 from clients.clubelo_client import ClubEloClient
+from clients.odds_client import OddsClient
 from config_manager import get_system_config, get_params
 from analytics.venue_model import compute_effective_venue_multiplier
 from analytics.weather_engine import WeatherEngine
@@ -53,10 +54,12 @@ class XPModel:
         fpl_client: Optional[Any] = None,
         tac_client: Optional[Any] = None,
         clubelo_client: Optional[Any] = None,
+        odds_client: Optional[Any] = None,
     ):
         self.fpl_client = fpl_client if fpl_client is not None else FPLClient()
         self.tac_client = tac_client if tac_client is not None else TacticalClient()
         self.clubelo_client = clubelo_client if clubelo_client is not None else ClubEloClient()
+        self.odds_client = odds_client if odds_client is not None else OddsClient()
         self.weather_engine = WeatherEngine(fpl_client=self.fpl_client)
         self.gameweek = gameweek or getattr(self.fpl_client, "get_current_gameweek", lambda: 4)() or 4
         self._build_team_odds_map(gameweek=self.gameweek)
@@ -66,7 +69,17 @@ class XPModel:
         target_gw = gameweek or self.gameweek or 4
         self.team_odds = {}
 
-        # 1. Primary: Dynamic Bivariate Poisson Goal Expectancy via ClubElo Ratings
+        # 1. Tier 1: Live Vig-Removed Bookmaker Market Consensus via The Odds API
+        if self.odds_client is not None:
+            try:
+                market_odds = self.odds_client.build_team_odds_map()
+                if market_odds:
+                    self.team_odds = market_odds
+                    return
+            except Exception:
+                pass
+
+        # 2. Tier 2: Dynamic Bivariate Poisson Goal Expectancy via ClubElo Ratings
         try:
             boot = self.fpl_client.get_bootstrap_data()
             id_to_short = {t["id"]: t["short_name"] for t in boot.get("teams", [])}

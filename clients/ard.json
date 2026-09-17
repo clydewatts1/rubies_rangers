@@ -21,6 +21,29 @@
         "Where is the ClubElo Client & Bivariate Poisson Goal Expectancy Engine module?",
         "Show me client, clubelo modules."
       ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:clients:odds-client",
+      "displayName": "The Odds API Client & Vig-Removed Market Consensus Engine",
+      "type": "text/x-python",
+      "conceptType": "Module",
+      "tags": [
+        "client",
+        "odds",
+        "market",
+        "vig",
+        "poisson",
+        "analytics"
+      ],
+      "sources": [
+        "docs/design/des_020_the_odds_api_market_consensus.md"
+      ],
+      "url": "clients/odds_client.py",
+      "description": "Ingests live bookmaker match odds, removes market vig, and derives fair Poisson goal arrival rates and clean sheet odds.",
+      "representativeQueries": [
+        "Where is the The Odds API Client & Vig-Removed Market Consensus Engine module?",
+        "Show me client, odds modules."
+      ]
     }
   ]
 }
