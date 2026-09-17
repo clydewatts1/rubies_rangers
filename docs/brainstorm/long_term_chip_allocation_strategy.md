@@ -4,7 +4,7 @@ title: "[#005] Long-Term Chip Allocation Strategy & Optimal Stochastic Timing"
 description: "Dynamic programming and Bellman optimality for timing Free Hit, Wildcard, Bench Boost, and Triple Captain chips."
 tags: [brainstorm, chips, strategy, optimization, monte-carlo]
 status: Legacy
-sources: []
+sources: ["docs/issues/iss_005_long_term_chip_allocation_strategy.md"]
 generated:
   at: "2026-09-16T22:30:00Z"
   by: "agent:backfill_okf"

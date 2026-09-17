@@ -4,7 +4,7 @@ title: "[#014] Team & Positional Venue Impact (Home vs. Away) Modeling"
 description: "Quantifying pitch dimensions, home venue bias, crowd noise, and venue FDR multipliers."
 tags: [brainstorm, venue, tactics, fdr, odds]
 status: Legacy
-sources: []
+sources: ["docs/issues/iss_014_venue_home_away_impact.md"]
 generated:
   at: "2026-09-16T22:30:00Z"
   by: "agent:backfill_okf"

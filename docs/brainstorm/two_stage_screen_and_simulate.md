@@ -4,7 +4,7 @@ title: "[#013] Two-Stage 'Screen & Simulate' Optimization Architecture"
 description: "Chained MILP Stage 1 screening knapsack with Stage 2 2,500-draw Monte Carlo tournament."
 tags: [brainstorm, optimization, milp, monte-carlo, transfers]
 status: Legacy
-sources: []
+sources: ["docs/issues/iss_013_two_stage_screen_and_simulate.md"]
 generated:
   at: "2026-09-16T22:30:00Z"
   by: "agent:backfill_okf"

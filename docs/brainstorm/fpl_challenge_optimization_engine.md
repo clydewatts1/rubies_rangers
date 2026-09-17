@@ -4,7 +4,7 @@ title: "[#004] FPL Challenge Quantitative Optimization Engine"
 description: "Mathematical formulation and candidate screening for dynamic weekly FPL Challenge tournament formats."
 tags: [brainstorm, challenge, optimization, milp, knapsack]
 status: Legacy
-sources: []
+sources: ["docs/issues/iss_004_fpl_challenge_optimization_engine.md"]
 generated:
   at: "2026-09-16T22:30:00Z"
   by: "agent:backfill_okf"

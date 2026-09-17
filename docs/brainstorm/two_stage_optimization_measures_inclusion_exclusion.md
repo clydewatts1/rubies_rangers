@@ -4,7 +4,7 @@ title: "[#012] Two-Stage Optimization: Measure Inclusion & Exclusion Criteria"
 description: "Feature selection and mathematical weighting for Multi-Objective MILP and Monte Carlo Tournament stages."
 tags: [brainstorm, optimization, milp, monte-carlo, tactics]
 status: Legacy
-sources: []
+sources: ["docs/issues/iss_012_two_stage_optimization_measures_inclusion_exclusion.md"]
 generated:
   at: "2026-09-16T22:30:00Z"
   by: "agent:backfill_okf"

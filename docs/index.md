@@ -3,6 +3,7 @@
 ## Subdirectories
 
 * [Brainstorm](brainstorm/) - Directory
+* [Issues](issues/) - Directory
 
 ## Documents
 

@@ -4,7 +4,7 @@ title: "[#011] Macro-Strategic Portfolio & Asset Management Framework"
 description: "Managing FPL squads as dynamic investment portfolios with cash buffers and capital preservation."
 tags: [brainstorm, portfolio, balance-sheet, strategy, transfers]
 status: Legacy
-sources: []
+sources: ["docs/issues/iss_011_strategic_portfolio_asset_management.md"]
 generated:
   at: "2026-09-16T22:30:00Z"
   by: "agent:backfill_okf"

@@ -4,7 +4,7 @@ title: "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics"
 description: "Advanced feature engineering and leading predictive metrics across weather, tactics, and Moneyball alpha."
 tags: [brainstorm, tactics, weather, moneyball, odds]
 status: Legacy
-sources: []
+sources: ["docs/issues/iss_001_objective_free_predictive_metrics.md"]
 generated:
   at: "2026-09-16T22:30:00Z"
   by: "agent:backfill_okf"

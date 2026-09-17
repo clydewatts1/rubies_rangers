@@ -4,7 +4,7 @@ title: "[#002] Autonomous Execution Pipeline & Robotic Manager"
 description: "Timed Coloured Petri Net (TCPN) autonomous robotic manager architecture with Saga submission loops."
 tags: [brainstorm, cpn, saga, automation, runner]
 status: Legacy
-sources: []
+sources: ["docs/issues/iss_002_autonomous_execution_pipeline.md"]
 generated:
   at: "2026-09-16T22:30:00Z"
   by: "agent:backfill_okf"

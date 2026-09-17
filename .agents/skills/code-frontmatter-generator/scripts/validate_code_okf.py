@@ -196,8 +196,8 @@ def main():
         for f in sorted(files):
             if f.endswith((".py", ".md")):
                 f_path = Path(root) / f
-                # Skip __init__.py, temp files, index.md, and root walkthrough/plan
-                if f in ("__init__.py", "tempCodeRunnerFile.py", "walkthrough.md", "implementation_plan.md", "index.md"):
+                # Skip __init__.py, temp files, index.md, root walkthrough/plan, and last_issue_number.md
+                if f in ("__init__.py", "tempCodeRunnerFile.py", "walkthrough.md", "implementation_plan.md", "index.md", "last_issue_number.md"):
                     continue
                 res = validate_file(f_path, repo_root, ard_urls)
                 results.append(res)

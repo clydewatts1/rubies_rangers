@@ -4,7 +4,7 @@ title: "[#006] Macro Match-State Jitter & Teammate Covariance Modeling"
 description: "Full covariance matrix simulation modeling match-state blowouts, game script correlation, and variance."
 tags: [brainstorm, monte-carlo, optimization, tactics]
 status: Legacy
-sources: []
+sources: ["docs/issues/iss_006_macro_match_jitter_covariance.md"]
 generated:
   at: "2026-09-16T22:30:00Z"
   by: "agent:backfill_okf"
