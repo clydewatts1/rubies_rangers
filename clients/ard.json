@@ -1,0 +1,26 @@
+{
+  "resources": [
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:clients:clubelo-client",
+      "displayName": "ClubElo Client & Bivariate Poisson Goal Expectancy Engine",
+      "type": "text/x-python",
+      "conceptType": "Module",
+      "tags": [
+        "client",
+        "clubelo",
+        "ratings",
+        "poisson",
+        "analytics"
+      ],
+      "sources": [
+        "docs/design/des_019_clubelo_dynamic_team_ratings.md"
+      ],
+      "url": "clients/clubelo_client.py",
+      "description": "Fetches and parses daily ClubElo ratings to compute dynamic Poisson expected goals and clean sheet probabilities.",
+      "representativeQueries": [
+        "Where is the ClubElo Client & Bivariate Poisson Goal Expectancy Engine module?",
+        "Show me client, clubelo modules."
+      ]
+    }
+  ]
+}

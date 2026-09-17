@@ -880,6 +880,54 @@
         "Where is the [#024] Premier League Referee Historical Analytics & Penalty Tendency Modeling issue?",
         "Show me issue, feature issues."
       ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:plb-019-clubelo-dynamic-team-ratings",
+      "displayName": "[#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Operational Playbook",
+      "type": "text/markdown",
+      "conceptType": "Playbook",
+      "tags": [
+        "playbook",
+        "python",
+        "clubelo",
+        "ratings",
+        "poisson",
+        "analytics",
+        "client"
+      ],
+      "sources": [
+        "docs/design/des_019_clubelo_dynamic_team_ratings.md"
+      ],
+      "url": "docs/playbooks/plb_019_clubelo_dynamic_team_ratings.md",
+      "description": "Offline context memory and operational store for ClubElo dynamic ratings, Poisson goal expectations, and automated fixture strength.",
+      "representativeQueries": [
+        "Where is the [#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Operational Playbook playbook?",
+        "Show me playbook, python playbooks."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-019-clubelo-dynamic-team-ratings",
+      "displayName": "[#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Task Harness",
+      "type": "text/markdown",
+      "conceptType": "TaskHarness",
+      "tags": [
+        "task",
+        "python",
+        "clubelo",
+        "ratings",
+        "poisson",
+        "analytics",
+        "client"
+      ],
+      "sources": [
+        "docs/design/des_019_clubelo_dynamic_team_ratings.md"
+      ],
+      "url": "docs/tasks/tsk_019_clubelo_dynamic_team_ratings.md",
+      "description": "Execution task harness for building ClubElo client, integrating dynamic Poisson team odds into XPModel and TrajectoryEngine, and validating with pytests.",
+      "representativeQueries": [
+        "Where is the [#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Task Harness taskharness?",
+        "Show me task, python taskharnesss."
+      ]
     }
   ]
 }

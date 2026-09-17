@@ -17,6 +17,7 @@ import pandas as pd
 
 from clients.fpl_client import FPLClient
 from clients.tactical_client import TacticalClient, normalize_name
+from clients.clubelo_client import ClubEloClient
 from config_manager import get_system_config, get_params
 from analytics.venue_model import compute_effective_venue_multiplier
 from analytics.weather_engine import WeatherEngine
@@ -51,9 +52,11 @@ class XPModel:
         gameweek: Optional[int] = None,
         fpl_client: Optional[Any] = None,
         tac_client: Optional[Any] = None,
+        clubelo_client: Optional[Any] = None,
     ):
         self.fpl_client = fpl_client if fpl_client is not None else FPLClient()
         self.tac_client = tac_client if tac_client is not None else TacticalClient()
+        self.clubelo_client = clubelo_client if clubelo_client is not None else ClubEloClient()
         self.weather_engine = WeatherEngine(fpl_client=self.fpl_client)
         self.gameweek = gameweek or getattr(self.fpl_client, "get_current_gameweek", lambda: 4)() or 4
         self._build_team_odds_map(gameweek=self.gameweek)
@@ -63,7 +66,35 @@ class XPModel:
         target_gw = gameweek or self.gameweek or 4
         self.team_odds = {}
 
-        # If GW4, use calibrated high-fidelity bookmaker match odds
+        # 1. Primary: Dynamic Bivariate Poisson Goal Expectancy via ClubElo Ratings
+        try:
+            boot = self.fpl_client.get_bootstrap_data()
+            id_to_short = {t["id"]: t["short_name"] for t in boot.get("teams", [])}
+
+            gw_fixtures = []
+            if hasattr(self.fpl_client, "get_gameweek_fixtures"):
+                gw_fixtures = self.fpl_client.get_gameweek_fixtures(gameweek=target_gw)
+            if not gw_fixtures and hasattr(self.fpl_client, "get_fixtures_data"):
+                fixtures = self.fpl_client.get_fixtures_data()
+                gw_fixtures = [f for f in fixtures if f.get("event") == target_gw]
+
+            if gw_fixtures:
+                formatted_fixtures = []
+                for f in gw_fixtures:
+                    h_code = id_to_short.get(f.get("team_h"), "UNK")
+                    a_code = id_to_short.get(f.get("team_a"), "UNK")
+                    if h_code != "UNK" and a_code != "UNK":
+                        formatted_fixtures.append({"home": h_code, "away": a_code})
+
+                if formatted_fixtures:
+                    elo_odds = self.clubelo_client.build_team_odds_map(formatted_fixtures)
+                    if elo_odds:
+                        self.team_odds = elo_odds
+                        return
+        except Exception:
+            pass
+
+        # 2. Secondary: If GW4, use calibrated high-fidelity bookmaker match odds
         if target_gw == 4:
             for m_id, m in GW4_MATCH_ODDS.items():
                 h_team = m["home"]
@@ -101,7 +132,7 @@ class XPModel:
                 }
             return
 
-        # For historical or future gameweeks, dynamically build from fixtures
+        # 3. Tertiary: Fallback dynamic formula from FDR
         try:
             boot = self.fpl_client.get_bootstrap_data()
             id_to_short = {t["id"]: t["short_name"] for t in boot.get("teams", [])}
@@ -161,6 +192,7 @@ class XPModel:
                 return
         except Exception:
             pass
+
 
         # Fallback to GW4 baseline if dynamic generation encounters missing data
         for m_id, m in GW4_MATCH_ODDS.items():

@@ -5,6 +5,8 @@
 * [Brainstorm](brainstorm/) - Directory
 * [Design](design/) - Directory
 * [Issues](issues/) - Directory
+* [Playbooks](playbooks/) - Directory
+* [Tasks](tasks/) - Directory
 
 ## Documents
 

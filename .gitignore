@@ -5,6 +5,7 @@ __pycache__/
 .fpl_cache.json
 .fpl_fixtures_cache.json
 .understat_cache.json
+.clubelo_cache.json
 .fpl_elements_cache/
 .understat_shots_cache/
 

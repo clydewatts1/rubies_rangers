@@ -139,24 +139,41 @@ def build_club_schedule_profiles(
     team_short_to_id = {t["short_name"]: t["id"] for t in teams_data}
 
     # 1. Compute Base Club Dynamic Strength Ratings (alpha_c, delta_c)
-    # Calibrated from goals scored, goals conceded, strength attacking/defensive home/away
+    # Preferentially calibrated from ClubElo ratings, falling back to FPL API strength
     attack_ratings: Dict[int, float] = {}
     defense_concessions: Dict[int, float] = {}
 
+    elo_ratings = {}
+    try:
+        from clients.clubelo_client import ClubEloClient
+        elo_client = ClubEloClient()
+        elo_ratings = elo_client.get_epl_ratings()
+    except Exception:
+        elo_ratings = {}
+
     for t in teams_data:
         t_id = t["id"]
-        # Strength ratings from FPL API (scale 1000-1400) normalized around 1.35 goals/match
-        att_h = float(t.get("strength_attack_home", 1150))
-        att_a = float(t.get("strength_attack_away", 1150))
-        def_h = float(t.get("strength_defence_home", 1150))
-        def_a = float(t.get("strength_defence_away", 1150))
+        club_short = team_id_to_short.get(t_id, "")
+        elo_rec = elo_ratings.get(club_short)
 
-        avg_att = (att_h + att_a) / 2300.0  # Normalized ~ 1.0
-        avg_def = (def_h + def_a) / 2300.0  # Higher defence rating means FEWER goals conceded
-        def_concession = 1.0 / max(0.6, avg_def)  # Inverse: higher concession = leakier defense
+        if elo_rec and elo_rec.elo > 1000.0:
+            # Elo normalized around 1800.0 (Premier League median ~ 1800)
+            norm_elo = elo_rec.elo / 1800.0
+            attack_ratings[t_id] = round(norm_elo * 1.35, 3)
+            defense_concessions[t_id] = round((1.0 / max(0.6, norm_elo)) * 1.00, 3)
+        else:
+            # Strength ratings from FPL API (scale 1000-1400) normalized around 1.35 goals/match
+            att_h = float(t.get("strength_attack_home", 1150))
+            att_a = float(t.get("strength_attack_away", 1150))
+            def_h = float(t.get("strength_defence_home", 1150))
+            def_a = float(t.get("strength_defence_away", 1150))
 
-        attack_ratings[t_id] = round(avg_att * 1.35, 3)
-        defense_concessions[t_id] = round(def_concession * 1.00, 3)
+            avg_att = (att_h + att_a) / 2300.0  # Normalized ~ 1.0
+            avg_def = (def_h + def_a) / 2300.0  # Higher defence rating means FEWER goals conceded
+            def_concession = 1.0 / max(0.6, avg_def)  # Inverse: higher concession = leakier defense
+
+            attack_ratings[t_id] = round(avg_att * 1.35, 3)
+            defense_concessions[t_id] = round(def_concession * 1.00, 3)
 
     # 2. Extract Fixture Sequences for each GW in Target Horizon
     # Map (team_id, gw) -> fixture info
