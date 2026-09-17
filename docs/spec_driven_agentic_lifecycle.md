@@ -20,6 +20,9 @@ generated:
 - [`.agents/rules/moneyball_strategy.md`](../.agents/rules/moneyball_strategy.md) (Unconstrained Solvers, Stochastic Modeling, First-Principles Alpha)
 - [`.agents/rules/ui_ux_standards.md`](../.agents/rules/ui_ux_standards.md) (Quant Trading Desk 4-Zone Anatomy)
 
+> 👔 **Looking for a non-mathematical manager's guide?**  
+> If you are a technical project manager, engineering lead, or want to understand the 6 assembly line stations, practical governance, and pros/cons without formal set theory, read [**The Non-Mathematician's Guide to the Spec-Driven Agentic Lifecycle**](spec_driven_agentic_lifecycle_dummies_guide.md).
+
 ---
 
 ## 0. Executive Summary: The CPN Engine vs. The DAG Trace

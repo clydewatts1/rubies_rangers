@@ -46,6 +46,27 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:spec-driven-agentic-lifecycle-dummies-guide",
+      "displayName": "The Non-Mathematician's Guide to the Spec-Driven Agentic Lifecycle",
+      "type": "text/markdown",
+      "conceptType": "Document",
+      "tags": [
+        "process",
+        "architecture",
+        "tooling",
+        "discovery"
+      ],
+      "sources": [
+        "docs/spec_driven_agentic_lifecycle.md"
+      ],
+      "url": "docs/spec_driven_agentic_lifecycle_dummies_guide.md",
+      "description": "A plain-English handbook for technical project managers and engineering leads explaining how the 6-stage agentic workflow operates, why it works, and its trade-offs.",
+      "representativeQueries": [
+        "Where is the The Non-Mathematician's Guide to the Spec-Driven Agentic Lifecycle document?",
+        "Show me process, architecture documents."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:additional-metrics",
       "displayName": "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics",
       "type": "text/markdown",
