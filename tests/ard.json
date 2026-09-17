@@ -1,6 +1,32 @@
 {
   "resources": [
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:tests:test-fbref-client",
+      "displayName": "FBref / StatsBomb Advanced Metrics Client & Modulator Tests",
+      "type": "text/x-python",
+      "conceptType": "TestSuite",
+      "tags": [
+        "test",
+        "pytest",
+        "fbref",
+        "goalkeeper",
+        "psxg",
+        "sca",
+        "gca",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_022_soccerdata_fbref_advanced_metrics.md",
+        "clients/fbref_client.py"
+      ],
+      "url": "tests/test_fbref_client.py",
+      "description": "Unit and integration tests for FBref goalkeeper PSxG modeling, save points, outfield SCA/GCA BPS multipliers, and XPModel integration.",
+      "representativeQueries": [
+        "Where is the FBref / StatsBomb Advanced Metrics Client & Modulator Tests testsuite?",
+        "Show me test, pytest testsuites."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:tests:test-injury-client",
       "displayName": "Premier League Injury Intelligence Scraper & Intel Engine Tests",
       "type": "text/x-python",

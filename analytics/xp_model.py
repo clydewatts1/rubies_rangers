@@ -19,6 +19,14 @@ from clients.fpl_client import FPLClient
 from clients.tactical_client import TacticalClient, normalize_name
 from clients.clubelo_client import ClubEloClient
 from clients.odds_client import OddsClient
+from clients.fbref_client import (
+    FBrefClient,
+    GoalkeeperAdvancedMetrics,
+    OutfieldAdvancedMetrics,
+    compute_goalkeeper_expected_saves,
+    compute_goalkeeper_effective_cs_prob,
+    compute_outfield_bps_multiplier,
+)
 from config_manager import get_system_config, get_params
 from analytics.venue_model import compute_effective_venue_multiplier
 from analytics.weather_engine import WeatherEngine
@@ -55,11 +63,13 @@ class XPModel:
         tac_client: Optional[Any] = None,
         clubelo_client: Optional[Any] = None,
         odds_client: Optional[Any] = None,
+        fbref_client: Optional[Any] = None,
     ):
         self.fpl_client = fpl_client if fpl_client is not None else FPLClient()
         self.tac_client = tac_client if tac_client is not None else TacticalClient()
         self.clubelo_client = clubelo_client if clubelo_client is not None else ClubEloClient()
         self.odds_client = odds_client if odds_client is not None else OddsClient()
+        self.fbref_client = fbref_client if fbref_client is not None else FBrefClient()
         self.weather_engine = WeatherEngine(fpl_client=self.fpl_client)
         self.gameweek = gameweek or getattr(self.fpl_client, "get_current_gameweek", lambda: 4)() or 4
         self._build_team_odds_map(gameweek=self.gameweek)
@@ -331,6 +341,15 @@ class XPModel:
         gkp_rate = xp_cfg.get("gkp_saves_rate", 2.8)
         gkp_ratio = xp_cfg.get("gkp_saves_pts_ratio", 0.33)
         exp_saves = (team_xgc * gkp_rate * mins_fraction) if pos == "GKP" else 0.0
+
+        # Advanced FBref Goalkeeper Shot-Stopping & Save Expectancy
+        player_web_name = player_dict.get("web_name", "").lower()
+        fbref_metric = self.fbref_client.get_player_metrics(player_web_name) if hasattr(self, "fbref_client") and self.fbref_client else None
+
+        if pos == "GKP" and isinstance(fbref_metric, GoalkeeperAdvancedMetrics):
+            exp_saves = compute_goalkeeper_expected_saves(team_xgc, fbref_metric.save_pct, mins_fraction)
+            cs_prob = compute_goalkeeper_effective_cs_prob(team_xgc, fbref_metric.psxg_net_per90)
+
         saves_pts = (exp_saves * gkp_ratio)
 
         # Goals conceded penalty (applies to GKP and DEF: -1 pt for every 2 goals conceded)
@@ -355,6 +374,11 @@ class XPModel:
         else:  # GKP
             b_w = bonus_cfg.get("gkp", {})
             x_bonus = min(3.0, (cs_prob * b_w.get("cs", 0.6)) + (saves_pts * b_w.get("saves", 0.3)))
+
+        # Outfield SCA/GCA Bonus Point Modulation via FBref/StatsBomb
+        if pos in ["FWD", "MID", "DEF"] and isinstance(fbref_metric, OutfieldAdvancedMetrics):
+            bps_mult = compute_outfield_bps_multiplier(fbref_metric.sca90, fbref_metric.gca90)
+            x_bonus = min(3.0, x_bonus * bps_mult)
 
         app_60_pts = pts_rules.get("appearance_60", 2.0)
         app_sub_pts = pts_rules.get("appearance_sub_60", 1.0)

@@ -23,6 +23,32 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:clients:fbref-client",
+      "displayName": "FBref / StatsBomb Advanced Metrics Client & BPS/GK Modulator",
+      "type": "text/x-python",
+      "conceptType": "Module",
+      "tags": [
+        "client",
+        "fbref",
+        "soccerdata",
+        "goalkeeper",
+        "psxg",
+        "sca",
+        "gca",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_022_soccerdata_fbref_advanced_metrics.md"
+      ],
+      "url": "clients/fbref_client.py",
+      "description": "Ingests Post-Shot Expected Goals (PSxG), Shot-Creating Actions (SCA), and Goal-Creating Actions (GCA) from FBref to modulate goalkeeper save points and outfield BPS bonus propensity.",
+      "representativeQueries": [
+        "Where is the FBref / StatsBomb Advanced Metrics Client & BPS/GK Modulator module?",
+        "Show me client, fbref modules."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:clients:injury-client",
       "displayName": "Premier League Injury Intelligence Scraper & Intel Engine",
       "type": "text/x-python",

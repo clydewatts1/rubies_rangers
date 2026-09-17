@@ -442,6 +442,34 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:des-022-soccerdata-fbref-advanced-metrics",
+      "displayName": "[#022] FBref / StatsBomb Integration via soccerdata for Goalkeeper PSxG and Attacking SCA/GCA - Detailed Design",
+      "type": "text/markdown",
+      "conceptType": "Design",
+      "tags": [
+        "design",
+        "architecture",
+        "python",
+        "soccerdata",
+        "fbref",
+        "goalkeeper",
+        "psxg",
+        "sca",
+        "gca",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/issues/iss_022_soccerdata_fbref_advanced_metrics.md"
+      ],
+      "url": "docs/design/des_022_soccerdata_fbref_advanced_metrics.md",
+      "description": "Architecture and mathematical specification for extracting Post-Shot xG (PSxG) and Shot/Goal Creating Actions (SCA/GCA) via soccerdata to refine goalkeeper save points and outfield BPS bonus propensity.",
+      "representativeQueries": [
+        "Where is the [#022] FBref / StatsBomb Integration via soccerdata for Goalkeeper PSxG and Attacking SCA/GCA - Detailed Design design?",
+        "Show me design, architecture designs."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-001-objective-free-predictive-metrics",
       "displayName": "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics",
       "type": "text/markdown",
@@ -1006,6 +1034,33 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:plb-022-soccerdata-fbref-advanced-metrics",
+      "displayName": "[#022] FBref / StatsBomb Integration via soccerdata - Operational Playbook",
+      "type": "text/markdown",
+      "conceptType": "Playbook",
+      "tags": [
+        "playbook",
+        "python",
+        "soccerdata",
+        "fbref",
+        "goalkeeper",
+        "psxg",
+        "sca",
+        "gca",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_022_soccerdata_fbref_advanced_metrics.md"
+      ],
+      "url": "docs/playbooks/plb_022_soccerdata_fbref_advanced_metrics.md",
+      "description": "Operational playbook and architectural store for FBref advanced metrics, goalkeeper PSxG save modeling, outfield SCA/GCA BPS calibration, and XPModel integration.",
+      "representativeQueries": [
+        "Where is the [#022] FBref / StatsBomb Integration via soccerdata - Operational Playbook playbook?",
+        "Show me playbook, python playbooks."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-019-clubelo-dynamic-team-ratings",
       "displayName": "[#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Task Harness",
       "type": "text/markdown",
@@ -1074,6 +1129,33 @@
       "description": "Execution task harness for building the injury scraper client, availability mapping function, name resolution, and integration into Shane's Domain Intel desk.",
       "representativeQueries": [
         "Where is the [#021] Automated Premier Injuries Scraper for Pre-Deadline Availability Intel - Task Harness taskharness?",
+        "Show me task, python taskharnesss."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-022-soccerdata-fbref-advanced-metrics",
+      "displayName": "[#022] FBref / StatsBomb Integration via soccerdata - Task Harness",
+      "type": "text/markdown",
+      "conceptType": "TaskHarness",
+      "tags": [
+        "task",
+        "python",
+        "soccerdata",
+        "fbref",
+        "goalkeeper",
+        "psxg",
+        "sca",
+        "gca",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_022_soccerdata_fbref_advanced_metrics.md"
+      ],
+      "url": "docs/tasks/tsk_022_soccerdata_fbref_advanced_metrics.md",
+      "description": "Execution task harness for building the FBref client, goalkeeper PSxG save modeling, outfield SCA/GCA BPS calibration, and XPModel integration.",
+      "representativeQueries": [
+        "Where is the [#022] FBref / StatsBomb Integration via soccerdata - Task Harness taskharness?",
         "Show me task, python taskharnesss."
       ]
     }
