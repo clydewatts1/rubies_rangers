@@ -5,6 +5,10 @@ An enterprise-grade quantitative analytics, predictive modeling, and optimizatio
 This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Market Implied Probabilities**, **Understat Shot Quality Process Metrics**, **Open-Meteo High-Resolution Stadium Weather Telemetry**, and **Stochastic Monte Carlo Simulations** (up to 10,000 parallel gameweek scenarios) to evaluate transfers, lineups, captaincy choices, and mini-league rival strategies.
 
 > 📈 **Featured Strategy Treatise:** For an in-depth institutional analysis of how quantitative hedge fund methodologies apply to Fantasy Premier League, read [**The Quant Manager's Manifesto: Approaching Fantasy Football as a Quantitative Hedge Fund**](docs/fantasy_football_as_a_hedge_fund_manager.md) — detailing Modern Portfolio Theory (MPT), factor risk models, real options pricing, and adversarial mini-league game theory.
+> 
+> ⚙️ **Agentic Coloured Petri Net (CPN) Lifecycle:** To understand the bipartite discrete-event CPN engine governing autonomous coding agents, human semaphores, and sub-millisecond ARD catalog discovery, read [**The Agentic Coloured Petri Net (CPN) Lifecycle & Lineage Trace**](docs/spec_driven_agentic_lifecycle.md) (or see the [**Manager's & Non-Mathematician's Guide**](docs/spec_driven_agentic_lifecycle_dummies_guide.md)).
+> 
+> 🔰 **Non-Pythonist Quickstart Guide:** If you are not a Python developer and want simple, step-by-step click-and-run instructions with troubleshooting for beginner gotchas, read [**The Non-Pythonist's Installation & Running Guide (`INSTALL_DUMMIES_GUIDE.md`)**](INSTALL_DUMMIES_GUIDE.md).
 
 ---
 
@@ -72,7 +76,7 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
 14. [CLI Command Cheat Sheet](#cli-command-cheat-sheet)
 15. [Repository Architecture](#repository-architecture)
 16. [Strategic Whitepapers & Design Documents](#strategic-whitepapers--design-documents)
-17. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop)
+17. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop) · [Beginner's Guide (`INSTALL_DUMMIES_GUIDE.md`)](INSTALL_DUMMIES_GUIDE.md)
 
 ---
 
@@ -1463,6 +1467,8 @@ The following design specifications and quantitative whitepapers document the ma
 | Document | Status | Description |
 | :--- | :--- | :--- |
 | [`fantasy_football_as_a_hedge_fund_manager.md`](docs/fantasy_football_as_a_hedge_fund_manager.md) | COMPREHENSIVE WHITEPAPER | Institutional playbook on approaching Fantasy Football as a quantitative hedge fund: Modern Portfolio Theory (MPT), factor risk models, real options pricing, and adversarial mini-league game theory. |
+| [`spec_driven_agentic_lifecycle.md`](docs/spec_driven_agentic_lifecycle.md) | ARCHITECTURE SPECIFICATION | Comprehensive architectural treatise formalizing the engineering lifecycle as an Agentic Coloured Petri Net (CPN) with Places, Transitions, Colored Tokens, Guard predicates, and immutable artifact provenance. |
+| [`spec_driven_agentic_lifecycle_dummies_guide.md`](docs/spec_driven_agentic_lifecycle_dummies_guide.md) | MANAGEMENT HANDBOOK | Non-mathematician guide for technical project managers and leads explaining the 6 assembly line stations, human tollgates, pros & cons, and zero-code telemetry. |
 | [`additional_metrics.md`](docs/brainstorm/additional_metrics.md) | IMPLEMENTED | 7 high-alpha forward predictive metrics ($G - xG$, Box Touch Ratio, Talisman Share, $\text{BCM}$, $xG_{\text{obox}}$, Defensive Disruption, Implied Market Odds). |
 | [`two_stage_optimization_measures_inclusion_exclusion.md`](docs/brainstorm/two_stage_optimization_measures_inclusion_exclusion.md) | IMPLEMENTED | Exhaustive 42-measure evaluation whitepaper detailing inclusion/exclusion status and mathematical rationales for Stage 1 Screening and Stage 2 Monte Carlo Simulation. |
 | [`autonomous_execution_pipeline.md`](docs/brainstorm/autonomous_execution_pipeline.md) | IMPLEMENTED | Formal Coloured Petri Net (CPN) architecture for autonomous FPL API execution with Kleene 3-valued ($K_3$) transition guards, deadline-safe disambiguation, and session keepalive. |
@@ -1471,6 +1477,8 @@ The following design specifications and quantitative whitepapers document the ma
 ---
 
 ## Greenfield Installation & Setup Guide (New Laptop)
+
+> 💡 **Looking for a beginner-friendly, zero-jargon guide?** If you are not a Python developer and prefer a click-by-click walkthrough with troubleshooting for common gotchas, read [**The Non-Pythonist's Installation & Running Guide (`INSTALL_DUMMIES_GUIDE.md`)**](INSTALL_DUMMIES_GUIDE.md).
 
 Follow this guide to set up the entire Rubies Rangers platform on a brand-new laptop or clean development environment.
 

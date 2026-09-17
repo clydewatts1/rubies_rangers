@@ -1,3 +1,14 @@
+---
+type: Brainstorm
+title: "[#003] Codebase Modularization & Two-Stage Architectural Decoupling"
+description: "Modular refactor decomposing app.py into domain packages: analytics, clients, ui, and automation."
+tags: [brainstorm, architecture, process, refactor]
+status: Legacy
+sources: ["docs/issues/iss_003_codebase_modularization_roadmap.md"]
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # Brainstorm: Codebase Modularization & Two-Stage Architectural Roadmap
 ## Decoupling the Monolith, Protecting Active Runs, and Transitioning to a Clean Package Architecture
 

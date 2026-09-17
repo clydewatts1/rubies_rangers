@@ -1,3 +1,14 @@
+---
+type: Brainstorm
+title: "[#008] Multi-User, Multi-Team & Pre-Season Sandbox Architecture"
+description: "Multi-profile sandbox architecture supporting isolated managerial portfolios and test rosters."
+tags: [brainstorm, portfolio, strategy, architecture]
+status: Legacy
+sources: ["docs/issues/iss_008_multi_user_team_sandbox_architecture.md"]
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # Brainstorm: Multi-User, Multi-Team & Pre-Season Sandbox Architecture
 ## Generalizing Rubies Rangers into an Arbitrary-Manager Quantitative Portfolio Platform
 

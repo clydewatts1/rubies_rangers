@@ -1,3 +1,14 @@
+---
+type: Brainstorm
+title: "[#007] Modularization Pointer & Architecture Index"
+description: "Canonical redirect and architecture index for domain modularization."
+tags: [brainstorm, architecture, process]
+status: Legacy
+sources: ["docs/issues/iss_007_modularization_architecture_pointer.md", "docs/brainstorm/codebase_modularization_roadmap.md"]
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # Canonical Redirect: Codebase Modularization Roadmap
 
 This document has been consolidated into the canonical architecture specification:

@@ -1,3 +1,14 @@
+---
+type: Brainstorm
+title: "[#002] Autonomous Execution Pipeline & Robotic Manager"
+description: "Timed Coloured Petri Net (TCPN) autonomous robotic manager architecture with Saga submission loops."
+tags: [brainstorm, cpn, saga, automation, runner]
+status: Legacy
+sources: ["docs/issues/iss_002_autonomous_execution_pipeline.md"]
+generated:
+  at: "2026-09-16T22:30:00Z"
+  by: "agent:backfill_okf"
+---
 # Brainstorm: Autonomous Execution Pipeline & Robotic Manager
 ## Formal Kurt Jensen Coloured Petri Net (CPN) Model — Mars Cyber Edition
 ### Timed CPN ($\mathcal{N}_{\text{timed}}$), Kleene 3-Valued ($K_3$) Guards, and Scatter-Gather Disambiguation

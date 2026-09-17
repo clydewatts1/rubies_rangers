@@ -24,9 +24,19 @@ All development and automated decision-making in this repository are governed by
 
 3. **[UI/UX & Dashboard Engineering Standards](.agents/rules/ui_ux_standards.md)**:
    - **The Quant Trading Desk**: High-contrast financial terminal dark mode (`#0b0f19`/`#111827`/`#1f2937`) with persistent Portfolio Ticker (AUM, Cash-in-Bank, FT call options).
-   - **Two-Tier Hierarchical Navigation**: Partitions workflows into 5 Operational Trading Desks (Portfolio, Solvers, Challenge, Autonomous CPN, Alpha Signals) to eliminate 27-item flat selectbox clutter.
+   - **Operational Trading Desks**: Partitions workflows into 4 unified trading desks (Portfolio, Solvers, Autonomous Operations CPN, Alpha Signals).
    - **Canonical 4-Zone Page Anatomy**: Strict structure across all views (Terminal Header -> KPI Telemetry Strip -> In-Page Strategy Deck -> Dual-Aspect Data Inspector).
    - **Componentized Presentation**: Eliminates inline HTML sprawl via atomic primitives in `ui/components/`; prohibits sidebar widget bleed.
+
+4. **[Engineering Lifecycle & Agentic Skills](docs/spec_driven_agentic_lifecycle.md) (`.agents/skills/`)**:
+   - **Agentic Coloured Petri Net (CPN) Lifecycle**: Formulates the software development lifecycle as a dynamic, bipartite Petri Net $\mathcal{N} = (P, T, A, \Sigma, G, E, M_0)$ with strongly typed Places (buffers/semaphores), Transitions (14 agentic skills), Colored Tokens (payloads/tracks), and Guard predicates (human approval gates, pytest exit codes, and self-healing rework loops).
+   - **Immutable Provenance Trace (Artifact DAG)**: Every committed lifecycle document in `docs/` (`iss_` $\rightarrow$ `brn_` $\rightarrow$ `des_` $\rightarrow$ `pln_` $\rightarrow$ `tsk_` $\rightarrow$ `plb_`) maintains an immutable, acyclic lineage trace via YAML frontmatter `sources: [...]`.
+   - **3 Dynamic Execution Tracks (Color-Routed)**:
+     - *Track A (Deep Architecture - 6 Stages)*: `Issue → Brainstorm → Design → Plan → Tasks → Playbook` for novel solvers, stochastic modeling, and CPN automation.
+     - *Track B (Fast-Track Feature - 4 Stages)*: `Issue → Design → Tasks → Playbook` for unambiguous features and direct integrations.
+     - *Track C (Express Hotfix - 2 Stages)*: `Issue → Implementation → Pytest Verification` for urgent regressions.
+   - **Agentic Resource Discovery (ARD)**: Sub-millisecond zero-crawl indexing across federated manifests (`ard.yaml`, `ard.json`, `scripts/ard_search.py`, `scripts/ard_builder.py`).
+   - **Code-as-Knowledge (OKF)**: YAML frontmatter embedded in module docstrings (`"""\n---\n...\n---\n"""`) and audited via `python .agents/skills/code-frontmatter-generator/scripts/validate_code_okf.py`.
 
 ---
 
@@ -35,11 +45,40 @@ All development and automated decision-making in this repository are governed by
 ```text
 rubies_rangers/
 ├── AGENTS.md                                # Root Project Guidelines (This File)
+├── ard.yaml                                 # Agentic Resource Discovery (ARD) Registry Config
 ├── config.yaml                              # Central Parameter & Hyperparameter Store
 ├── README.md                                # Comprehensive Platform & Subsystem Guide
+├── docs/                                    # 6-Stage Engineering Knowledge Base
+│   ├── issues/                              # Stage 1: iss_<ID>_<slug>.md
+│   ├── brainstorm/                          # Stage 2: brn_<ID>_<slug>.md
+│   ├── design/                              # Stage 3: des_<ID>_<slug>.md
+│   ├── plans/                               # Stage 4: pln_<ID>_<slug>.md
+│   ├── tasks/                               # Stage 5: tsk_<ID>_<slug>.md
+│   ├── playbooks/                           # Stage 6: plb_<ID>_<slug>.md
+│   └── tools/                               # Tooling & ARD Reference
+├── scripts/                                 # ARD Builder & Search CLI
+│   ├── ard_builder.py                       # Manifest generator & indexer
+│   ├── ard_search.py                        # Zero-crawl keyword/tag search
+│   └── issue_status.py                      # Zero-code CPN marking & issue state inspector
 └── .agents/
-    └── rules/
-        ├── moneyball_strategy.md            # FPL Team Selection & Analytical Rules
-        ├── python_standards.md              # Python & Vectorization Coding Standards
-        └── ui_ux_standards.md               # UI/UX Quant Trading Desk Dashboard Standards
+    ├── rules/                               # Behavioral Standards & Principles
+    │   ├── moneyball_strategy.md            # FPL Team Selection & Analytical Rules
+    │   ├── python_standards.md              # Python & Vectorization Coding Standards
+    │   └── ui_ux_standards.md               # UI/UX Quant Trading Desk Dashboard Standards
+    └── skills/                              # Modular Agentic Skills
+        ├── issue-ingestion-parser/          # Stage 1: Issue generator
+        ├── brainstorm-facilitator/          # Stage 2: Single-shot brainstorm
+        ├── brainstorm-ideate-loop/          # Stage 2: Socratic sparring
+        ├── design-facilitator/              # Stage 3: Detailed technical design
+        ├── spec-to-plan/                    # Stage 4: Implementation plan compiler
+        ├── plan-to-task/                    # Stage 5: Micro-task harness compiler
+        ├── design-to-task/                  # Composite: spec-to-plan + plan-to-task
+        ├── playbook-facilitator/            # Stage 6: Operational reality playbook
+        ├── issue-status-tracker/            # CPN marking & issue lifecycle state inspector
+        ├── doc-frontmatter-generator/       # Markdown OKF frontmatter validator
+        ├── code-frontmatter-generator/      # Python docstring OKF validator
+        ├── review-audit-architecture/       # Domain layering auditor
+        ├── review-audit-vectorization/      # NumPy/pandas vectorization auditor
+        ├── test-design/                     # Test strategy & boundary matrices
+        └── test-generation-python/          # Pytest & hypothesis generator
 ```
