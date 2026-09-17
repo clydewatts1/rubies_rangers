@@ -52,4 +52,43 @@ def test_team_fdr_map(client):
         assert "avg_fdr" in info
         assert "next_fixture" in info
         assert "next_fdr" in info
+        assert "elo_rating" in info
+        assert "odds_win_prob" in info
+        assert "odds_clean_sheet_prob" in info
         assert 1.0 <= info["avg_fdr"] <= 5.0
+        assert 0.0 <= info["odds_win_prob"] <= 1.0
+
+
+def test_stage1_alpha_enrichment_columns(client):
+    """Verify that all 6 quantitative alpha signals are active and exposed in Stage 1 DataFrame."""
+    df = client.get_players_df()
+    alpha_cols = [
+        "elo_diff",
+        "odds_win_prob",
+        "odds_clean_sheet_prob",
+        "odds_exp_goals",
+        "odds_exp_conceded",
+        "fotmob_xgot",
+        "fotmob_finishing_delta",
+        "fbref_sca90",
+        "fbref_gca90",
+        "fbref_npxg90",
+        "fbref_xag90",
+        "fbref_save_pct",
+        "fbref_psxg_net",
+        "fbref_bps_multiplier",
+        "referee_name",
+        "referee_penalty_multiplier",
+        "referee_card_risk_tier",
+        "referee_card_deduction",
+        "injury_news",
+        "injury_expected_return",
+        "injury_status",
+    ]
+    for col in alpha_cols:
+        assert col in df.columns, f"Missing Stage 1 alpha column: {col}"
+
+    assert (df["referee_penalty_multiplier"] >= 0.5).all()
+    assert (df["odds_win_prob"] >= 0.0).all()
+    assert (df["odds_clean_sheet_prob"] >= 0.0).all()
+

@@ -6,9 +6,10 @@ Fetches, caches, and prepares player statistics, pricing, availability, and fixt
 import os
 import json
 import time
+import math
 import urllib.request
 import pandas as pd
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 from config_manager import get_system_config, get_params
 
@@ -195,7 +196,8 @@ class FPLClient:
 
     def get_team_fdr_map(self, n_gameweeks: int = 5, swing_split: int = 2) -> Dict[int, Dict[str, Any]]:
         """
-        Compute rolling Fixture Difficulty Rating (FDR) schedule and Fixture Swing metrics for all clubs.
+        Compute rolling Fixture Difficulty Rating (FDR) schedule and Fixture Swing metrics for all clubs,
+        dynamically modulated by ClubElo ratings differentials and bookmaker consensus expectancies.
         swing_split: number of upcoming fixtures to compare against remaining horizon (default 2).
         """
         boot = self.get_bootstrap_data()
@@ -208,33 +210,71 @@ class FPLClient:
         next_gw = current_gw + 1
         target_gws = list(range(next_gw, next_gw + n_gameweeks))
 
+        # Ingest ClubElo and The Odds API models with graceful fallbacks
+        elo_ratings: Dict[str, Any] = {}
+        try:
+            from clients.clubelo_client import ClubEloClient
+            elo_client = ClubEloClient()
+            elo_ratings = elo_client.get_epl_ratings()
+        except Exception:
+            elo_ratings = {}
+
+        odds_expectancies: Dict[str, Any] = {}
+        try:
+            from clients.odds_client import OddsClient
+            odds_client = OddsClient()
+            odds_expectancies = odds_client.get_market_expectancies()
+        except Exception:
+            odds_expectancies = {}
+
         team_fixtures = {t_id: [] for t_id in teams}
         for f in fixtures:
             gw = f.get("event")
             if gw in target_gws:
                 h_id = f["team_h"]
                 a_id = f["team_a"]
-                h_diff = f["team_h_difficulty"]
-                a_diff = f["team_a_difficulty"]
+                h_code = team_shorts.get(h_id, "UNK")
+                a_code = team_shorts.get(a_id, "UNK")
+                h_diff_raw = f["team_h_difficulty"]
+                a_diff_raw = f["team_a_difficulty"]
+
+                # Dynamic ClubElo calculation: home advantage = 75 Elo points
+                h_elo = elo_ratings[h_code].elo if h_code in elo_ratings else 1750.0
+                a_elo = elo_ratings[a_code].elo if a_code in elo_ratings else 1750.0
+                home_advantage = 75.0
+
+                delta_elo_h = a_elo - (h_elo + home_advantage)  # Opponent relative strength for home team
+                delta_elo_a = (h_elo + home_advantage) - a_elo  # Opponent relative strength for away team
+
+                h_diff = round(max(1.5, min(5.0, h_diff_raw + (delta_elo_h / 250.0))), 2)
+                a_diff = round(max(1.5, min(5.0, a_diff_raw + (delta_elo_a / 250.0))), 2)
+
                 team_fixtures[h_id].append({
                     "gw": gw,
                     "opp_id": a_id,
                     "opp_name": teams.get(a_id, "UNK"),
-                    "opp_short": team_shorts.get(a_id, "UNK"),
+                    "opp_short": a_code,
                     "is_home": True,
-                    "difficulty": h_diff
+                    "difficulty": h_diff,
+                    "fpl_difficulty": h_diff_raw,
+                    "delta_elo": round(delta_elo_h, 1)
                 })
                 team_fixtures[a_id].append({
                     "gw": gw,
                     "opp_id": h_id,
                     "opp_name": teams.get(h_id, "UNK"),
-                    "opp_short": team_shorts.get(h_id, "UNK"),
+                    "opp_short": h_code,
                     "is_home": False,
-                    "difficulty": a_diff
+                    "difficulty": a_diff,
+                    "fpl_difficulty": a_diff_raw,
+                    "delta_elo": round(delta_elo_a, 1)
                 })
 
         result = {}
         for t_id, fix_list in team_fixtures.items():
+            t_code = team_shorts.get(t_id, "UNK")
+            t_elo = elo_ratings[t_code].elo if t_code in elo_ratings else 1750.0
+
             # Sort by gameweek
             fix_list.sort(key=lambda x: x["gw"])
             if fix_list:
@@ -242,6 +282,9 @@ class FPLClient:
                 next_match = fix_list[0]
                 next_str = f"{next_match['opp_short']} ({'H' if next_match['is_home'] else 'A'}, {next_match['difficulty']})"
                 next_diff = next_match["difficulty"]
+                next_opp_short = next_match["opp_short"]
+                next_is_home = next_match["is_home"]
+                next_delta_elo = next_match.get("delta_elo", 0.0)
 
                 # Fixture Swing Calculations (near-term vs later fixtures)
                 near_fixes = fix_list[:swing_split]
@@ -267,15 +310,41 @@ class FPLClient:
                 else:
                     swing_label = "STABLE"
                     swing_status = "NEUTRAL"
+
+                # Calculate Market Odds / Poisson goal expectancies for next fixture
+                odds_rec = odds_expectancies.get(t_code if next_is_home else next_opp_short)
+                if odds_rec is not None:
+                    if next_is_home:
+                        odds_win_prob = odds_rec.prob_home_win
+                        odds_cs_prob = odds_rec.clean_sheet_prob_home
+                        odds_exp_goals = odds_rec.exp_goals_home
+                        odds_exp_conceded = odds_rec.exp_goals_away
+                    else:
+                        odds_win_prob = odds_rec.prob_away_win
+                        odds_cs_prob = odds_rec.clean_sheet_prob_away
+                        odds_exp_goals = odds_rec.exp_goals_away
+                        odds_exp_conceded = odds_rec.exp_goals_home
+                else:
+                    # Analytical Poisson estimate derived from Elo delta
+                    effective_delta = -next_delta_elo
+                    odds_exp_goals = round(max(0.40, min(3.85, 1.36 * math.exp(0.00231 * effective_delta))), 2)
+                    odds_exp_conceded = round(max(0.40, min(3.85, 1.36 * math.exp(-0.00231 * effective_delta))), 2)
+                    odds_cs_prob = round(math.exp(-odds_exp_conceded), 3)
+                    odds_win_prob = round(max(0.08, min(0.88, 1.0 / (1.0 + 10.0 ** (-effective_delta / 400.0)))), 3)
             else:
                 avg_diff = 3.0
                 next_str = "TBD"
-                next_diff = 3
+                next_diff = 3.0
                 near_fdr = 3.0
                 later_fdr = 3.0
                 swing_delta = 0.0
                 swing_label = "STABLE"
                 swing_status = "NEUTRAL"
+                next_delta_elo = 0.0
+                odds_win_prob = 0.35
+                odds_cs_prob = 0.25
+                odds_exp_goals = 1.35
+                odds_exp_conceded = 1.35
 
             # FDR multiplier: neutral baseline (default 3.0); green schedule (<neutral) gives boost, red (>neutral) discounts
             mb_params = get_params("moneyball")
@@ -284,19 +353,24 @@ class FPLClient:
             scaling = fdr_cfg.get("scaling_factor", 5.0)
             fdr_multiplier = 1.0 + ((neutral_base - avg_diff) / scaling)
 
-
             result[t_id] = {
                 "team_name": teams.get(t_id, "Unknown"),
-                "team_short": team_shorts.get(t_id, "UNK"),
+                "team_short": t_code,
+                "elo_rating": round(t_elo, 1),
                 "avg_fdr": round(avg_diff, 2),
                 "next_fixture": next_str,
                 "next_fdr": next_diff,
+                "next_delta_elo": next_delta_elo,
                 "near_fdr": round(near_fdr, 2),
                 "later_fdr": round(later_fdr, 2),
                 "swing_delta": swing_delta,
                 "swing_label": swing_label,
                 "swing_status": swing_status,
                 "fdr_multiplier": round(fdr_multiplier, 3),
+                "odds_win_prob": odds_win_prob,
+                "odds_clean_sheet_prob": odds_cs_prob,
+                "odds_exp_goals": odds_exp_goals,
+                "odds_exp_conceded": odds_exp_conceded,
                 "fixtures": fix_list
             }
 
@@ -357,12 +431,51 @@ class FPLClient:
         except Exception:
             team_weather_map = {}
 
+        # Pre-load specialized alpha data sources for Stage 1 optimization
+        injury_map: Dict[str, Any] = {}
+        try:
+            from clients.injury_client import InjuryClient
+            injury_client = InjuryClient(fpl_client=self)
+            for inj in injury_client.get_injury_intel():
+                norm_w = inj.web_name.lower().strip()
+                norm_f = inj.full_name.lower().strip()
+                injury_map[norm_w] = inj
+                injury_map[norm_f] = inj
+        except Exception:
+            injury_map = {}
+
+        fotmob_client = None
+        try:
+            from clients.fotmob_client import FotMobClient
+            fotmob_client = FotMobClient()
+        except Exception:
+            fotmob_client = None
+
+        referee_client = None
+        try:
+            from clients.referee_client import RefereeClient
+            referee_client = RefereeClient()
+        except Exception:
+            referee_client = None
+
+        fbref_client = None
+        try:
+            from clients.fbref_client import FBrefClient, compute_outfield_bps_multiplier
+            fbref_client = FBrefClient()
+        except Exception:
+            fbref_client = None
+
         rows = []
         for p in data["elements"]:
             cost = p["now_cost"] / 10.0
             total_points = p.get("total_points", 0)
             minutes = p.get("minutes", 0)
             ninetys = minutes / 90.0 if minutes > 0 else 0.0
+
+            web_name = p["web_name"]
+            first_name = p["first_name"]
+            second_name = p["second_name"]
+            full_name = f"{first_name} {second_name}".strip()
 
             xG = float(p.get("expected_goals") or 0.0)
             xA = float(p.get("expected_assists") or 0.0)
@@ -395,6 +508,27 @@ class FPLClient:
             form = float(p.get("form") or 0.0)
             ppg = float(p.get("points_per_game") or 0.0)
 
+            # Premier Injuries status and verified availability override
+            injury_news = p.get("news", "")
+            injury_expected_return = ""
+            injury_status = p.get("status", "a")
+            chance_playing = p.get("chance_of_playing_next_round")
+
+            p_key_w = web_name.lower().strip()
+            p_key_f = full_name.lower().strip()
+            inj_intel = injury_map.get(p_key_w) or injury_map.get(p_key_f)
+            if inj_intel is not None:
+                injury_news = inj_intel.news_snippet or injury_news
+                avail_val = inj_intel.availability.value
+                if avail_val == "0%":
+                    injury_status = "i"
+                    chance_playing = 0
+                elif avail_val in ["25%", "50%", "75%"]:
+                    injury_status = "d"
+                    pct_int = int(avail_val.replace("%", ""))
+                    if chance_playing is None or chance_playing > pct_int:
+                        chance_playing = pct_int
+
             # Moneyball base score from config parameters
             pos_code = positions.get(p["element_type"], "UNK")
             if pos_code in ["FWD", "MID"]:
@@ -404,16 +538,50 @@ class FPLClient:
             else:  # GKP
                 base_exp = (ppg * gkp_cfg.get("ppg_weight", 1.2)) + (form * gkp_cfg.get("form_weight", 1.5))
 
+            # Advanced FBref / StatsBomb metrics integration (shot-stopping & creative actions)
+            fbref_sca90 = 0.0
+            fbref_gca90 = 0.0
+            fbref_npxg90 = 0.0
+            fbref_xag90 = 0.0
+            fbref_save_pct = 0.0
+            fbref_psxg_net = 0.0
+            fbref_bps_multiplier = 1.0
+
+            if fbref_client is not None:
+                try:
+                    p_metric = fbref_client.get_player_metrics(web_name)
+                    if p_metric is not None:
+                        if hasattr(p_metric, "save_pct"):
+                            fbref_save_pct = round(p_metric.save_pct, 3)
+                            fbref_psxg_net = round(p_metric.psxg_net_per90, 3)
+                            if pos_code == "GKP":
+                                gk_factor = max(0.85, min(1.25, p_metric.save_pct / 0.71))
+                                base_exp = round(base_exp * gk_factor, 2)
+                        elif hasattr(p_metric, "sca90"):
+                            fbref_sca90 = round(p_metric.sca90, 2)
+                            fbref_gca90 = round(p_metric.gca90, 2)
+                            fbref_npxg90 = round(p_metric.npxg90, 2)
+                            fbref_xag90 = round(p_metric.xag90, 2)
+                            fbref_bps_multiplier = compute_outfield_bps_multiplier(p_metric.sca90, p_metric.gca90)
+                            if pos_code in ["FWD", "MID", "DEF"]:
+                                base_exp = round(base_exp * (0.95 + 0.05 * fbref_bps_multiplier), 2)
+                except Exception:
+                    pass
+
             moneyball_efficiency = (base_exp / cost) if cost > 0 else 0.0
             ppm = (total_points / cost) if cost > 0 else 0.0
 
             # FDR metrics integration
-            team_id = p["team"]
             team_fdr_info = fdr_map.get(team_id, {
                 "avg_fdr": 3.0,
                 "next_fixture": "TBD",
                 "next_fdr": 3,
+                "next_delta_elo": 0.0,
                 "fdr_multiplier": 1.0,
+                "odds_win_prob": 0.35,
+                "odds_clean_sheet_prob": 0.25,
+                "odds_exp_goals": 1.35,
+                "odds_exp_conceded": 1.35,
                 "fixtures": []
             })
             fdr_next_5 = team_fdr_info["avg_fdr"]
@@ -512,12 +680,33 @@ class FPLClient:
 
             set_piece_badges = " | ".join(badges) if badges else "None"
 
-            # Moneyball set-piece bonus from config
+            # Referee disciplinary profile & penalty frequency scaling
+            ref_name = "League Average Official"
+            ref_pen_mult = 1.0
+            ref_card_tier = "MODERATE"
+            ref_yellow_mult = 1.0
+            ref_red_mult = 1.0
+            card_risk_deduction = 0.0
+
+            if referee_client is not None:
+                try:
+                    ref_prof = referee_client.get_referee_for_team(team_short.get(team_id, "UNK"))
+                    ref_name = ref_prof.name
+                    ref_pen_mult = ref_prof.penalty_multiplier
+                    ref_card_tier = ref_prof.card_risk_tier
+                    ref_yellow_mult = ref_prof.yellow_multiplier
+                    ref_red_mult = ref_prof.red_multiplier
+                    if ref_card_tier in ["ELEVATED", "EXTREME"]:
+                        card_risk_deduction = round(max(0.0, (ref_yellow_mult - 1.0) * 0.15 + (ref_red_mult - 1.0) * 0.25), 2)
+                except Exception:
+                    pass
+
+            # Moneyball set-piece bonus dynamically scaled by Referee penalty multiplier
             sp_bonus = 0.0
             if pen_order == 1:
-                sp_bonus += sp_cfg.get("pen_order_1", 0.65)
+                sp_bonus += sp_cfg.get("pen_order_1", 0.65) * ref_pen_mult
             elif pen_order == 2:
-                sp_bonus += sp_cfg.get("pen_order_2", 0.25)
+                sp_bonus += sp_cfg.get("pen_order_2", 0.25) * ref_pen_mult
 
             if fk_order == 1:
                 sp_bonus += sp_cfg.get("fk_order_1", 0.25)
@@ -532,26 +721,48 @@ class FPLClient:
             base_with_sp = base_exp + sp_bonus
             setpiece_fdr_mb = base_with_sp * fdr_multiplier * venue_multiplier * env_multiplier
 
+            # FotMob xGOT finishing skill & spatial shot placement
+            fotmob_xgot = xG
+            fotmob_finishing_delta = float(p.get("goals_scored", 0)) - xG
+            if fotmob_client is not None:
+                try:
+                    f_stat = fotmob_client.get_player_stats(web_name)
+                    if f_stat is not None:
+                        fotmob_xgot = f_stat.xgot
+                        fotmob_finishing_delta = f_stat.finishing_delta
+                except Exception:
+                    pass
+
             # Forward metrics alpha modulation for Stage 1 optimization
             if fwd_enabled:
                 z_tal = max(-1.0, min(1.0, (talisman_share_fpl - 20.0) / 15.0))
-                finishing_delta_fpl = float(p.get("goals_scored", 0)) - xG
-                z_fin = max(-1.0, min(1.0, finishing_delta_fpl / 1.5))
+                z_fin = max(-1.0, min(1.0, fotmob_finishing_delta / 1.5))
                 z_dis = max(-1.0, min(1.0, (def_disruption_90 - 4.0) / 3.0))
                 fwd_stage1_mod = max(0.80, min(1.30, 1.0 + w_tal * z_tal + w_fin * z_fin + w_dis * z_dis))
             else:
                 fwd_stage1_mod = 1.0
+
             forward_moneyball_score = round(fdr_adjusted_mb * fwd_stage1_mod, 2)
             forward_moneyball_efficiency = round((forward_moneyball_score / cost), 2) if cost > 0 else 0.0
 
-
+            # Stage 1 Expected Points (XP) with disciplinary risk deduction & injury zeroing
+            stage1_xp = fdr_adjusted_mb * (1.0 if not fwd_enabled else fwd_stage1_mod) - card_risk_deduction
+            if chance_playing is not None and chance_playing == 0:
+                stage1_xp = 0.0
+            elif chance_playing is not None and chance_playing <= 25:
+                stage1_xp = stage1_xp * 0.25
+            elif chance_playing is not None and chance_playing <= 50:
+                stage1_xp = stage1_xp * 0.50
+            elif chance_playing is not None and chance_playing <= 75:
+                stage1_xp = stage1_xp * 0.75
+            xp_val = round(max(0.0, stage1_xp), 2)
 
             rows.append({
                 "id": p["id"],
-                "web_name": p["web_name"],
-                "first_name": p["first_name"],
-                "second_name": p["second_name"],
-                "full_name": f"{p['first_name']} {p['second_name']}",
+                "web_name": web_name,
+                "first_name": first_name,
+                "second_name": second_name,
+                "full_name": full_name,
                 "club_id": team_id,
                 "club_name": teams.get(team_id, "Unknown"),
                 "club_short": team_short.get(team_id, "UNK"),
@@ -564,9 +775,9 @@ class FPLClient:
                 "form": form,
                 "selected_by_percent": float(p.get("selected_by_percent") or 0.0),
                 "minutes": minutes,
-                "status": p.get("status", "a"),
-                "news": p.get("news", ""),
-                "chance_of_playing": p.get("chance_of_playing_next_round"),
+                "status": injury_status,
+                "news": injury_news,
+                "chance_of_playing": chance_playing,
                 "yellow_cards": p.get("yellow_cards", 0),
                 "red_cards": p.get("red_cards", 0),
                 "is_penalty_taker": is_penalty_taker,
@@ -634,7 +845,29 @@ class FPLClient:
                 "weather_moneyball_efficiency": weather_moneyball_efficiency,
                 "mean_reversion_score": round(1.25 * round(max(0.0, max(0.0, xG - float(p.get("goals_scored", 0))) / 0.38), 1) + 2.0 * max(0.0, xG - float(p.get("goals_scored", 0))), 2),
                 "outside_box_xg": round(max(0.0, (float(p.get("threat") or 0.0) / 100.0) * 0.25), 2),
-                "xp": round(fdr_adjusted_mb * (1.0 if not fwd_enabled else fwd_stage1_mod), 2)
+                "xp": xp_val,
+                # Quantitative Alpha Data Feed Columns
+                "elo_diff": team_fdr_info.get("next_delta_elo", 0.0),
+                "odds_win_prob": team_fdr_info.get("odds_win_prob", 0.35),
+                "odds_clean_sheet_prob": team_fdr_info.get("odds_clean_sheet_prob", 0.25),
+                "odds_exp_goals": team_fdr_info.get("odds_exp_goals", 1.35),
+                "odds_exp_conceded": team_fdr_info.get("odds_exp_conceded", 1.35),
+                "fotmob_xgot": round(fotmob_xgot, 2),
+                "fotmob_finishing_delta": round(fotmob_finishing_delta, 2),
+                "fbref_sca90": fbref_sca90,
+                "fbref_gca90": fbref_gca90,
+                "fbref_npxg90": fbref_npxg90,
+                "fbref_xag90": fbref_xag90,
+                "fbref_save_pct": fbref_save_pct,
+                "fbref_psxg_net": fbref_psxg_net,
+                "fbref_bps_multiplier": round(fbref_bps_multiplier, 3),
+                "referee_name": ref_name,
+                "referee_penalty_multiplier": round(ref_pen_mult, 2),
+                "referee_card_risk_tier": ref_card_tier,
+                "referee_card_deduction": card_risk_deduction,
+                "injury_news": injury_news,
+                "injury_expected_return": injury_expected_return,
+                "injury_status": injury_status
             })
 
         return pd.DataFrame(rows)
