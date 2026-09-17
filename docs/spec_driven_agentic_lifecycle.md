@@ -153,7 +153,7 @@ Every transition in the CPN is powered by an autonomous agent skill located in [
 | **$T_{\text{EXECUTE\_TASK}}$** | *Agent Coding Tools* | `P_TASK_QUEUE` or `P_REWORK_LOOP` | `P_CODING_IN_FLIGHT` | Applies atomic file modifications using `replace_file_content`. |
 | **$T_{\text{VERIFY}}$** | `test-generation-python` | `P_CODING_IN_FLIGHT` | `P_VERIFICATION` | Executes `pytest`, property tests, and OKF validators. |
 | **$T_{\text{DIAGNOSE}}$** | *Agent Triage* | `P_VERIFICATION` | `P_REWORK_LOOP` | Extracts failure traceback and formulates targeted fix chunk. |
-| **$T_{\text{PLAYBOOK}}$** | `playbook-facilitator` | `P_VERIFICATION` | `P_COMMITTED_PLAYBOOK` | Synthesizes committed code into `plb_<ID>_<slug>.md` & builds ARD. |
+| **$T_{\text{PLAYBOOK}}$** | `playbook-facilitator` | `P_VERIFICATION` | `P_COMMITTED_PLAYBOOK` | Synthesizes committed code into `plb_<ID>_<slug>.md` as an offline context memory and living implementation store over time. |
 
 ---
 

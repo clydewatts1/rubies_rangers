@@ -1,14 +1,20 @@
 ---
 name: playbook-facilitator
-description: Acts as Transition T_PLAYBOOK in the Agentic Coloured Petri Net (CPN). Converts a Stage 3 Technical Design document and verified codebase from P_VERIFICATION into an operational Stage 6 Playbook document in docs/playbooks/plb_<ID>_<slug>.md (P_COMMITTED_PLAYBOOK).
+description: Acts as Transition T_PLAYBOOK in the Agentic Coloured Petri Net (CPN). Converts a Stage 3 Technical Design document and verified codebase from P_VERIFICATION into an operational Stage 6 Playbook document in docs/playbooks/plb_<ID>_<slug>.md (P_COMMITTED_PLAYBOOK), serving as the offline context memory and implementation store over time.
 ---
 
 # playbook-facilitator
 
 ## Purpose
-This skill fires as **Transition $T_{\text{PLAYBOOK}}$** in the **Agentic Coloured Petri Net (CPN)** lifecycle. It consumes a verified token from place $P_{\text{VERIFICATION}}$, references the Stage 3 Technical Design document (`docs/design/des_<ID>_<slug>.md`) and the *actual deployed Python code*, synthesizing them into an operational reality guide in `docs/playbooks/plb_<ID>_<slug>.md` and depositing a completed token into place $P_{\text{COMMITTED\_PLAYBOOK}}$.
+This skill fires as **Transition $T_{\text{PLAYBOOK}}$** in the **Agentic Coloured Petri Net (CPN)** lifecycle. It consumes a verified token from place $P_{\text{VERIFICATION}}$, references the Stage 3 Technical Design document (`docs/design/des_<ID>_<slug>.md`) and the *actual deployed Python code*, synthesizing them into an **offline context memory and long-term implementation store** in `docs/playbooks/plb_<ID>_<slug>.md` and depositing a completed token into place $P_{\text{COMMITTED\_PLAYBOOK}}$.
 
-Because implementations often deviate slightly from original designs (e.g. edge-case handling, parameter tweaks, API response nuances), this transition acts as a technical writer bridging the gap between theory and reality.
+The Playbook is not merely an operations manual—it is **the persistent offline context memory of the codebase**. It records:
+1. **Design decisions and architectural rationale** that explain *why* systems are structured the way they are.
+2. **Implementation drift and reality** accumulated over time, capturing how the deployed code adapted to real-world edge cases that differed from the original Stage 3 spec.
+3. **Operational reality**: CLI flags, configuration parameters in `config.yaml`, and UI workflows.
+4. **Diagnostics and troubleshooting**: Error signatures, recovery protocols, and rollback procedures.
+
+When future AI agents or engineers touch this subsystem months later, the Playbook serves as pre-digested, long-term memory, loading full contextual understanding in under 500 tokens without needing to crawl through thousands of lines of raw source code.
 
 ## When to Activate
 - When a feature, solver, or refactor has been implemented and tested.

@@ -55,7 +55,7 @@ flowchart TD
         Gate2{{"🛑 <b>Human Tollgate 2</b><br/>Plan Sign-off & Diff Budgets"}}
         S5["<b>Station 5: The Assembly Line</b><br/><code>Tasks (tsk_*.md)</code><br/><i>Bounded Micro-Tasks (&le; 80 lines diff)</i>"]
         TestPass{"<b>Automated Quality Gate</b><br/><code>pytest / go test (exit code 0)</code>"}
-        S6["<b>Station 6: Operational Playbook</b><br/><code>Playbook (plb_*.md)</code><br/><i>Deployed Reality, Config & Troubleshooting</i>"]
+        S6["<b>Station 6: Offline Context Memory</b><br/><code>Playbook (plb_*.md)</code><br/><i>Design Decisions & Implementation Store Over Time</i>"]
     end
 
     S1 -->|Clarify Scope| S2
@@ -102,10 +102,17 @@ flowchart TD
 - **The Golden Rule**: **$\le 80$ lines of code diff per task.**
 - **Automated Quality Gate**: The AI cannot touch the next task until the current task passes an automated test (e.g. `pytest` or `go test` exits code `0`). If a test fails, the AI enters a localized **Self-Healing Loop**, fixing only those specific 80 lines without breaking the rest of the project.
 
-### Station 6: The User Manual (`Playbook` — `docs/playbooks/plb_*.md`)
-- **What it is**: The operational reality guide.
-- **What happens**: Because software in production often differs slightly from initial blueprints, this document records what was *actually* built, how to configure it in `config.yaml`, which buttons to click in the UI, and a troubleshooting table for common errors.
-- **Why it matters**: Eliminates the "developer built it and left no documentation" problem.
+### Station 6: Offline Context Memory & Implementation Store (`Playbook` — `docs/playbooks/plb_*.md`)
+- **What it is**: **The long-term offline context memory of the codebase.** It is a living store of architectural decisions, implementation details, and operational reality accumulated over time.
+- **Why it is "Offline Context Memory"**:
+  - LLMs have finite, volatile in-memory context windows that vanish when a chat session ends or compacts. Standard vector search (RAG) often pulls disjointed code fragments without narrative understanding.
+  - The Playbook solves this by serving as an **offline external brain**. When an AI agent or engineer works on this subsystem months later, reading the Playbook gives them immediate, complete context in under 500 tokens.
+- **What it stores over time**:
+  - **Design Decisions & Rationale**: *Why* specific algorithms, library versions, or data contracts were chosen, and why alternative options were discarded.
+  - **Implementation Reality & Deviations**: Where the real-world deployed code adapted to unexpected API quirks or edge cases that differed from the original Stage 3 blueprint.
+  - **Operational Usage**: CLI commands, configuration parameters in `config.yaml`, and Streamlit UI navigation.
+  - **Diagnostics & Troubleshooting**: Known error codes, compensation steps, and recovery actions.
+- **Why it matters**: It ensures code never becomes an "undocumented mystery" and turns tacit developer knowledge into permanent, queryable system memory.
 
 ---
 
@@ -133,7 +140,7 @@ flowchart TD
         Assembly["<b>Baggage Loading Belt</b><br/><code>P_TASK_QUEUE</code><br/><i>Micro-Tasks &le; 80 lines</i>"]
         Scanner{"<b>Automated Security Scanner</b><br/><i>pytest / go test pass?</i>"}
         Rework["<b>Inspection & Repair Bay</b><br/><code>P_REWORK</code><br/><i>Self-Healing Retry</i>"]
-        Flight["✈️ <b>Final Destination Flight</b><br/><code>P_COMMITTED_PLAYBOOK</code><br/><i>Deployed in Operational Reality</i>"]
+        Flight["✈️ <b>Offline Memory & Living Store</b><br/><code>P_COMMITTED_PLAYBOOK</code><br/><i>Playbook: Decisions & Reality Over Time</i>"]
     end
 
     Bag --> CheckIn
