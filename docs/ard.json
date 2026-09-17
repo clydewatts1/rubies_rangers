@@ -22,6 +22,27 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:spec-driven-agentic-lifecycle",
+      "displayName": "The Spec-Driven Agentic Lifecycle: 6-Stage Engineering Provenance DAG",
+      "type": "text/markdown",
+      "conceptType": "Architecture",
+      "tags": [
+        "architecture",
+        "process",
+        "tooling",
+        "registry",
+        "discovery",
+        "python"
+      ],
+      "sources": [],
+      "url": "docs/spec_driven_agentic_lifecycle.md",
+      "description": "Comprehensive architectural treatise detailing the 6-stage progressive formalization pipeline (Issue -> Brainstorm -> Design -> Plan -> Tasks -> Playbook) and zero-crawl Agentic Resource Discovery (ARD).",
+      "representativeQueries": [
+        "Where is the The Spec-Driven Agentic Lifecycle: 6-Stage Engineering Provenance DAG architecture?",
+        "Show me architecture, process architectures."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:additional-metrics",
       "displayName": "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics",
       "type": "text/markdown",
