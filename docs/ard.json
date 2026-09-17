@@ -367,6 +367,31 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:des-019-clubelo-dynamic-team-ratings",
+      "displayName": "[#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Detailed Design",
+      "type": "text/markdown",
+      "conceptType": "Design",
+      "tags": [
+        "design",
+        "architecture",
+        "python",
+        "clubelo",
+        "ratings",
+        "poisson",
+        "analytics",
+        "client"
+      ],
+      "sources": [
+        "docs/issues/iss_019_clubelo_dynamic_team_ratings.md"
+      ],
+      "url": "docs/design/des_019_clubelo_dynamic_team_ratings.md",
+      "description": "Architecture and mathematical specification for ingesting ClubElo objective ratings, computing bivariate Poisson goal expectations, and driving dynamic multi-gameweek fixture strength.",
+      "representativeQueries": [
+        "Where is the [#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Detailed Design design?",
+        "Show me design, architecture designs."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-001-objective-free-predictive-metrics",
       "displayName": "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics",
       "type": "text/markdown",
