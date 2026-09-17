@@ -7,6 +7,8 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
 > 📈 **Featured Strategy Treatise:** For an in-depth institutional analysis of how quantitative hedge fund methodologies apply to Fantasy Premier League, read [**The Quant Manager's Manifesto: Approaching Fantasy Football as a Quantitative Hedge Fund**](docs/fantasy_football_as_a_hedge_fund_manager.md) — detailing Modern Portfolio Theory (MPT), factor risk models, real options pricing, and adversarial mini-league game theory.
 > 
 > ⚙️ **Agentic Coloured Petri Net (CPN) Lifecycle:** To understand the bipartite discrete-event CPN engine governing autonomous coding agents, human semaphores, and sub-millisecond ARD catalog discovery, read [**The Agentic Coloured Petri Net (CPN) Lifecycle & Lineage Trace**](docs/spec_driven_agentic_lifecycle.md).
+> 
+> 🔰 **Non-Pythonist Quickstart Guide:** If you are not a Python developer and want simple, step-by-step click-and-run instructions with troubleshooting for beginner gotchas, read [**The Non-Pythonist's Installation & Running Guide (`INSTALL_DUMMIES_GUIDE.md`)**](INSTALL_DUMMIES_GUIDE.md).
 
 ---
 
@@ -74,7 +76,7 @@ This platform combines **Mixed-Integer Linear Programming (MILP)**, **Betting Ma
 14. [CLI Command Cheat Sheet](#cli-command-cheat-sheet)
 15. [Repository Architecture](#repository-architecture)
 16. [Strategic Whitepapers & Design Documents](#strategic-whitepapers--design-documents)
-17. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop)
+17. [Greenfield Installation & Setup Guide (New Laptop)](#greenfield-installation--setup-guide-new-laptop) · [Beginner's Guide (`INSTALL_DUMMIES_GUIDE.md`)](INSTALL_DUMMIES_GUIDE.md)
 
 ---
 
@@ -1474,6 +1476,8 @@ The following design specifications and quantitative whitepapers document the ma
 ---
 
 ## Greenfield Installation & Setup Guide (New Laptop)
+
+> 💡 **Looking for a beginner-friendly, zero-jargon guide?** If you are not a Python developer and prefer a click-by-click walkthrough with troubleshooting for common gotchas, read [**The Non-Pythonist's Installation & Running Guide (`INSTALL_DUMMIES_GUIDE.md`)**](INSTALL_DUMMIES_GUIDE.md).
 
 Follow this guide to set up the entire Rubies Rangers platform on a brand-new laptop or clean development environment.
 
