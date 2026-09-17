@@ -32,6 +32,12 @@ from clients.fotmob_client import (
     FotMobPlayerStats,
     compute_finishing_multiplier,
 )
+from clients.referee_client import (
+    RefereeClient,
+    RefereeProfile,
+    LEAGUE_BASELINE_YELLOWS_PER_MATCH,
+    LEAGUE_BASELINE_REDS_PER_MATCH,
+)
 from config_manager import get_system_config, get_params
 from analytics.venue_model import compute_effective_venue_multiplier
 from analytics.weather_engine import WeatherEngine
@@ -70,6 +76,7 @@ class XPModel:
         odds_client: Optional[Any] = None,
         fbref_client: Optional[Any] = None,
         fotmob_client: Optional[Any] = None,
+        referee_client: Optional[Any] = None,
     ):
         self.fpl_client = fpl_client if fpl_client is not None else FPLClient()
         self.tac_client = tac_client if tac_client is not None else TacticalClient()
@@ -77,6 +84,7 @@ class XPModel:
         self.odds_client = odds_client if odds_client is not None else OddsClient()
         self.fbref_client = fbref_client if fbref_client is not None else FBrefClient()
         self.fotmob_client = fotmob_client if fotmob_client is not None else FotMobClient()
+        self.referee_client = referee_client if referee_client is not None else RefereeClient()
         self.weather_engine = WeatherEngine(fpl_client=self.fpl_client)
         self.gameweek = gameweek or getattr(self.fpl_client, "get_current_gameweek", lambda: 4)() or 4
         self._build_team_odds_map(gameweek=self.gameweek)
@@ -325,6 +333,11 @@ class XPModel:
         pen_duty = (player_dict.get("penalties_order") == 1)
         pen_conv = pen_cfg.get("conversion_rate", 0.79)
         pen_award = pen_cfg.get("match_award_chance", 0.18)
+
+        # Referee Tendency Modulation (Penalties & Disciplinary Cards)
+        ref_profile = self.referee_client.get_referee_for_team(team_short) if hasattr(self, "referee_client") and self.referee_client else None
+        ref_pen_mult = ref_profile.penalty_multiplier if ref_profile else 1.0
+        pen_award *= ref_pen_mult
         pen_bonus_xg = (pen_conv * pen_award) if pen_duty else 0.0
 
         player_web_name = player_dict.get("web_name", "").lower()
@@ -419,6 +432,13 @@ class XPModel:
             xp = appearance_pts + (cs_mid * cs_prob * p_60) + (goal_mid * match_xg) + (ast_pts * match_xa) + x_bonus
         else:  # FWD
             xp = appearance_pts + (goal_fwd * match_xg) + (ast_pts * match_xa) + x_bonus
+
+        # Referee Disciplinary Card Variance Deduction (Excess over League Baseline)
+        if ref_profile and pos != "GKP":
+            excess_yc = (ref_profile.yellows_per_match - LEAGUE_BASELINE_YELLOWS_PER_MATCH) / 22.0
+            excess_rc = (ref_profile.reds_per_match - LEAGUE_BASELINE_REDS_PER_MATCH) / 22.0
+            card_variance_deduction = (excess_yc * 1.0 + excess_rc * 3.0) * mins_fraction
+            xp = max(0.0, xp - card_variance_deduction)
 
         xp = max(0.0, xp)
 
@@ -557,6 +577,9 @@ class XPModel:
             "fotmob_finishing_delta": round(finishing_delta, 2),
             "fotmob_xgot": round(fotmob_stats.xgot, 2) if fotmob_stats else 0.0,
             "fotmob_xg": round(fotmob_stats.xg, 2) if fotmob_stats else 0.0,
+            "referee_name": ref_profile.name if ref_profile else "League Average Official",
+            "referee_penalty_multiplier": ref_profile.penalty_multiplier if ref_profile else 1.0,
+            "referee_card_risk_tier": ref_profile.card_risk_tier if ref_profile else "MODERATE",
             "xP": round(xp, 2)
         }
 

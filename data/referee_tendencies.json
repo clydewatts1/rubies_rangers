@@ -1,0 +1,168 @@
+{
+  "league_baseline": {
+    "penalties_per_match": 0.20,
+    "yellows_per_match": 3.95,
+    "reds_per_match": 0.11,
+    "fouls_per_tackle": 0.58
+  },
+  "referees": {
+    "anthony taylor": {
+      "name": "Anthony Taylor",
+      "matches_refereed": 360,
+      "penalties_per_match": 0.36,
+      "yellows_per_match": 4.25,
+      "reds_per_match": 0.14,
+      "fouls_per_tackle": 0.61
+    },
+    "michael oliver": {
+      "name": "Michael Oliver",
+      "matches_refereed": 375,
+      "penalties_per_match": 0.22,
+      "yellows_per_match": 3.80,
+      "reds_per_match": 0.11,
+      "fouls_per_tackle": 0.56
+    },
+    "paul tierney": {
+      "name": "Paul Tierney",
+      "matches_refereed": 195,
+      "penalties_per_match": 0.15,
+      "yellows_per_match": 3.70,
+      "reds_per_match": 0.08,
+      "fouls_per_tackle": 0.55
+    },
+    "robert jones": {
+      "name": "Robert Jones",
+      "matches_refereed": 85,
+      "penalties_per_match": 0.38,
+      "yellows_per_match": 4.60,
+      "reds_per_match": 0.16,
+      "fouls_per_tackle": 0.65
+    },
+    "simon hooper": {
+      "name": "Simon Hooper",
+      "matches_refereed": 120,
+      "penalties_per_match": 0.28,
+      "yellows_per_match": 4.40,
+      "reds_per_match": 0.12,
+      "fouls_per_tackle": 0.62
+    },
+    "john brooks": {
+      "name": "John Brooks",
+      "matches_refereed": 65,
+      "penalties_per_match": 0.32,
+      "yellows_per_match": 4.50,
+      "reds_per_match": 0.15,
+      "fouls_per_tackle": 0.64
+    },
+    "stuart attwell": {
+      "name": "Stuart Attwell",
+      "matches_refereed": 210,
+      "penalties_per_match": 0.25,
+      "yellows_per_match": 4.10,
+      "reds_per_match": 0.10,
+      "fouls_per_tackle": 0.59
+    },
+    "darren england": {
+      "name": "Darren England",
+      "matches_refereed": 60,
+      "penalties_per_match": 0.20,
+      "yellows_per_match": 3.90,
+      "reds_per_match": 0.09,
+      "fouls_per_tackle": 0.57
+    },
+    "jarred gillett": {
+      "name": "Jarred Gillett",
+      "matches_refereed": 55,
+      "penalties_per_match": 0.30,
+      "yellows_per_match": 4.30,
+      "reds_per_match": 0.12,
+      "fouls_per_tackle": 0.60
+    },
+    "chris kavanagh": {
+      "name": "Chris Kavanagh",
+      "matches_refereed": 150,
+      "penalties_per_match": 0.24,
+      "yellows_per_match": 4.20,
+      "reds_per_match": 0.11,
+      "fouls_per_tackle": 0.59
+    },
+    "andrew madley": {
+      "name": "Andrew Madley",
+      "matches_refereed": 105,
+      "penalties_per_match": 0.16,
+      "yellows_per_match": 3.50,
+      "reds_per_match": 0.07,
+      "fouls_per_tackle": 0.53
+    },
+    "thomas bramall": {
+      "name": "Thomas Bramall",
+      "matches_refereed": 40,
+      "penalties_per_match": 0.18,
+      "yellows_per_match": 3.60,
+      "reds_per_match": 0.08,
+      "fouls_per_tackle": 0.54
+    },
+    "samuel barrott": {
+      "name": "Samuel Barrott",
+      "matches_refereed": 30,
+      "penalties_per_match": 0.22,
+      "yellows_per_match": 3.90,
+      "reds_per_match": 0.10,
+      "fouls_per_tackle": 0.57
+    },
+    "craig pawson": {
+      "name": "Craig Pawson",
+      "matches_refereed": 240,
+      "penalties_per_match": 0.26,
+      "yellows_per_match": 4.35,
+      "reds_per_match": 0.13,
+      "fouls_per_tackle": 0.61
+    },
+    "peter bankes": {
+      "name": "Peter Bankes",
+      "matches_refereed": 85,
+      "penalties_per_match": 0.34,
+      "yellows_per_match": 4.70,
+      "reds_per_match": 0.18,
+      "fouls_per_tackle": 0.66
+    },
+    "tim robinson": {
+      "name": "Tim Robinson",
+      "matches_refereed": 45,
+      "penalties_per_match": 0.25,
+      "yellows_per_match": 4.15,
+      "reds_per_match": 0.11,
+      "fouls_per_tackle": 0.59
+    },
+    "sunny singh gill": {
+      "name": "Sunny Singh Gill",
+      "matches_refereed": 15,
+      "penalties_per_match": 0.20,
+      "yellows_per_match": 3.80,
+      "reds_per_match": 0.10,
+      "fouls_per_tackle": 0.56
+    }
+  },
+  "default_appointments": {
+    "ARS": "robert jones",
+    "TOT": "robert jones",
+    "MCI": "anthony taylor",
+    "BRE": "anthony taylor",
+    "LIV": "michael oliver",
+    "NFO": "michael oliver",
+    "BOU": "anthony taylor",
+    "CHE": "anthony taylor",
+    "AVL": "craig pawson",
+    "EVE": "craig pawson",
+    "FUL": "tim robinson",
+    "WHU": "tim robinson",
+    "BHA": "samuel barrott",
+    "IPS": "samuel barrott",
+    "CRY": "paul tierney",
+    "LEI": "paul tierney",
+    "SOU": "stuart attwell",
+    "MUN": "stuart attwell",
+    "WOL": "chris kavanagh",
+    "NEW": "chris kavanagh"
+  }
+}

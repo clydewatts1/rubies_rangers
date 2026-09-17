@@ -98,6 +98,31 @@
         "Where is the The Odds API Client & Vig-Removed Market Consensus Tests testsuite?",
         "Show me test, pytest testsuites."
       ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:tests:test-referee-client",
+      "displayName": "Premier League Referee Historical Analytics & Tendency Client Tests",
+      "type": "text/x-python",
+      "conceptType": "TestSuite",
+      "tags": [
+        "test",
+        "pytest",
+        "referee",
+        "penalties",
+        "cards",
+        "montecarlo",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_024_referee_penalty_variance_modeling.md",
+        "clients/referee_client.py"
+      ],
+      "url": "tests/test_referee_client.py",
+      "description": "Unit and integration tests for referee penalty multipliers, card accumulation rates, appointment mapping, baseline fallbacks, and XP/Monte Carlo engine integration.",
+      "representativeQueries": [
+        "Where is the Premier League Referee Historical Analytics & Tendency Client Tests testsuite?",
+        "Show me test, pytest testsuites."
+      ]
     }
   ]
 }

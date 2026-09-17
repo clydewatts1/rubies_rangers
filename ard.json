@@ -499,6 +499,32 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:des-024-referee-penalty-variance-modeling",
+      "displayName": "[#024] Premier League Referee Historical Analytics & Penalty Tendency Modeling - Detailed Design",
+      "type": "text/markdown",
+      "conceptType": "Design",
+      "tags": [
+        "design",
+        "architecture",
+        "python",
+        "referee",
+        "penalties",
+        "cards",
+        "montecarlo",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/issues/iss_024_referee_penalty_variance_modeling.md"
+      ],
+      "url": "docs/design/des_024_referee_penalty_variance_modeling.md",
+      "description": "Architecture and mathematical specification for referee historical analytics, penalty award rate multipliers, card accumulation tendencies, and XP/Monte Carlo engine integration.",
+      "representativeQueries": [
+        "Where is the [#024] Premier League Referee Historical Analytics & Penalty Tendency Modeling - Detailed Design design?",
+        "Show me design, architecture designs."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-001-objective-free-predictive-metrics",
       "displayName": "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics",
       "type": "text/markdown",
@@ -1116,6 +1142,31 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:plb-024-referee-penalty-variance-modeling",
+      "displayName": "[#024] Premier League Referee Historical Analytics & Penalty Tendency Modeling - Operational Playbook",
+      "type": "text/markdown",
+      "conceptType": "Playbook",
+      "tags": [
+        "playbook",
+        "python",
+        "referee",
+        "penalties",
+        "cards",
+        "montecarlo",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_024_referee_penalty_variance_modeling.md"
+      ],
+      "url": "docs/playbooks/plb_024_referee_penalty_variance_modeling.md",
+      "description": "Operational playbook and architectural store for referee historical analytics, penalty award rate multipliers, card accumulation tendencies, and XP/Monte Carlo engine integration.",
+      "representativeQueries": [
+        "Where is the [#024] Premier League Referee Historical Analytics & Penalty Tendency Modeling - Operational Playbook playbook?",
+        "Show me playbook, python playbooks."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-019-clubelo-dynamic-team-ratings",
       "displayName": "[#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Task Harness",
       "type": "text/markdown",
@@ -1240,6 +1291,31 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-024-referee-penalty-variance-modeling",
+      "displayName": "[#024] Premier League Referee Historical Analytics - Task Harness",
+      "type": "text/markdown",
+      "conceptType": "TaskHarness",
+      "tags": [
+        "task",
+        "python",
+        "referee",
+        "penalties",
+        "cards",
+        "montecarlo",
+        "analytics",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_024_referee_penalty_variance_modeling.md"
+      ],
+      "url": "docs/tasks/tsk_024_referee_penalty_variance_modeling.md",
+      "description": "Execution task harness for building the referee tendencies store, referee client, penalty and card multipliers, and XP/Monte Carlo engine integration.",
+      "representativeQueries": [
+        "Where is the [#024] Premier League Referee Historical Analytics - Task Harness taskharness?",
+        "Show me task, python taskharnesss."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:clients:clubelo-client",
       "displayName": "ClubElo Client & Bivariate Poisson Goal Expectancy Engine",
       "type": "text/x-python",
@@ -1358,6 +1434,30 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:clients:referee-client",
+      "displayName": "Premier League Referee Historical Analytics & Tendency Client",
+      "type": "text/x-python",
+      "conceptType": "Module",
+      "tags": [
+        "client",
+        "referee",
+        "penalties",
+        "cards",
+        "analytics",
+        "xp",
+        "montecarlo"
+      ],
+      "sources": [
+        "docs/design/des_024_referee_penalty_variance_modeling.md"
+      ],
+      "url": "clients/referee_client.py",
+      "description": "Ingests referee profiles, historical penalty award frequencies, and card accumulation tendencies to dynamically modulate penalty taker expectations and disciplinary tail risks.",
+      "representativeQueries": [
+        "Where is the Premier League Referee Historical Analytics & Tendency Client module?",
+        "Show me client, referee modules."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:tests:test-fbref-client",
       "displayName": "FBref / StatsBomb Advanced Metrics Client & Modulator Tests",
       "type": "text/x-python",
@@ -1453,6 +1553,31 @@
       "description": "Unit and integration tests for odds parsing, vig-removal, numerical inversion, quota governance, and XPModel integration.",
       "representativeQueries": [
         "Where is the The Odds API Client & Vig-Removed Market Consensus Tests testsuite?",
+        "Show me test, pytest testsuites."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:tests:test-referee-client",
+      "displayName": "Premier League Referee Historical Analytics & Tendency Client Tests",
+      "type": "text/x-python",
+      "conceptType": "TestSuite",
+      "tags": [
+        "test",
+        "pytest",
+        "referee",
+        "penalties",
+        "cards",
+        "montecarlo",
+        "xp"
+      ],
+      "sources": [
+        "docs/design/des_024_referee_penalty_variance_modeling.md",
+        "clients/referee_client.py"
+      ],
+      "url": "tests/test_referee_client.py",
+      "description": "Unit and integration tests for referee penalty multipliers, card accumulation rates, appointment mapping, baseline fallbacks, and XP/Monte Carlo engine integration.",
+      "representativeQueries": [
+        "Where is the Premier League Referee Historical Analytics & Tendency Client Tests testsuite?",
         "Show me test, pytest testsuites."
       ]
     },

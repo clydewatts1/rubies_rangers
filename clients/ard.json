@@ -117,6 +117,30 @@
         "Where is the The Odds API Client & Vig-Removed Market Consensus Engine module?",
         "Show me client, odds modules."
       ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:clients:referee-client",
+      "displayName": "Premier League Referee Historical Analytics & Tendency Client",
+      "type": "text/x-python",
+      "conceptType": "Module",
+      "tags": [
+        "client",
+        "referee",
+        "penalties",
+        "cards",
+        "analytics",
+        "xp",
+        "montecarlo"
+      ],
+      "sources": [
+        "docs/design/des_024_referee_penalty_variance_modeling.md"
+      ],
+      "url": "clients/referee_client.py",
+      "description": "Ingests referee profiles, historical penalty award frequencies, and card accumulation tendencies to dynamically modulate penalty taker expectations and disciplinary tail risks.",
+      "representativeQueries": [
+        "Where is the Premier League Referee Historical Analytics & Tendency Client module?",
+        "Show me client, referee modules."
+      ]
     }
   ]
 }

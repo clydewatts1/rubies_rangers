@@ -46,11 +46,13 @@ class MonteCarloEngine:
     def __init__(self, fpl_client: Optional[FPLClient] = None,
                  tac_client: Optional[TacticalClient] = None,
                  xp_model: Optional[XPModel] = None,
-                 weather_engine: Optional[Any] = None):
+                 weather_engine: Optional[Any] = None,
+                 referee_client: Optional[Any] = None):
         self.fpl_client = fpl_client or FPLClient()
         self.tac_client = tac_client or TacticalClient()
         self.xp_model = xp_model or XPModel()
         self.team_odds = self.xp_model.team_odds
+        self.referee_client = referee_client or getattr(self.xp_model, "referee_client", None)
         self.macro_states: Dict[str, Dict[str, Any]] = {}
         if weather_engine is not None:
             self.weather_engine = weather_engine
@@ -350,7 +352,12 @@ class MonteCarloEngine:
             npxg_90 = float(player_dict.get("expected_goals_per_90") or 0.0)
 
         pen_duty = (player_dict.get("penalties_order") == 1)
-        pen_bonus = 0.14 if pen_duty else 0.0
+        ref_profile = self.referee_client.get_referee_for_team(team_short) if hasattr(self, "referee_client") and self.referee_client else None
+        ref_pen_mult = ref_profile.penalty_multiplier if ref_profile else 1.0
+        ref_yc_mult = ref_profile.yellow_multiplier if ref_profile else 1.0
+        ref_rc_mult = ref_profile.red_multiplier if ref_profile else 1.0
+
+        pen_bonus = (0.14 * ref_pen_mult) if pen_duty else 0.0
 
         mins_fraction = np.nan_to_num(mins / 90.0, nan=0.0)
         pace_scale = pace_mult if (macro_enabled and mj_cfg.get("enforce_pace_scaling", True)) else 1.0
@@ -409,10 +416,10 @@ class MonteCarloEngine:
             yc_fac = disc_cfg.get("yc_card_factor", 0.02)
             yc_sc = disc_cfg.get("yc_max_cards_scaled", 3)
             yc_max = disc_cfg.get("yc_max_prob", 0.20)
-            yc_prob = min(yc_max, (yc_base + yc_fac * min(yc_sc, y_cards_acc)) * card_mult)
+            yc_prob = min(yc_max, (yc_base + yc_fac * min(yc_sc, y_cards_acc)) * card_mult * ref_yc_mult)
             yc_draw = (mins > 0) * np.random.binomial(1, yc_prob, n_sims) * -1
 
-            rc_p = min(0.50, disc_cfg.get("rc_prob", 0.010) * card_mult)
+            rc_p = min(0.50, disc_cfg.get("rc_prob", 0.010) * card_mult * ref_rc_mult)
             rc_pen = disc_cfg.get("rc_penalty_pts", -3.0)
             rc_draw = (mins > 0) * np.random.binomial(1, rc_p, n_sims)
             rc_pts = rc_draw * rc_pen
