@@ -1,6 +1,30 @@
 {
   "resources": [
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:tests:test-injury-client",
+      "displayName": "Premier League Injury Intelligence Scraper & Intel Engine Tests",
+      "type": "text/x-python",
+      "conceptType": "TestSuite",
+      "tags": [
+        "test",
+        "pytest",
+        "injuries",
+        "availability",
+        "domain",
+        "intel"
+      ],
+      "sources": [
+        "docs/design/des_021_premier_injuries_automated_intel.md",
+        "clients/injury_client.py"
+      ],
+      "url": "tests/test_injury_client.py",
+      "description": "Unit and integration tests for injury parsing, availability mapping, player resolution, disk caching, and Shane's Domain Intel sync.",
+      "representativeQueries": [
+        "Where is the Premier League Injury Intelligence Scraper & Intel Engine Tests testsuite?",
+        "Show me test, pytest testsuites."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:tests:test-odds-client",
       "displayName": "The Odds API Client & Vig-Removed Market Consensus Tests",
       "type": "text/x-python",

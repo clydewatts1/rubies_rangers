@@ -29,11 +29,22 @@ def render_tab_domain_intel(df: pd.DataFrame, current_squad: List[str], current_
 
     intel_mgr = ShaneIntelManager()
 
-    col_btn1, col_btn2 = st.columns([1, 4])
+    col_btn1, col_btn2, col_btn3 = st.columns([1.2, 1.5, 3])
     with col_btn1:
-        if st.button("🔄 Reset All to Defaults"):
+        if st.button("🔄 Reset to Defaults"):
             intel_mgr.clear_overrides()
             st.success("All domain overrides reset to non-impacting identity defaults!")
+            st.rerun()
+    with col_btn2:
+        if st.button("🏥 Sync Premier Injuries"):
+            from clients.injury_client import InjuryClient
+            client = InjuryClient()
+            squad_names = {p.lower() for p in current_squad}
+            count = client.sync_to_shane_intel(intel_mgr, current_gw=current_gw, target_web_names=squad_names)
+            if count > 0:
+                st.success(f"Synced {count} injury override(s) for active squad!")
+            else:
+                st.info("No active squad members currently flagged in injury feed.")
             st.rerun()
 
     st.markdown("---")

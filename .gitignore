@@ -6,6 +6,8 @@ __pycache__/
 .fpl_fixtures_cache.json
 .understat_cache.json
 .clubelo_cache.json
+.odds_cache.json
+.injury_cache.json
 .fpl_elements_cache/
 .understat_shots_cache/
 

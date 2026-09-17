@@ -165,6 +165,27 @@ class ShaneIntelManager:
             except Exception:
                 pass
 
+    def sync_injury_intel(
+        self,
+        current_gw: int,
+        injury_client: Optional[Any] = None,
+        target_web_names: Optional[Set[str]] = None,
+        auto_apply_out: bool = True,
+    ) -> int:
+        """
+        Synchronizes live Premier League injury intelligence into Shane's Domain Intel overrides.
+        Filters to target_web_names (e.g. squad/shortlist) if provided.
+        Returns number of overrides set.
+        """
+        from clients.injury_client import InjuryClient
+        client = injury_client if injury_client is not None else InjuryClient()
+        return client.sync_to_shane_intel(
+            intel_manager=self,
+            current_gw=current_gw,
+            auto_apply_out=auto_apply_out,
+            target_web_names=target_web_names,
+        )
+
     def apply_pre_stage1_overrides(self, df: pd.DataFrame, current_gw: int) -> pd.DataFrame:
         """
         Applies Tier 1 availability exclusions and tactical multipliers before MILP runs.

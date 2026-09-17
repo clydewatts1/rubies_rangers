@@ -417,6 +417,31 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:des-021-premier-injuries-automated-intel",
+      "displayName": "[#021] Automated Premier Injuries Scraper for Pre-Deadline Availability Intel - Detailed Design",
+      "type": "text/markdown",
+      "conceptType": "Design",
+      "tags": [
+        "design",
+        "architecture",
+        "python",
+        "injuries",
+        "availability",
+        "intel",
+        "domain",
+        "xp"
+      ],
+      "sources": [
+        "docs/issues/iss_021_premier_injuries_automated_intel.md"
+      ],
+      "url": "docs/design/des_021_premier_injuries_automated_intel.md",
+      "description": "Architecture and availability modeling for automated ingestion of Premier League injury intelligence, press conference status, and seamless integration with Shane's Domain Intel desk.",
+      "representativeQueries": [
+        "Where is the [#021] Automated Premier Injuries Scraper for Pre-Deadline Availability Intel - Detailed Design design?",
+        "Show me design, architecture designs."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:iss-001-objective-free-predictive-metrics",
       "displayName": "[#001] Objective, Free & Bias-Free Forward-Looking Predictive Metrics",
       "type": "text/markdown",
@@ -957,6 +982,30 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:plb-021-premier-injuries-automated-intel",
+      "displayName": "[#021] Automated Premier Injuries Scraper for Pre-Deadline Availability Intel - Operational Playbook",
+      "type": "text/markdown",
+      "conceptType": "Playbook",
+      "tags": [
+        "playbook",
+        "python",
+        "injuries",
+        "availability",
+        "intel",
+        "domain",
+        "client"
+      ],
+      "sources": [
+        "docs/design/des_021_premier_injuries_automated_intel.md"
+      ],
+      "url": "docs/playbooks/plb_021_premier_injuries_automated_intel.md",
+      "description": "Operational playbook and architectural store for live Premier League injury intelligence, availability transfer mapping, player identity resolution, and domain intel sync.",
+      "representativeQueries": [
+        "Where is the [#021] Automated Premier Injuries Scraper for Pre-Deadline Availability Intel - Operational Playbook playbook?",
+        "Show me playbook, python playbooks."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-019-clubelo-dynamic-team-ratings",
       "displayName": "[#019] ClubElo API Dynamic Team Ratings & Bivariate Poisson Goals Engine - Task Harness",
       "type": "text/markdown",
@@ -1001,6 +1050,30 @@
       "description": "Execution task harness for building The Odds API client, vig-removal algorithms, Poisson goal derivation, and tiered integration into XPModel.",
       "representativeQueries": [
         "Where is the [#020] The Odds API Client for Live Vig-Removed Market Consensus - Task Harness taskharness?",
+        "Show me task, python taskharnesss."
+      ]
+    },
+    {
+      "identifier": "urn:clydewatts1:rubies_rangers:docs:tsk-021-premier-injuries-automated-intel",
+      "displayName": "[#021] Automated Premier Injuries Scraper for Pre-Deadline Availability Intel - Task Harness",
+      "type": "text/markdown",
+      "conceptType": "TaskHarness",
+      "tags": [
+        "task",
+        "python",
+        "injuries",
+        "availability",
+        "intel",
+        "domain",
+        "client"
+      ],
+      "sources": [
+        "docs/design/des_021_premier_injuries_automated_intel.md"
+      ],
+      "url": "docs/tasks/tsk_021_premier_injuries_automated_intel.md",
+      "description": "Execution task harness for building the injury scraper client, availability mapping function, name resolution, and integration into Shane's Domain Intel desk.",
+      "representativeQueries": [
+        "Where is the [#021] Automated Premier Injuries Scraper for Pre-Deadline Availability Intel - Task Harness taskharness?",
         "Show me task, python taskharnesss."
       ]
     }

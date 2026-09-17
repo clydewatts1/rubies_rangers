@@ -23,6 +23,29 @@
       ]
     },
     {
+      "identifier": "urn:clydewatts1:rubies_rangers:clients:injury-client",
+      "displayName": "Premier League Injury Intelligence Scraper & Intel Engine",
+      "type": "text/x-python",
+      "conceptType": "Module",
+      "tags": [
+        "client",
+        "injuries",
+        "scraper",
+        "availability",
+        "domain",
+        "intel"
+      ],
+      "sources": [
+        "docs/design/des_021_premier_injuries_automated_intel.md"
+      ],
+      "url": "clients/injury_client.py",
+      "description": "Scrapes live Premier League injury and suspension data, resolves player identities to FPL elements, and maps statuses into Shane's Domain Intel availability metrics.",
+      "representativeQueries": [
+        "Where is the Premier League Injury Intelligence Scraper & Intel Engine module?",
+        "Show me client, injuries modules."
+      ]
+    },
+    {
       "identifier": "urn:clydewatts1:rubies_rangers:clients:odds-client",
       "displayName": "The Odds API Client & Vig-Removed Market Consensus Engine",
       "type": "text/x-python",
