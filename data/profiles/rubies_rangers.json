@@ -6,18 +6,18 @@
   "bank_balance": 0.0,
   "active_squad": [
     "Verbruggen",
-    "Robinson",
-    "Guéhi",
+    "Pedro Porro",
     "Thiaw",
-    "Foden",
+    "Guéhi",
+    "Rogers",
+    "Saka",
     "Ødegaard",
     "Mbeumo",
     "Cherki",
-    "Rogers",
     "João Pedro",
     "Isak",
     "Roefs",
-    "Pedro Porro",
+    "Robinson",
     "Solanke",
     "Senesi"
   ],
@@ -33,6 +33,6 @@
   "notes": "Imported from FPL Entry 6173410 (Overall Rank: #6,880,200).",
   "is_read_only": false,
   "is_default": true,
-  "created_at": "2026-09-16T20:03:05.073013+00:00",
-  "updated_at": "2026-09-16T20:03:05.073609+00:00"
+  "created_at": "2026-09-18T21:47:01.580260+00:00",
+  "updated_at": "2026-09-18T21:47:01.580947+00:00"
 }
